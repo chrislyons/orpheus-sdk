@@ -1,0 +1,7 @@
+Checks: >-
+  bugprone-*,performance-*,portability-*,readability-*,clang-analyzer-*,
+  cppcoreguidelines-init-variables,cppcoreguidelines-narrowing-conversions,
+  cppcoreguidelines-pro-type-*,hicpp-*
+HeaderFilterRegex: '^(?!.*(reaper-plugins/reaper_mp3/mpglib|WDL)).*$'
+AnalyzeTemporaryDtors: true
+FormatStyle: none

@@ -1,0 +1,27 @@
+name: static
+on: [push, pull_request]
+jobs:
+  cppcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y cppcheck
+      - run: |
+          cppcheck --enable=warning,performance,portability,style \
+                   --inconclusive --std=c++17 --force \
+                   -I . \
+                   --suppress=missingIncludeSystem \
+                   --error-exitcode=1 \
+                   $(git ls-files '*.c' '*.cc' '*.cpp' '*.cxx' | grep -Ev '^(reaper-plugins/reaper_mp3/mpglib|WDL)/') \
+                   2> cppcheck.txt || true
+          cat cppcheck.txt
+  clang-tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang clang-tidy cmake ninja-build
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - run: cp build/compile_commands.json .
+      - run: |
+          files="$(git ls-files '*.c' '*.cc' '*.cpp' '*.cxx' | grep -Ev '^(reaper-plugins/reaper_mp3/mpglib|WDL)/')"
+          [ -z "$files" ] || clang-tidy -p . $files || true
