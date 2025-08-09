@@ -18,6 +18,174 @@
   "output": "CMakeFiles/track_playlist_test.dir/sdk/track_playlist/track_playlist_test.cpp.o"
 },
 {
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/csurf_main.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_main.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_main.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/csurf_main.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/csurf_01X.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_01X.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_01X.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/csurf_01X.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/csurf_alphatrack.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_alphatrack.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_alphatrack.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/csurf_alphatrack.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/csurf_babyhui.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_babyhui.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_babyhui.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/csurf_babyhui.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/csurf_bcf2000.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_bcf2000.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_bcf2000.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/csurf_bcf2000.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/csurf_faderport.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_faderport.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_faderport.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/csurf_faderport.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/csurf_faderport2.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_faderport2.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_faderport2.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/csurf_faderport2.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/csurf_mcu.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_mcu.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_mcu.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/csurf_mcu.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/csurf_osc.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_osc.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_osc.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/csurf_osc.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/csurf_tranzport.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_tranzport.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_tranzport.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/csurf_tranzport.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/csurf_www.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_www.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/csurf_www.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/csurf_www.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/osc.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/osc.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/osc.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/osc.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_csurf",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_csurf_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/../../WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_csurf.dir/osc_message.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/osc_message.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_csurf/osc_message.cpp",
+  "output": "reaper-plugins/reaper_csurf/CMakeFiles/reaper_csurf.dir/osc_message.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_atmos",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_atmos_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_atmos/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_atmos/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_atmos/../../WDL/WDL -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_atmos.dir/reaper_atmos.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_atmos/reaper_atmos.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_atmos/reaper_atmos.cpp",
+  "output": "reaper-plugins/reaper_atmos/CMakeFiles/reaper_atmos.dir/reaper_atmos.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/mp3dec.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mp3dec.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mp3dec.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/mp3dec.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/mp3_index.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mp3_index.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mp3_index.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/mp3_index.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/pcmsrc_mp3dec.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/pcmsrc_mp3dec.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/pcmsrc_mp3dec.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/pcmsrc_mp3dec.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/pcmsink_mp3lame.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/pcmsink_mp3lame.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/pcmsink_mp3lame.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/pcmsink_mp3lame.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/mpglib/StdAfx.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/StdAfx.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/StdAfx.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/mpglib/StdAfx.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/mpglib/common.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/common.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/common.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/mpglib/common.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/mpglib/dct64_i386.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/dct64_i386.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/dct64_i386.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/mpglib/dct64_i386.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/mpglib/decode_i386.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/decode_i386.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/decode_i386.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/mpglib/decode_i386.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/mpglib/interface.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/interface.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/interface.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/mpglib/interface.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/mpglib/layer2.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/layer2.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/layer2.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/mpglib/layer2.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/mpglib/layer3.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/layer3.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/layer3.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/mpglib/layer3.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/mpglib/tabinit.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/tabinit.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/mpglib/tabinit.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/mpglib/tabinit.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_mp3",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_ALLOW_UNSIGNED_DEFAULT_CHAR -DWDL_NO_DEFINE_MINMAX -D__cdecl=\"\" -D__fastcall=\"\" -Dreaper_mp3_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_mp3/../../WDL/WDL/swell -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_mp3.dir/__/__/WDL/WDL/lameencdec.cpp.o -c /Users/chrislyons/orpheus-sdk/WDL/WDL/lameencdec.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/WDL/WDL/lameencdec.cpp",
+  "output": "reaper-plugins/reaper_mp3/CMakeFiles/reaper_mp3.dir/__/__/WDL/WDL/lameencdec.cpp.o"
+},
+{
+  "directory": "/Users/chrislyons/orpheus-sdk/build/reaper-plugins/reaper_stt",
+  "command": "/usr/bin/c++ -DMAC_OS_X -DWDL_NO_DEFINE_MINMAX -Dreaper_stt_EXPORTS -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_stt/.. -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_stt/../../sdk -I/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_stt/../../WDL/WDL -O2 -g -DNDEBUG -std=gnu++17 -arch arm64 -fPIC -o CMakeFiles/reaper_stt.dir/reaper_stt.cpp.o -c /Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_stt/reaper_stt.cpp",
+  "file": "/Users/chrislyons/orpheus-sdk/reaper-plugins/reaper_stt/reaper_stt.cpp",
+  "output": "reaper-plugins/reaper_stt/CMakeFiles/reaper_stt.dir/reaper_stt.cpp.o"
+},
+{
   "directory": "/Users/chrislyons/orpheus-sdk/build/_deps/googletest-build/googlemock",
   "command": "/usr/bin/c++  -I/Users/chrislyons/orpheus-sdk/build/_deps/googletest-src/googlemock/include -I/Users/chrislyons/orpheus-sdk/build/_deps/googletest-src/googlemock -isystem /Users/chrislyons/orpheus-sdk/build/_deps/googletest-src/googletest/include -isystem /Users/chrislyons/orpheus-sdk/build/_deps/googletest-src/googletest -O2 -g -DNDEBUG -arch arm64  -DGTEST_HAS_PTHREAD=1   -o CMakeFiles/gmock.dir/src/gmock-all.cc.o -c /Users/chrislyons/orpheus-sdk/build/_deps/googletest-src/googlemock/src/gmock-all.cc",
   "file": "/Users/chrislyons/orpheus-sdk/build/_deps/googletest-src/googlemock/src/gmock-all.cc",
