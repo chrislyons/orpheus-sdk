@@ -593,33 +593,41 @@ REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_HINSTANCE hI
 #endif
 
 
-#ifndef _WIN32 // let OS X use this threading step
+#ifdef _WIN32
 
-#include "../../WDL/mutex.h"
+// Windows already uses threaded MIDI outputs
+midi_Output *CreateThreadedMIDIOutput(midi_Output *output)
+{
+  return output;
+}
+
+#else // macOS / other platforms
+
 #include "../../WDL/ptrlist.h"
-
-
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
 
 class threadedMIDIOutput : public midi_Output
 {
 public:
-  threadedMIDIOutput(midi_Output *out) 
-  { 
-    m_output=out;
-    m_quit=0;
-    unsigned id;
-    m_hThread=(HANDLE)_beginthreadex(NULL,0,threadProc,this,0,&id);
+  explicit threadedMIDIOutput(midi_Output *out)
+    : m_output(out), m_quit(false), m_thread(&threadedMIDIOutput::threadProc, this)
+  {
   }
 
-  virtual ~threadedMIDIOutput() 
+  ~threadedMIDIOutput() override
   {
-    if (m_hThread)
     {
-      m_quit=1;
-      WaitForSingleObject(m_hThread,INFINITE);
-      CloseHandle(m_hThread);
-      m_hThread=0;
-      Sleep(30);
+      std::lock_guard<std::mutex> lock(m_mutex);
+      m_quit = true;
+    }
+    m_cond.notify_one();
+    if (m_thread.joinable())
+    {
+      m_thread.join();
+      std::this_thread::sleep_for(std::chrono::milliseconds(30));
     }
 
     if (m_output) m_output->Destroy();
@@ -627,99 +635,83 @@ public:
     m_full.Empty(true);
   }
 
-  virtual void Destroy() 
-  { 
-    HANDLE thread = m_hThread;
-    if (!thread)
-    {
-      delete this; 
-    }
-    else
-    {
-      m_hThread=NULL;
-      m_quit=2;
+  void Destroy() override { delete this; }
 
-      // thread will delete self
-      WaitForSingleObject(thread,100);
-      CloseHandle(thread);
-    }
-  }
-
-  virtual void SendMsg(MIDI_event_t *msg, int frame_offset) // frame_offset can be <0 for "instant" if supported
+  void SendMsg(MIDI_event_t *msg, int frame_offset) override
   {
     if (!msg) return;
 
-    WDL_HeapBuf *b=NULL;
-    if (m_empty.GetSize())
+    WDL_HeapBuf *b = nullptr;
     {
-      m_mutex.Enter();
-      b=m_empty.Get(m_empty.GetSize()-1);
-      m_empty.Delete(m_empty.GetSize()-1);
-      m_mutex.Leave();
+      std::lock_guard<std::mutex> lock(m_mutex);
+      if (m_empty.GetSize())
+      {
+        b = m_empty.Get(m_empty.GetSize()-1);
+        m_empty.Delete(m_empty.GetSize()-1);
+      }
     }
     if (!b && m_empty.GetSize()+m_full.GetSize()<500)
-      b=new WDL_HeapBuf(256);
+      b = new WDL_HeapBuf(256);
 
     if (b)
     {
-      int sz=msg->size;
-      if (sz<3)sz=3;
+      int sz = msg->size;
+      if (sz < 3) sz = 3;
       int len = msg->midi_message + sz - (unsigned char *)msg;
-      memcpy(b->Resize(len,false),msg,len);
-      m_mutex.Enter();
-      m_full.Add(b);
-      m_mutex.Leave();
+      memcpy(b->Resize(len,false), msg, len);
+      {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_full.Add(b);
+      }
+      m_cond.notify_one();
     }
   }
 
-  virtual void Send(unsigned char status, unsigned char d1, unsigned char d2, int frame_offset) // frame_offset can be <0 for "instant" if supported
+  void Send(unsigned char status, unsigned char d1, unsigned char d2, int frame_offset) override
   {
     MIDI_event_t evt={0,3,status,d1,d2};
     SendMsg(&evt,frame_offset);
   }
 
-  ///////////
-
-  static unsigned WINAPI threadProc(LPVOID p)
+private:
+  void threadProc()
   {
     WDL_SetThreadName("reaper/cs_midio");
-    WDL_HeapBuf *lastbuf=NULL;
-    threadedMIDIOutput *_this=(threadedMIDIOutput*)p;
-    unsigned int scnt=0;
+    WDL_HeapBuf *lastbuf=nullptr;
     for (;;)
     {
-      if (_this->m_full.GetSize()||lastbuf)
+      WDL_HeapBuf *buf=nullptr;
       {
-        _this->m_mutex.Enter();
-        if (lastbuf) _this->m_empty.Add(lastbuf);
-        lastbuf=_this->m_full.Get(0);
-        _this->m_full.Delete(0);
-        _this->m_mutex.Leave();
-
-        if (lastbuf) _this->m_output->SendMsg((MIDI_event_t*)lastbuf->Get(),-1);
-        scnt=0;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        if (lastbuf) m_empty.Add(lastbuf);
+        if (m_full.GetSize())
+        {
+          buf = m_full.Get(0);
+          m_full.Delete(0);
+        }
+        else
+        {
+          if (m_quit) break;
+          m_cond.wait(lock);
+          continue;
+        }
       }
-      else 
+      if (buf)
       {
-        Sleep(1);
-        if (_this->m_quit&&scnt++>3) break; //only quit once all messages have been sent
+        m_output->SendMsg((MIDI_event_t*)buf->Get(), -1);
+        lastbuf = buf;
       }
     }
     delete lastbuf;
-    if (_this->m_quit == 2) delete _this;
-    return 0;
   }
 
-  WDL_Mutex m_mutex;
-  WDL_PtrList<WDL_HeapBuf> m_full,m_empty;
-
-  HANDLE m_hThread;
-  int m_quit; // set to 1 to finish, 2 to finish+delete self
+  std::mutex m_mutex;
+  std::condition_variable m_cond;
+  std::thread m_thread;
+  bool m_quit;
+  WDL_PtrList<WDL_HeapBuf> m_full, m_empty;
   midi_Output *m_output;
 };
-
-
-
 
 midi_Output *CreateThreadedMIDIOutput(midi_Output *output)
 {
@@ -727,12 +719,5 @@ midi_Output *CreateThreadedMIDIOutput(midi_Output *output)
   return new threadedMIDIOutput(output);
 }
 
-#else
-
-// windows doesnt need it since we have threaded midi outputs now
-midi_Output *CreateThreadedMIDIOutput(midi_Output *output)
-{
-  return output;
-}
-
 #endif
+
