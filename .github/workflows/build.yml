@@ -1,142 +1,27 @@
-#<Enumerator:0x0000000102ee2b38>
 name: Build
-
 on:
+  pull_request:
   push:
     branches: [ main ]
-  pull_request:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
     strategy:
-fail-fast: false
-matrix:
+      fail-fast: false
+      matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v4
-  with:
-    submodules: false
-      - name: Configure
-        run: cmake -S . -B build -DORPHEUS_BUILD_REAPER_PLUGINS=OFF
-      - name: Build
-        run: cmake --build build
-      - name: Collect plug-ins
-        run: |
-          mkdir -p plugins
-          find build -type f \( -name '*.vst3' -o -name '*.dll' -o -name '*.so' -o -name '*.dylib' \) -exec cp {} plugins/ \;
-      - name: Upload plug-ins
-        uses: actions/upload-artifact@v4
-        with:
-          name: plugins-${{ matrix.os }}
-          path: plugins
-name: Build
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-  workflow_dispatch:
-
-jobs:
-  build:
     runs-on: ${{ matrix.os }}
-    strategy:
-fail-fast: false
-matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    defaults:
-      run:
-        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: false
+
       - name: Configure
-        run: cmake -S . -B build -DORPHEUS_BUILD_REAPER_PLUGINS=OFF
+        run: cmake -S . -B build -DORPHEUS_BUILD_REAPER_PLUGINS=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
       - name: Build
-        run: cmake --build build
-      - name: Collect plug-ins
-        run: |
-          mkdir -p plugins
-          find build -type f \( -name '*.vst3' -o -name '*.dll' -o -name '*.so' -o -name '*.dylib' \) -exec cp {} plugins/ \;
-      - name: Upload plug-ins
-        uses: actions/upload-artifact@v4
-        with:
-          name: plugins-${{ matrix.os }}
-          path: plugins
-#<Enumerator:0x0000000102ee2b38>
-name: Build
+        run: cmake --build build -j 2
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-fail-fast: false
-matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v4
-  with:
-    submodules: false
-      - name: Configure
-        run: cmake -S . -B build -DORPHEUS_BUILD_REAPER_PLUGINS=OFF
-      - name: Build
-        run: cmake --build build
-      - name: Collect plug-ins
-        run: |
-          mkdir -p plugins
-          find build -type f \( -name '*.vst3' -o -name '*.dll' -o -name '*.so' -o -name '*.dylib' \) -exec cp {} plugins/ \;
-      - name: Upload plug-ins
-        uses: actions/upload-artifact@v4
-        with:
-          name: plugins-${{ matrix.os }}
-          path: plugins
-name: Build
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-fail-fast: false
-matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - name: Configure
-        run: cmake -S . -B build
-      - name: Build
-        run: cmake --build build
-      - name: Collect plug-ins
-        run: |
-          mkdir -p plugins
-          find build -type f \( -name '*.vst3' -o -name '*.dll' -o -name '*.so' -o -name '*.dylib' \) -exec cp {} plugins/ \;
-      - name: Upload plug-ins
-        uses: actions/upload-artifact@v4
-        with:
-          name: plugins-${{ matrix.os }}
-          path: plugins
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
