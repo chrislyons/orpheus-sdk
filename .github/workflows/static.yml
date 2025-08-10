@@ -1,0 +1,44 @@
+name: Static
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  analyze:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]  # keep fast; expand later if needed
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - name: Cache llvm-tidy (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/clang-tidy
+          key: clang-tidy-${{ runner.os }}-v1
+      - name: clang-tidy
+        run: |
+          python3 ./run-clang-tidy.py \
+            -p build \
+            -header-filter='^sdk/.*' \
+            -checks="$(sed -n 's/^Checks:[[:space:]]*//p' .clang-tidy | tr -d '\n' | sed 's/ //g')" \
+            | tee clangtidy.log
+      - name: cppcheck
+        run: |
+          cppcheck --project=build/compile_commands.json \
+            --enable=warning,performance,portability,style --inconclusive --std=c++17 \
+            --inline-suppr --suppress=missingIncludeSystem \
+            --suppress='*:*WDL/*' --suppress='*:*reaper-plugins/*' --suppress='*:*build/*' \
+            2> cppcheck.log || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: static-logs
+          path: |
+            clangtidy.log
+            cppcheck.log
