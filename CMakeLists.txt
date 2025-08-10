@@ -29,6 +29,21 @@ cmake_minimum_required(VERSION 3.20)
 
 cmake_minimum_required(VERSION 3.15)
 project(reaper_sdk_examples)
+
+# ---- define-once helpers for duplicate-merge safety ----
+macro(add_library_if_missing name)
+  if(NOT TARGET ${name})
+    add_library(${name} ${ARGN})
+  endif()
+endmacro()
+
+macro(add_executable_if_missing name)
+  if(NOT TARGET ${name})
+    add_executable(${name} ${ARGN})
+  endif()
+endmacro()
+# ---------------------------------------------------------
+
 option(ORPHEUS_BUILD_REAPER_PLUGINS "Build REAPER plug-ins" OFF)
 set(WDL_PATH "${CMAKE_SOURCE_DIR}/WDL")
 if(EXISTS "${WDL_PATH}/WDL" AND NOT EXISTS "${WDL_PATH}/db2val.h")
