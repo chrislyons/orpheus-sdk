@@ -1,9 +1,11 @@
 #ifndef CONFIG_INI_H
 #define CONFIG_INI_H
 
-#ifdef _WIN32
-#include <windows.h>
+#if defined(_WIN32)
+# include <windows.h>
+#endif
 
+#ifdef _WIN32
 namespace config_ini {
 inline int getInt(const char *fn, const char *section, const char *key, int defval) {
   return (int)GetPrivateProfileInt(section, key, defval, fn);

@@ -39,9 +39,13 @@ typedef double ReaSample;
 #endif
 
 
+#if defined(_WIN32)
+# include <windows.h>
+#else
+# include <pthread.h>
+#endif
 
 #ifdef _WIN32
-#include <windows.h>
 
 #if defined(__GNUC__) || defined(__clang__)
 #define REAPER_PLUGIN_DLL_EXPORT __attribute__((dllexport))
@@ -52,7 +56,6 @@ typedef double ReaSample;
 
 #else
 #include "../WDL/swell/swell.h"
-#include <pthread.h>
 
 #define REAPER_PLUGIN_DLL_EXPORT __attribute__((visibility("default")))
 #define REAPER_PLUGIN_HINSTANCE void *

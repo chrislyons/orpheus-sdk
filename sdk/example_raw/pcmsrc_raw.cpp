@@ -26,14 +26,14 @@
 */
 
 
-#ifdef _WIN32
-#include <windows.h>
+#if defined(_WIN32)
+# include <windows.h>
 #else
-#include "../../WDL/swell/swell.h"
+# include "../../WDL/swell/swell.h"
 #endif
 
-#include <stdio.h>
-#include <math.h>
+#include <cstdio>
+#include <cmath>
 
 #include "resource.h"
 #include "../reaper_api_loader.hpp"

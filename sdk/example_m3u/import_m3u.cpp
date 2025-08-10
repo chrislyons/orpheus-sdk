@@ -26,15 +26,15 @@
 
   */
 
-#ifdef _WIN32
-#include <windows.h>
-#include <string.h>
+#if defined(_WIN32)
+# include <windows.h>
 #else
-#include "../../WDL/swell/swell.h"
-#include <strings.h>
+# include "../../WDL/swell/swell.h"
+# include <strings.h>
 #endif
-#include <stdio.h>
-#include <math.h>
+#include <cstring>
+#include <cstdio>
+#include <cmath>
 
 
 #include "../reaper_plugin.h"

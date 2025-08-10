@@ -25,15 +25,15 @@
 */
 
 
-#ifdef _WIN32
-#include <windows.h>
+#if defined(_WIN32)
+# include <windows.h>
 #else
-#include "../../WDL/swell/swell.h"
-#include "../../WDL/swell/swell-dlggen.h"
+# include "../../WDL/swell/swell.h"
+# include "../../WDL/swell/swell-dlggen.h"
 #endif
 
-#include <stdio.h>
-#include <math.h>
+#include <cstdio>
+#include <cmath>
 #include <sys/stat.h>
 
 #include "resource.h"

@@ -1,0 +1,9 @@
+Checks: '-*,bugprone-*,performance-*,readability-*'
+
+CheckOptions:
+  - key: readability-identifier-length.IgnoredVariableNames
+    value: '^i$|^j$|^k$|^id$|^pl$|^t$|^p$|^c$'
+  - key: readability-identifier-length.MinimumVariableNameLength
+    value: '3'
+  - key: readability-identifier-length.MinimumParameterNameLength
+    value: '3'

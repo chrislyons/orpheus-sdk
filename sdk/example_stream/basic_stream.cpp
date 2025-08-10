@@ -3,10 +3,10 @@
   Simple example demonstrating the reaper_stream API.
 */
 
-#ifdef _WIN32
-#include <windows.h>
+#if defined(_WIN32)
+# include <windows.h>
 #else
-#include "../../WDL/swell/swell.h"
+# include "../../WDL/swell/swell.h"
 #endif
 
 #include "../reaper_api_loader.hpp"
