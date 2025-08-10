@@ -1,3 +1,30 @@
+# ==== one-shot target/test guards (inserted by fix/cmake-dup-targets) ====
+macro(or_safe_add_library name)
+  if(NOT TARGET ${name})
+    add_library(${name} ${ARGN})
+  endif()
+endmacro()
+
+macro(or_safe_add_executable name)
+  if(NOT TARGET ${name})
+    add_executable(${name} ${ARGN})
+  endif()
+endmacro()
+
+# Usage: or_safe_add_test(<name> COMMAND <exe> [args...])
+# Ensures the test is only registered once globally.
+function(or_safe_add_test name)
+  if(BUILD_TESTING)
+    get_property(_had GLOBAL PROPERTY TEST_ADDED_${name})
+    if(NOT _had)
+      add_test(NAME ${name} ${ARGN})
+      set_property(GLOBAL PROPERTY TEST_ADDED_${name} TRUE)
+    endif()
+  endif()
+endfunction()
+# ==== end one-shot guards ====
+
+
 cmake_minimum_required(VERSION 3.20)
 
 cmake_minimum_required(VERSION 3.15)
@@ -25,7 +52,7 @@ if(NOT TARGET track_playlist)
 if(NOT TARGET track_playlist)
 
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 endif()
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
@@ -33,7 +60,7 @@ if(NOT TARGET track_playlist_demo)
 if(NOT TARGET track_playlist_demo)
 
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 endif()
 target_link_libraries(track_playlist_demo track_playlist)
 
@@ -71,13 +98,13 @@ endif()
   FetchContent_MakeAvailable(googletest)
 if(ORPHEUS_ENABLE_TESTS AND NOT TARGET track_playlist_test)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
 # add_test guarded to avoid duplicate registration
 if(TARGET track_playlist_test AND NOT DEFINED __TRACK_PLAYLIST_TEST_ADDED)
 
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
   set(__TRACK_PLAYLIST_TEST_ADDED TRUE)
 endif()
@@ -107,12 +134,12 @@ else()
 endif()
 if(NOT TARGET track_playlist)
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 if(NOT TARGET track_playlist_demo)
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -148,10 +175,10 @@ endif()
 endif()
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
 # ---- REAPER plugins status ----
 if(NOT ORPHEUS_BUILD_REAPER_PLUGINS)
@@ -194,12 +221,12 @@ else()
 endif()
 if(NOT TARGET track_playlist)
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 if(NOT TARGET track_playlist_demo)
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -235,10 +262,10 @@ endif()
 endif()
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
 cmake_minimum_required(VERSION 3.20)
 
@@ -265,12 +292,12 @@ else()
 endif()
 if(NOT TARGET track_playlist)
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 if(NOT TARGET track_playlist_demo)
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -306,10 +333,10 @@ endif()
 endif()
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
 # ---- REAPER plugins status ----
 if(NOT ORPHEUS_BUILD_REAPER_PLUGINS)
@@ -354,7 +381,7 @@ if(NOT TARGET track_playlist)
 if(NOT TARGET track_playlist)
 
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 endif()
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
@@ -362,7 +389,7 @@ if(NOT TARGET track_playlist_demo)
 if(NOT TARGET track_playlist_demo)
 
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 endif()
 target_link_libraries(track_playlist_demo track_playlist)
 
@@ -399,13 +426,13 @@ endif()
 endif()
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
 # add_test guarded to avoid duplicate registration
 if(TARGET track_playlist_test AND NOT DEFINED __TRACK_PLAYLIST_TEST_ADDED)
 
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
   set(__TRACK_PLAYLIST_TEST_ADDED TRUE)
 endif()
 endif()
@@ -434,12 +461,12 @@ else()
 endif()
 if(NOT TARGET track_playlist)
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 if(NOT TARGET track_playlist_demo)
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -475,10 +502,10 @@ endif()
 endif()
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
 # ---- REAPER plugins status ----
 if(NOT ORPHEUS_BUILD_REAPER_PLUGINS)
@@ -521,12 +548,12 @@ else()
 endif()
 if(NOT TARGET track_playlist)
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 if(NOT TARGET track_playlist_demo)
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -562,10 +589,10 @@ endif()
 endif()
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
 cmake_minimum_required(VERSION 3.20)
 
@@ -592,12 +619,12 @@ else()
 endif()
 if(NOT TARGET track_playlist)
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 if(NOT TARGET track_playlist_demo)
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -633,10 +660,10 @@ endif()
 endif()
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
 # ---- REAPER plugins status ----
 if(NOT ORPHEUS_BUILD_REAPER_PLUGINS)
@@ -680,14 +707,14 @@ endif()
 if(NOT TARGET track_playlist)
 
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 endif()
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 if(NOT TARGET track_playlist_demo)
 
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 endif()
 target_link_libraries(track_playlist_demo track_playlist)
 
@@ -723,13 +750,13 @@ if(BUILD_TESTING)
   FetchContent_MakeAvailable(googletest)
 if(ORPHEUS_ENABLE_TESTS AND NOT TARGET track_playlist_test)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
 # add_test guarded to avoid duplicate registration
 if(TARGET track_playlist_test AND NOT DEFINED __TRACK_PLAYLIST_TEST_ADDED)
 
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
   set(__TRACK_PLAYLIST_TEST_ADDED TRUE)
 endif()
@@ -758,11 +785,11 @@ else()
   message(WARNING "WDL not found; sample plug-ins will not be built")
 endif()
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -796,10 +823,10 @@ if(BUILD_TESTING)
   )
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
 # ---- REAPER plugins status ----
 if(NOT ORPHEUS_BUILD_REAPER_PLUGINS)
@@ -841,11 +868,11 @@ else()
   message(WARNING "WDL not found; sample plug-ins will not be built")
 endif()
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -879,10 +906,10 @@ if(BUILD_TESTING)
   )
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
 cmake_minimum_required(VERSION 3.20)
 
@@ -908,11 +935,11 @@ else()
   message(WARNING "WDL not found; sample plug-ins will not be built")
 endif()
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -946,10 +973,10 @@ if(BUILD_TESTING)
   )
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
 # ---- REAPER plugins status ----
 if(NOT ORPHEUS_BUILD_REAPER_PLUGINS)
@@ -993,14 +1020,14 @@ endif()
 if(NOT TARGET track_playlist)
 
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 endif()
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 if(NOT TARGET track_playlist_demo)
 
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 endif()
 target_link_libraries(track_playlist_demo track_playlist)
 
@@ -1035,13 +1062,13 @@ if(BUILD_TESTING)
   )
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
 # add_test guarded to avoid duplicate registration
 if(TARGET track_playlist_test AND NOT DEFINED __TRACK_PLAYLIST_TEST_ADDED)
 
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
   set(__TRACK_PLAYLIST_TEST_ADDED TRUE)
 endif()
 endif()
@@ -1069,11 +1096,11 @@ else()
   message(WARNING "WDL not found; sample plug-ins will not be built")
 endif()
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -1107,10 +1134,10 @@ if(BUILD_TESTING)
   )
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
 # ---- REAPER plugins status ----
 if(NOT ORPHEUS_BUILD_REAPER_PLUGINS)
@@ -1152,11 +1179,11 @@ else()
   message(WARNING "WDL not found; sample plug-ins will not be built")
 endif()
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -1190,10 +1217,10 @@ if(BUILD_TESTING)
   )
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
 cmake_minimum_required(VERSION 3.20)
 
@@ -1219,11 +1246,11 @@ else()
   message(WARNING "WDL not found; sample plug-ins will not be built")
 endif()
 
-add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+or_safe_add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
 
-add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+or_safe_add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -1257,10 +1284,10 @@ if(BUILD_TESTING)
   )
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
+  or_safe_add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
-  add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  or_safe_add_test(track_playlist_test COMMAND track_playlist_test)
 endif()
 # ---- REAPER plugins status ----
 if(NOT ORPHEUS_BUILD_REAPER_PLUGINS)
