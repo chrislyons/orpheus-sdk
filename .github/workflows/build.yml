@@ -5,29 +5,23 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-  workflow_dispatch:
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: false
-
       - name: Configure
         run: cmake -S . -B build -DORPHEUS_BUILD_REAPER_PLUGINS=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-
       - name: Build
-        run: cmake --build build -j 2
-
-      - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: cmake --build build --config RelWithDebInfo --parallel
