@@ -21,12 +21,18 @@ else()
   set(WDL_FOUND OFF)
   message(WARNING "WDL not found; sample plug-ins will not be built")
 endif()
+if(NOT TARGET track_playlist)
+
 
 add_library(track_playlist STATIC sdk/track_playlist/track_playlist.cpp)
+endif()
 target_compile_features(track_playlist PUBLIC cxx_std_17)
 target_include_directories(track_playlist PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
+if(NOT TARGET track_playlist_demo)
+
 
 add_executable(track_playlist_demo sdk/track_playlist/track_playlist_demo.cpp)
+endif()
 target_link_libraries(track_playlist_demo track_playlist)
 
 if(WDL_FOUND)
@@ -63,7 +69,12 @@ if(BUILD_TESTING)
   add_executable(track_playlist_test sdk/track_playlist/track_playlist_test.cpp)
   target_compile_features(track_playlist_test PRIVATE cxx_std_17)
   target_link_libraries(track_playlist_test track_playlist GTest::gtest_main)
+# add_test guarded to avoid duplicate registration
+if(TARGET track_playlist_test AND NOT DEFINED __TRACK_PLAYLIST_TEST_ADDED)
+
   add_test(NAME track_playlist_test COMMAND track_playlist_test)
+  set(__TRACK_PLAYLIST_TEST_ADDED TRUE)
+endif()
 endif()
 cmake_minimum_required(VERSION 3.20)
 
