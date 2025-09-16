@@ -13,6 +13,7 @@
 
 #include <chrono>
 #include <thread>
+#include <string>
 
 #define REAPERAPI_IMPLEMENT
 #define REAPERAPI_MINIMAL
@@ -51,7 +52,16 @@ REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_HINSTANCE in
 
       if (!stream_send(handle, &block))
       {
-        ShowConsoleMsg("basic_stream: failed to send audio block.\n");
+        char error[256];
+        size_t written = stream_last_error(handle, error, sizeof(error));
+        std::string msg = "basic_stream: failed to send audio block";
+        if (written > 0 && error[0])
+        {
+          msg += ": ";
+          msg += error;
+        }
+        msg += "\n";
+        ShowConsoleMsg(msg.c_str());
       }
       else
       {
@@ -80,8 +90,22 @@ REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_HINSTANCE in
         }
         else
         {
-          ShowConsoleMsg("basic_stream: no audio received before timeout.\n");
+          char error[256];
+          size_t written = stream_last_error(handle, error, sizeof(error));
+          std::string msg = "basic_stream: no audio received before timeout";
+          if (written > 0 && error[0])
+          {
+            msg += ": ";
+            msg += error;
+          }
+          msg += "\n";
+          ShowConsoleMsg(msg.c_str());
         }
+      }
+
+      if (!stream_close(handle))
+      {
+        ShowConsoleMsg("basic_stream: failed to close stream handle.\n");
       }
     }
     else

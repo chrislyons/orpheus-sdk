@@ -251,6 +251,17 @@ std::shared_ptr<StreamConnection> lookupConnection(int handle)
   return it->second;
 }
 
+std::shared_ptr<StreamConnection> takeConnection(int handle)
+{
+  std::lock_guard<std::mutex> lock(g_streamMutex);
+  auto it = g_streams.find(handle);
+  if (it == g_streams.end())
+    return nullptr;
+  auto conn = std::move(it->second);
+  g_streams.erase(it);
+  return conn;
+}
+
 bool encodeBlock(const PCM_source_transfer_t *block, std::string &payload, std::string &error)
 {
   if (!block)
@@ -632,4 +643,41 @@ int stream_receive(int handle, PCM_source_transfer_t *block)
   (void)framesAvailable;
 
   return block->samples_out;
+}
+
+int stream_close(int handle)
+{
+  auto conn = takeConnection(handle);
+  if (!conn)
+    return 0;
+
+  if (conn->websocket_)
+  {
+    conn->websocket_->stop();
+  }
+
+  return 1;
+}
+
+size_t stream_last_error(int handle, char *buffer, size_t buffer_size)
+{
+  if (buffer && buffer_size > 0)
+    buffer[0] = '\0';
+
+  auto conn = lookupConnection(handle);
+  if (!conn)
+    return 0;
+
+  const std::string error = conn->error();
+  const size_t length = error.size();
+
+  if (buffer && buffer_size > 0)
+  {
+    const size_t copy = std::min(length, buffer_size - 1);
+    if (copy > 0)
+      std::memcpy(buffer, error.data(), copy);
+    buffer[copy] = '\0';
+  }
+
+  return length;
 }

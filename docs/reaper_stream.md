@@ -47,6 +47,8 @@ cmake -S . -B build \
 int stream_open(const char *url);
 int stream_send(int handle, const PCM_source_transfer_t *block);
 int stream_receive(int handle, PCM_source_transfer_t *block);
+int stream_close(int handle);
+size_t stream_last_error(int handle, char *buffer, size_t buffer_size);
 ```
 
 1. **`stream_open`** – Creates a client connection for the supplied URL.  A
@@ -59,6 +61,12 @@ int stream_receive(int handle, PCM_source_transfer_t *block);
    The caller must pre-allocate `block->samples` with enough storage for
    `block->length * block->nch` `ReaSample` values.  The function returns the
    number of sample frames copied (or `0` when no data is ready).
+4. **`stream_close`** – Releases the handle once you are finished with a
+   connection.  Closing is idempotent and safe to call even after transport
+   errors.
+5. **`stream_last_error`** – Copies the most recent error string latched by the
+   handle into the provided buffer.  The returned value is the full length of
+   the message, allowing callers to size their buffers appropriately.
 
 Incoming frames are buffered on a per-connection queue with a modest depth
 (currently 32 blocks) to absorb jitter.  When the queue is full, the oldest
@@ -80,8 +88,10 @@ will work.
 
 After starting the echo server, build the extension and load it into REAPER.
 The example opens `ws://127.0.0.1:9000`, sends a short mono buffer and attempts
-to read the echoed data back into the same structure.  Inspect the source for
-additional details on buffer sizing and error handling.
+to read the echoed data back into the same structure.  It also demonstrates how
+to query `stream_last_error` for diagnostic strings and closes the handle via
+`stream_close` when finished.  Inspect the source for additional details on
+buffer sizing and error handling.
 
 ## Troubleshooting
 
@@ -91,7 +101,8 @@ additional details on buffer sizing and error handling.
 * `stream_send`/`stream_receive` return `0`: check that the handle is valid and
   that you provided non-null sample buffers.  Network errors are latched inside
   the connection and will cause subsequent calls to fail until the handle is
-  reopened.
+  reopened.  Use `stream_last_error` to retrieve the detailed reason before
+  closing the handle.
 
 With these primitives in place you can build higher-level streaming workflows on
  top of the REAPER SDK while relying on well-tested networking infrastructure.

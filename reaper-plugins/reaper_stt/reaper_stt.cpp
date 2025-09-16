@@ -6,6 +6,7 @@
 #include <vector>
 #include <sstream>
 #include <algorithm>
+#include <array>
 #include <mutex>
 #include "stt_engine.h"
 
@@ -162,6 +163,64 @@ void STT_ReplaceWord(const char *oldWord, const char *newWord)
   g_lane.replaceWord(oldWord, newWord);
 }
 
+namespace
+{
+struct ApiEntry
+{
+  const char *name;
+  void *fn;
+};
+
+template <size_t N>
+bool registerApiSet(const std::array<ApiEntry, N> &entries)
+{
+  if (!plugin_register)
+    return false;
+
+  std::vector<std::string> undo;
+  undo.reserve(entries.size());
+
+  for (size_t i = 0; i < entries.size(); ++i)
+  {
+    if (!plugin_register(entries[i].name, entries[i].fn))
+    {
+      for (size_t j = undo.size(); j-- > 0;)
+      {
+        plugin_register(undo[j].c_str(), entries[j].fn);
+      }
+      return false;
+    }
+    undo.emplace_back(std::string("-") + entries[i].name);
+  }
+
+  return true;
+}
+
+template <size_t N>
+void unregisterApiSet(const std::array<ApiEntry, N> &entries)
+{
+  if (!plugin_register)
+    return;
+
+  for (size_t i = entries.size(); i-- > 0;)
+  {
+    std::string name = std::string("-") + entries[i].name;
+    plugin_register(name.c_str(), entries[i].fn);
+  }
+}
+
+const std::array<ApiEntry, 4> &apiEntries()
+{
+  static const std::array<ApiEntry, 4> kEntries{{
+      {kApiTranscribeSource, reinterpret_cast<void *>(TranscribeSource)},
+      {kApiFindWord, reinterpret_cast<void *>(STT_FindWord)},
+      {kApiReplaceWord, reinterpret_cast<void *>(STT_ReplaceWord)},
+      {kApiSetEngine, reinterpret_cast<void *>(STT_SetEngine)},
+  }};
+  return kEntries;
+}
+} // namespace
+
 extern "C" {
 REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_HINSTANCE, reaper_plugin_info_t* rec)
 {
@@ -174,41 +233,15 @@ REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_HINSTANCE, r
     if (!plugin_register || !AddProjectMarker)
       return 0;
 
-    if (!plugin_register(kApiTranscribeSource, (void*)TranscribeSource))
+    if (!registerApiSet(apiEntries()))
       return 0;
-
-    if (!plugin_register(kApiFindWord, (void*)STT_FindWord))
-    {
-      plugin_register("-API_TranscribeSource", (void*)TranscribeSource);
-      return 0;
-    }
-
-    if (!plugin_register(kApiReplaceWord, (void*)STT_ReplaceWord))
-    {
-      plugin_register("-API_STT_FindWord", (void*)STT_FindWord);
-      plugin_register("-API_TranscribeSource", (void*)TranscribeSource);
-      return 0;
-    }
-
-    if (!plugin_register(kApiSetEngine, (void*)STT_SetEngine))
-    {
-      plugin_register("-API_STT_ReplaceWord", (void*)STT_ReplaceWord);
-      plugin_register("-API_STT_FindWord", (void*)STT_FindWord);
-      plugin_register("-API_TranscribeSource", (void*)TranscribeSource);
-      return 0;
-    }
 
     g_api_registered = true;
     return 1;
   }
 
-  if (g_api_registered && plugin_register)
-  {
-    plugin_register("-API_STT_SetEngine", (void*)STT_SetEngine);
-    plugin_register("-API_STT_ReplaceWord", (void*)STT_ReplaceWord);
-    plugin_register("-API_STT_FindWord", (void*)STT_FindWord);
-    plugin_register("-API_TranscribeSource", (void*)TranscribeSource);
-  }
+  if (g_api_registered)
+    unregisterApiSet(apiEntries());
 
   g_lane.clear();
   STT_SetEngine(nullptr);
