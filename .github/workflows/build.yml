@@ -26,7 +26,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
       - name: Install zlib (Windows)
         if: runner.os == 'Windows'
-        run: choco install zlib-msvc -y --no-progress
+        run: choco install zlib -y --no-progress
       - name: Configure
         run: cmake -S . -B build -DORPHEUS_BUILD_REAPER_PLUGINS=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
       - name: Build
