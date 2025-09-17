@@ -38,6 +38,14 @@ static StubEngine g_stub_engine;
 static STTEngine* g_engine = &g_stub_engine;
 static std::mutex g_engine_mutex;
 
+constexpr const char kApiTranscribeSource[] = "API_TranscribeSource";
+constexpr const char kApiFindWord[] = "API_STT_FindWord";
+constexpr const char kApiReplaceWord[] = "API_STT_ReplaceWord";
+constexpr const char kApiSetEngine[] = "API_STT_SetEngine";
+
+bool g_api_registered = false;
+int (*g_register_fn)(const char*, void*) = nullptr;
+
 static std::string run_stt(const ReaSample* samples,
                            int nch, int length, double samplerate)
 {
@@ -102,10 +110,15 @@ static TextLane g_lane;
 // ----------------------------------------------------------------------
 static void feed_block_to_stt(PCM_source_transfer_t *block, double start_time)
 {
+  if (!block || !block->samples || block->samplerate <= 0.0)
+    return;
+
   std::string text = run_stt(block->samples, block->nch, block->length, block->samplerate);
   std::istringstream iss(text);
   std::string word;
-  double word_dur = (double)block->length / block->samplerate; // simple duration
+  const double word_dur = block->samplerate > 0.0
+                              ? static_cast<double>(block->length) / block->samplerate
+                              : 0.0;
   int word_index = 0;
   while (iss >> word)
   {
@@ -124,12 +137,17 @@ void TranscribeSource(PCM_source *src)
   if (!src) return;
   g_lane.clear();
   const int block_len = 4096;
-  std::vector<ReaSample> buffer(block_len * src->GetNumChannels());
+  const int channel_count = src->GetNumChannels();
+  const double sample_rate = src->GetSampleRate();
+  if (channel_count <= 0 || sample_rate <= 0.0)
+    return;
+
+  std::vector<ReaSample> buffer(static_cast<size_t>(block_len) * channel_count);
   PCM_source_transfer_t block{};
   block.samples = buffer.data();
   block.length = block_len;
-  block.nch = src->GetNumChannels();
-  block.samplerate = src->GetSampleRate();
+  block.nch = channel_count;
+  block.samplerate = sample_rate;
   block.time_s = 0.0;
   double t = 0.0;
   while (true)
@@ -154,5 +172,71 @@ void STT_ReplaceWord(const char *oldWord, const char *newWord)
 {
   if (!oldWord || !newWord) return;
   g_lane.replaceWord(oldWord, newWord);
+}
+
+extern "C" {
+REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_HINSTANCE, reaper_plugin_info_t* rec)
+{
+  if (rec)
+  {
+    if (rec->caller_version != REAPER_PLUGIN_VERSION || !rec->Register || !rec->GetFunc)
+      return 0;
+    if (!REAPERAPI_LoadAPI(rec->GetFunc))
+      return 0;
+    if (!AddProjectMarker)
+      return 0;
+
+    g_register_fn = rec->Register;
+    if (!g_register_fn)
+      return 0;
+
+    if (!g_register_fn(kApiTranscribeSource, (void*)TranscribeSource))
+    {
+      g_register_fn = nullptr;
+      return 0;
+    }
+
+    if (!g_register_fn(kApiFindWord, (void*)STT_FindWord))
+    {
+      g_register_fn("-API_TranscribeSource", (void*)TranscribeSource);
+      g_register_fn = nullptr;
+      return 0;
+    }
+
+    if (!g_register_fn(kApiReplaceWord, (void*)STT_ReplaceWord))
+    {
+      g_register_fn("-API_STT_FindWord", (void*)STT_FindWord);
+      g_register_fn("-API_TranscribeSource", (void*)TranscribeSource);
+      g_register_fn = nullptr;
+      return 0;
+    }
+
+    if (!g_register_fn(kApiSetEngine, (void*)STT_SetEngine))
+    {
+      g_register_fn("-API_STT_ReplaceWord", (void*)STT_ReplaceWord);
+      g_register_fn("-API_STT_FindWord", (void*)STT_FindWord);
+      g_register_fn("-API_TranscribeSource", (void*)TranscribeSource);
+      g_register_fn = nullptr;
+      return 0;
+    }
+
+    g_api_registered = true;
+    return 1;
+  }
+
+  if (g_api_registered && g_register_fn)
+  {
+    g_register_fn("-API_STT_SetEngine", (void*)STT_SetEngine);
+    g_register_fn("-API_STT_ReplaceWord", (void*)STT_ReplaceWord);
+    g_register_fn("-API_STT_FindWord", (void*)STT_FindWord);
+    g_register_fn("-API_TranscribeSource", (void*)TranscribeSource);
+  }
+
+  g_lane.clear();
+  STT_SetEngine(nullptr);
+  g_api_registered = false;
+  g_register_fn = nullptr;
+  return 0;
+}
 }
 

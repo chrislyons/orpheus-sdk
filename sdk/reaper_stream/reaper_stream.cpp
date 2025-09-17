@@ -1,10 +1,15 @@
+#if defined(_WIN32) && !defined(NOMINMAX)
+#  define NOMINMAX
+#endif
+
 #include "reaper_stream.h"
 
-#include <unordered_map>
-#include <queue>
+#include <algorithm>
 #include <mutex>
-#include <vector>
+#include <queue>
 #include <string>
+#include <unordered_map>
+#include <vector>
 #include <cstring>
 
 struct BlockData {
@@ -44,8 +49,11 @@ int stream_send(int handle, const PCM_source_transfer_t *block)
 
   BlockData bd;
   bd.meta = *block;
-  size_t n = (size_t)block->length * (size_t)block->nch;
-  bd.samples.assign(block->samples, block->samples + n);
+  const size_t sample_frames = static_cast<size_t>(block->length);
+  const size_t channel_count = static_cast<size_t>(block->nch);
+  const size_t total_samples = sample_frames * channel_count;
+
+  bd.samples.assign(block->samples, block->samples + total_samples);
   bd.meta.samples = bd.samples.data();
 
   {
@@ -65,12 +73,31 @@ int stream_receive(int handle, PCM_source_transfer_t *block)
   BlockData bd = std::move(it->second.incoming.front());
   it->second.incoming.pop();
 
-  size_t n = (size_t)bd.meta.length * (size_t)bd.meta.nch;
-  size_t requested = (size_t)block->length * (size_t)block->nch;
-  if (requested < n) n = requested;
-  std::memcpy(block->samples, bd.samples.data(), n * sizeof(ReaSample));
-  *block = bd.meta;
-  block->samples = block->samples; // keep caller buffer
-  block->samples_out = (int)(n / block->nch);
+  if (block->nch > 0 && block->nch != bd.meta.nch)
+    return 0;
+
+  block->nch = bd.meta.nch;
+
+  const size_t requested_samples = static_cast<size_t>(block->length) *
+                                   static_cast<size_t>(block->nch);
+  const size_t available_samples = bd.samples.size();
+  const size_t copy_samples = std::min(requested_samples, available_samples);
+
+  if (copy_samples > 0)
+    std::memcpy(block->samples, bd.samples.data(),
+                copy_samples * sizeof(ReaSample));
+
+  block->time_s = bd.meta.time_s;
+  block->samplerate = bd.meta.samplerate;
+  block->length = bd.meta.length;
+  block->midi_events = bd.meta.midi_events;
+  block->approximate_playback_latency = bd.meta.approximate_playback_latency;
+  block->roundtrip_latency = bd.meta.roundtrip_latency;
+  block->absolute_time_s = bd.meta.absolute_time_s;
+  block->force_bpm = bd.meta.force_bpm;
+
+  block->samples_out = block->nch > 0
+                           ? static_cast<int>(copy_samples / block->nch)
+                           : 0;
   return block->samples_out;
 }
