@@ -1,4 +1,5 @@
 find_package(ZLIB REQUIRED)
+find_package(Threads REQUIRED)
 
 add_library(reaper_stt MODULE reaper_stt.cpp)
 
@@ -24,4 +25,4 @@ target_include_directories(reaper_stt PRIVATE
 
 target_compile_features(reaper_stt PRIVATE cxx_std_17)
 target_compile_definitions(reaper_stt PRIVATE WDL_NO_DEFINE_MINMAX)
-target_link_libraries(reaper_stt PRIVATE ZLIB::ZLIB)
+target_link_libraries(reaper_stt PRIVATE ZLIB::ZLIB Threads::Threads)

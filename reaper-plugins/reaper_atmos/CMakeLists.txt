@@ -1,4 +1,7 @@
-add_library(reaper_atmos MODULE reaper_atmos.cpp)
+add_library(reaper_atmos MODULE
+  atmos_engine.cpp
+  reaper_atmos.cpp
+)
 
 set_target_properties(reaper_atmos PROPERTIES PREFIX "")
 
