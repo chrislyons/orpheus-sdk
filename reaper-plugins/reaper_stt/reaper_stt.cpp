@@ -110,14 +110,15 @@ static TextLane g_lane;
 // ----------------------------------------------------------------------
 static void feed_block_to_stt(PCM_source_transfer_t *block, double start_time)
 {
-  if (!block || !block->samples || block->samplerate <= 0.0)
+  if (!block || !block->samples || block->samplerate <= 0.0 || block->samples_out <= 0)
     return;
 
-  std::string text = run_stt(block->samples, block->nch, block->length, block->samplerate);
+  std::string text = run_stt(block->samples, block->nch, block->samples_out, block->samplerate);
   std::istringstream iss(text);
   std::string word;
+  const double frames = static_cast<double>(std::max(block->samples_out, 0));
   const double word_dur = block->samplerate > 0.0
-                              ? static_cast<double>(block->length) / block->samplerate
+                              ? frames / block->samplerate
                               : 0.0;
   int word_index = 0;
   while (iss >> word)
