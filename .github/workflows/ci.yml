@@ -27,3 +27,22 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure --build-config ${{ matrix.build_type }}
+
+  perf-smoke:
+    name: perf-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build-perf -DCMAKE_BUILD_TYPE=Release -DENABLE_LTO=ON -DORP_WITH_TESTS=OFF -DORP_BUILD_REAPER=OFF -DORP_BUILD_MINHOST=OFF
+        shell: bash
+
+      - name: Build perf tools
+        run: cmake --build build-perf --config Release --target orpheus_perf_render_click
+        shell: bash
+
+      - name: Perf smoke
+        run: ./build-perf/tools/perf/orpheus_perf_render_click
+        shell: bash

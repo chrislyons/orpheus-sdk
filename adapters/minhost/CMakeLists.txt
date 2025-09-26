@@ -1,5 +1,4 @@
 add_executable(orpheus_minhost
-  click_renderer.cpp
   main.cpp
 )
 
@@ -11,6 +10,7 @@ target_link_libraries(orpheus_minhost
 target_include_directories(orpheus_minhost
   PRIVATE
     ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src/core/session
 )
 
 include(${CMAKE_SOURCE_DIR}/cmake/CompilerWarnings.cmake)

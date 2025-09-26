@@ -13,6 +13,7 @@ target_compile_definitions(reaper_orpheus PRIVATE ORPHEUS_BUILD_SHARED)
 target_include_directories(reaper_orpheus
   PRIVATE
     ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src/core/session
 )
 
 include(${CMAKE_SOURCE_DIR}/cmake/CompilerWarnings.cmake)

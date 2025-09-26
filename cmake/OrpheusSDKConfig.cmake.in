@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/OrpheusSDKTargets.cmake")
+
+set(OrpheusSDK_INCLUDE_DIR "${PACKAGE_PREFIX_DIR}/include")

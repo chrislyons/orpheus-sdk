@@ -19,3 +19,13 @@ orpheus_enable_warnings(orpheus_tests)
 
 include(GoogleTest)
 gtest_discover_tests(orpheus_tests)
+
+set(FIND_PACKAGE_SOURCE_DIR ${CMAKE_SOURCE_DIR}/tests/cmake/find_package)
+set(FIND_PACKAGE_BINARY_DIR ${CMAKE_BINARY_DIR}/tests/find_package_build)
+
+add_test(NAME cmake_find_package
+  COMMAND ${CMAKE_COMMAND}
+    -DOrpheusSDK_DIR=${CMAKE_BINARY_DIR}
+    -Dsource_dir=${FIND_PACKAGE_SOURCE_DIR}
+    -Dbinary_dir=${FIND_PACKAGE_BINARY_DIR}
+    -P ${CMAKE_SOURCE_DIR}/tests/cmake/run_find_package.cmake)
