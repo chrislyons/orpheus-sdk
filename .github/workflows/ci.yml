@@ -19,7 +19,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DORP_WITH_TESTS=ON -DORP_BUILD_REAPER=ON -DORP_BUILD_MINHOST=ON
+        run: |
+          extra=""
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            extra="-DCMAKE_OSX_ARCHITECTURES=arm64"
+          fi
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DORP_WITH_TESTS=ON \
+            -DORP_BUILD_REAPER=ON \
+            -DORP_BUILD_MINHOST=ON \
+            ${extra}
         shell: bash
 
       - name: Build

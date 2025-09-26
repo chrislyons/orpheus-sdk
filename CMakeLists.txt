@@ -13,13 +13,29 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(APPLE)
+  # Force a single architecture slice and ensure libc++ is used across all builds.
+  set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
+  add_compile_options(-stdlib=libc++)
+  add_link_options(-stdlib=libc++)
+endif()
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   add_compile_options("$<$<CONFIG:Debug>:-fsanitize=address>")
-  add_compile_options("$<$<CONFIG:Debug>:-fsanitize=undefined>")
   add_link_options("$<$<CONFIG:Debug>:-fsanitize=address>")
-  add_link_options("$<$<CONFIG:Debug>:-fsanitize=undefined>")
 else()
   message(STATUS "Sanitizers are not enabled on this compiler.")
+endif()
+
+option(ORP_ENABLE_UBSAN "Enable Undefined Behavior Sanitizer in Debug" ON)
+
+if(ORP_ENABLE_UBSAN AND CMAKE_BUILD_TYPE MATCHES "Debug" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  add_compile_options(-fsanitize=undefined)
+  add_link_options(-fsanitize=undefined)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    # GCC-based UBSan builds sometimes require explicit runtime linkage.
+    set(ORP_EXTRA_UBSAN_LIB ubsan)
+  endif()
 endif()
 
 if(ENABLE_LTO)

@@ -5,9 +5,13 @@ add_executable(orpheus_tests
 
 target_link_libraries(orpheus_tests
   PRIVATE
-    orpheus_core
+    Orpheus::orpheus_core
     GTest::gtest_main
 )
+
+if(ORP_EXTRA_UBSAN_LIB)
+  target_link_libraries(orpheus_tests PRIVATE ${ORP_EXTRA_UBSAN_LIB})
+endif()
 
 target_include_directories(orpheus_tests
   PRIVATE
