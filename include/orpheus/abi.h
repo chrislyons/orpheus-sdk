@@ -93,10 +93,14 @@ typedef struct orpheus_render_v1 {
                                   const char *out_path);
 } orpheus_render_v1;
 
-ORPHEUS_API orpheus_abi_version orpheus_negotiate_abi(orpheus_abi_version requested);
+typedef struct orpheus_abi_negotiator {
+  orpheus_abi_version (*negotiate)(orpheus_abi_version requested);
+} orpheus_abi_negotiator;
+
 ORPHEUS_API const orpheus_session_v1 *orpheus_session_abi_v1(void);
 ORPHEUS_API const orpheus_clipgrid_v1 *orpheus_clipgrid_abi_v1(void);
 ORPHEUS_API const orpheus_render_v1 *orpheus_render_abi_v1(void);
+ORPHEUS_API const orpheus_abi_negotiator *orpheus_negotiate_abi(void);
 
 #ifdef __cplusplus
 }
@@ -116,7 +120,11 @@ inline std::string ToString(const AbiVersion &version) {
 }
 
 inline AbiVersion NegotiateAbi(const AbiVersion &requested) {
-  return orpheus_negotiate_abi(requested);
+  const auto *negotiator = orpheus_negotiate_abi();
+  if (negotiator == nullptr || negotiator->negotiate == nullptr) {
+    return kCurrentAbi;
+  }
+  return negotiator->negotiate(requested);
 }
 
 }  // namespace orpheus

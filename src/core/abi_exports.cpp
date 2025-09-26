@@ -12,6 +12,7 @@
 #include <new>
 #include <numbers>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 using orpheus::core::Clip;
@@ -348,11 +349,7 @@ const orpheus_clipgrid_v1 kClipgridV1{&ClipgridAddClip,    &ClipgridRemoveClip,
 
 const orpheus_render_v1 kRenderV1{&RenderClick, &RenderTracks};
 
-}  // namespace
-
-extern "C" {
-
-orpheus_abi_version orpheus_negotiate_abi(orpheus_abi_version requested) {
+orpheus_abi_version NegotiateAbi(orpheus_abi_version requested) {
   if (requested.major != kCurrentAbi.major) {
     return kCurrentAbi;
   }
@@ -361,10 +358,18 @@ orpheus_abi_version orpheus_negotiate_abi(orpheus_abi_version requested) {
   return negotiated;
 }
 
+const orpheus_abi_negotiator kNegotiator{&NegotiateAbi};
+
+}  // namespace
+
+extern "C" {
+
 const orpheus_session_v1 *orpheus_session_abi_v1() { return &kSessionV1; }
 
 const orpheus_clipgrid_v1 *orpheus_clipgrid_abi_v1() { return &kClipgridV1; }
 
 const orpheus_render_v1 *orpheus_render_abi_v1() { return &kRenderV1; }
+
+const orpheus_abi_negotiator *orpheus_negotiate_abi() { return &kNegotiator; }
 
 }  // extern "C"

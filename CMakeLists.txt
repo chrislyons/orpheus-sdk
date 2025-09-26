@@ -6,6 +6,7 @@ option(ORP_WITH_TESTS "Build Orpheus tests" ON)
 option(ORP_BUILD_REAPER "Build the REAPER adapter" ON)
 option(ORP_BUILD_MINHOST "Build the minimal host adapter" ON)
 option(ENABLE_LTO "Enable interprocedural optimization" OFF)
+option(ORP_BUILD_SHARED_CORE "Build orpheus_core as a shared library" OFF)
 
 include(CMakePackageConfigHelpers)
 

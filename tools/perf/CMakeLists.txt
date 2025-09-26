@@ -4,7 +4,7 @@ add_executable(orpheus_perf_render_click
 
 target_link_libraries(orpheus_perf_render_click
   PRIVATE
-    Orpheus::orpheus_core
+    Orpheus::core
 )
 
 target_include_directories(orpheus_perf_render_click

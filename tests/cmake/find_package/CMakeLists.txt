@@ -6,7 +6,7 @@ find_package(OrpheusSDK REQUIRED CONFIG)
 
 add_executable(orpheus_find_package_smoke main.cpp)
 
-target_link_libraries(orpheus_find_package_smoke PRIVATE Orpheus::orpheus_core)
+target_link_libraries(orpheus_find_package_smoke PRIVATE Orpheus::core)
 
 if(APPLE)
   add_compile_options(-stdlib=libc++)

@@ -5,7 +5,7 @@ add_executable(orpheus_tests
 
 target_link_libraries(orpheus_tests
   PRIVATE
-    Orpheus::orpheus_core
+    Orpheus::core
     GTest::gtest_main
 )
 

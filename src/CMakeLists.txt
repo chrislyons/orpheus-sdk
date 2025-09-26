@@ -1,9 +1,16 @@
-add_library(orpheus_core
-  core/abi.cpp
+set(ORPHEUS_CORE_SOURCES
+  core/abi_exports.cpp
   core/session/session_graph.cpp
-  core/session/json_io.cpp
-)
+  core/session/json_io.cpp)
 
+if(ORP_BUILD_SHARED_CORE)
+  add_library(orpheus_core SHARED ${ORPHEUS_CORE_SOURCES})
+  target_compile_definitions(orpheus_core PRIVATE ORPHEUS_SHARED ORPHEUS_BUILDING)
+else()
+  add_library(orpheus_core STATIC ${ORPHEUS_CORE_SOURCES})
+endif()
+
+add_library(Orpheus::core ALIAS orpheus_core)
 add_library(Orpheus::orpheus_core ALIAS orpheus_core)
 
 set_target_properties(orpheus_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -19,13 +26,10 @@ if(ORP_ENABLE_UBSAN AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   endif()
 endif()
 
-if(BUILD_SHARED_LIBS)
-  target_compile_definitions(orpheus_core PRIVATE ORPHEUS_EXPORTS)
-  if(NOT MSVC)
-    set_target_properties(orpheus_core PROPERTIES
-      CXX_VISIBILITY_PRESET hidden
-      VISIBILITY_INLINES_HIDDEN YES)
-  endif()
+if(ORP_BUILD_SHARED_CORE AND NOT MSVC)
+  set_target_properties(orpheus_core PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN YES)
 endif()
 
 target_include_directories(orpheus_core

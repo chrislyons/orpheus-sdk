@@ -5,10 +5,10 @@ add_library(reaper_orpheus SHARED
 
 target_link_libraries(reaper_orpheus
   PRIVATE
-    orpheus_core
+    Orpheus::core
 )
 
-target_compile_definitions(reaper_orpheus PRIVATE ORPHEUS_EXPORTS)
+target_compile_definitions(reaper_orpheus PRIVATE ORPHEUS_SHARED ORPHEUS_BUILDING)
 
 target_include_directories(reaper_orpheus
   PRIVATE
