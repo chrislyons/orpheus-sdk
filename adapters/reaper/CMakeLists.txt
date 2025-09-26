@@ -8,7 +8,7 @@ target_link_libraries(reaper_orpheus
     orpheus_core
 )
 
-target_compile_definitions(reaper_orpheus PRIVATE ORPHEUS_BUILD_SHARED)
+target_compile_definitions(reaper_orpheus PRIVATE ORPHEUS_EXPORTS)
 
 target_include_directories(reaper_orpheus
   PRIVATE

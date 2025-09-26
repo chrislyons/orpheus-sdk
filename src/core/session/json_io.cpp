@@ -2,14 +2,14 @@
 
 #include <algorithm>
 #include <cctype>
-#include <charconv>
+#include <cerrno>
+#include <cstdlib>
 #include <fstream>
 #include <limits>
 #include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
-#include <system_error>
 
 namespace orpheus::core::session_json {
 namespace {
@@ -286,11 +286,12 @@ class JsonParser {
       }
     }
     const std::string_view number_view = input_.substr(start, index_ - start);
-    double value{};
-    const auto result = std::from_chars(number_view.data(),
-                                        number_view.data() + number_view.size(),
-                                        value);
-    if (result.ec != std::errc()) {
+    const std::string number_string(number_view);
+    errno = 0;
+    char *end_ptr = nullptr;
+    const double value = std::strtod(number_string.c_str(), &end_ptr);
+    if (end_ptr != number_string.c_str() + number_string.size() || errno == ERANGE ||
+        end_ptr == number_string.c_str()) {
       throw std::runtime_error("Failed to parse number");
     }
     return value;
