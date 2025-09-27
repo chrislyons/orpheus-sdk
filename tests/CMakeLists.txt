@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-add_executable(orpheus_tests
+set(ORPHEUS_TEST_SOURCES
   abi_smoke.cpp
   adm_entity_graph.cpp
   render_tracks.cpp
@@ -7,16 +7,24 @@ add_executable(orpheus_tests
   session_graph_invariants.cpp
   session_graph_scenes.cpp
   session_roundtrip.cpp
-  reaper_adapter.cpp
   otio_reconform_plan.cpp
 )
+
+if(TARGET reaper_orpheus)
+  list(APPEND ORPHEUS_TEST_SOURCES reaper_adapter.cpp)
+endif()
+
+add_executable(orpheus_tests ${ORPHEUS_TEST_SOURCES})
 
 target_link_libraries(orpheus_tests
   PRIVATE
     Orpheus::core
-    reaper_orpheus
     GTest::gtest_main
 )
+
+if(TARGET reaper_orpheus)
+  target_link_libraries(orpheus_tests PRIVATE reaper_orpheus)
+endif()
 
 if(ORP_EXTRA_UBSAN_LIB)
   target_link_libraries(orpheus_tests PRIVATE ${ORP_EXTRA_UBSAN_LIB})
