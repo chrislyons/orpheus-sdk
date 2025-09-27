@@ -1,6 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Orpheus SDK
 
+| Workflow | Status |
+| --- | --- |
+| CI | [![CI](https://github.com/orpheus-sdk/orpheus-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/orpheus-sdk/orpheus-sdk/actions/workflows/ci.yml) |
+| CodeQL | [![CodeQL](https://github.com/orpheus-sdk/orpheus-sdk/actions/workflows/codeql.yml/badge.svg)](https://github.com/orpheus-sdk/orpheus-sdk/actions/workflows/codeql.yml) |
+
 The Orpheus SDK packages a host-neutral core for working with sessions,
 clip grids, and renders. Optional adapters provide thin integration layers
 for specific hosts, including a minimal standalone utility and a REAPER

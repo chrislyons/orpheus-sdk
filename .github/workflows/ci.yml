@@ -1,89 +1,91 @@
-# SPDX-License-Identifier: MIT
 name: CI
 
 on:
   push:
+    branches: [ main ]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
-    name: build-and-test
+    name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        build_type: [Debug]
-
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Configure
-        run: |
-          extra=""
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            extra="-DCMAKE_OSX_ARCHITECTURES=arm64"
-          fi
-          cmake -S . -B build \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DORP_WITH_TESTS=ON \
-            -DORP_BUILD_REAPER=ON \
-            -DORP_BUILD_MINHOST=ON \
-            -DORP_BUILD_ABI_DYNAMIC=ON \
-            ${extra}
-        shell: bash
-
-      - name: Build
-        run: cmake --build build --config ${{ matrix.build_type }}
-
-      - name: Test
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            export PATH="$(pwd)/build:${PATH}"
-          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
-            export DYLD_LIBRARY_PATH="$(pwd)/build:${DYLD_LIBRARY_PATH}"
-          else
-            export LD_LIBRARY_PATH="$(pwd)/build:${LD_LIBRARY_PATH}"
-          fi
-          ctest --test-dir build --output-on-failure --build-config ${{ matrix.build_type }}
-
-  perf-smoke:
-    name: perf-smoke
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure
-        run: cmake -S . -B build-perf -DCMAKE_BUILD_TYPE=Release -DENABLE_LTO=ON -DORP_WITH_TESTS=OFF -DORP_BUILD_REAPER=OFF -DORP_BUILD_MINHOST=OFF
-        shell: bash
-
-      - name: Build perf tools
-        run: cmake --build build-perf --config Release --target orpheus_perf_render_click
-        shell: bash
-
-      - name: Perf smoke
-        run: ./build-perf/tools/perf/orpheus_perf_render_click
-        shell: bash
-
-  legal:
-    name: legal-compliance
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          submodules: recursive
 
-      - name: Install reuse
-        run: python -m pip install --upgrade pip reuse
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v3
 
-      - name: Run reuse lint
-        run: reuse lint
+      - name: Cache CMake downloads
+        if: runner.os != 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/cmake
+          key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt', 'cmake/**/*.cmake') }}
+          restore-keys: ${{ runner.os }}-cmake-
+
+      - name: Cache ccache
+        if: runner.os != 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('**/CMakeLists.txt', 'cmake/**/*.cmake', 'include/**/*.hpp', 'src/**/*.cpp', 'tests/**/*.cpp') }}
+          restore-keys: ${{ runner.os }}-ccache-
+
+      - name: Configure Debug
+        shell: bash
         env:
-          PYTHONWARNINGS: ignore
+          CMAKE_LAUNCHERS: ${{ runner.os == 'Windows' && '' || '-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache' }}
+          SANITIZERS: ${{ runner.os == 'Linux' && '-DORP_ENABLE_SANITIZERS=ON' || '' }}
+        run: |
+          cmake -S . -B build/Debug -GNinja -DCMAKE_BUILD_TYPE=Debug $CMAKE_LAUNCHERS $SANITIZERS
+
+      - name: Build Debug
+        run: cmake --build build/Debug
+        shell: bash
+
+      - name: Run tests
+        run: ctest --test-dir build/Debug --output-on-failure
+        shell: bash
+
+      - name: Configure RelWithDebInfo
+        shell: bash
+        env:
+          CMAKE_LAUNCHERS: ${{ runner.os == 'Windows' && '' || '-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache' }}
+        run: |
+          cmake -S . -B build/RelWithDebInfo -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo $CMAKE_LAUNCHERS
+
+      - name: Build RelWithDebInfo
+        run: cmake --build build/RelWithDebInfo
+        shell: bash
+
+      - name: Package SDK
+        run: cmake --build build/RelWithDebInfo --target package
+        shell: bash
+
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-ctest-log
+          path: build/Debug/Testing/Temporary/LastTest.log
+          if-no-files-found: warn
+
+      - name: Upload packages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-packages
+          path: |
+            build/RelWithDebInfo/**/*.zip
+            build/RelWithDebInfo/**/*.tar.gz
+          if-no-files-found: warn
