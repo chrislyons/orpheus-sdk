@@ -6,11 +6,13 @@ add_executable(orpheus_tests
   session_graph_invariants.cpp
   session_graph_scenes.cpp
   session_roundtrip.cpp
+  reaper_adapter.cpp
 )
 
 target_link_libraries(orpheus_tests
   PRIVATE
     Orpheus::core
+    reaper_orpheus
     GTest::gtest_main
 )
 
@@ -22,6 +24,7 @@ target_include_directories(orpheus_tests
   PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src/core
+    ${CMAKE_SOURCE_DIR}/adapters/reaper/include
 )
 
 include(${CMAKE_SOURCE_DIR}/cmake/CompilerWarnings.cmake)
