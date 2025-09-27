@@ -39,6 +39,12 @@ if(ORP_BUILD_SHARED_CORE)
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:orpheus_render> $<TARGET_FILE_DIR:orpheus_tests>
   )
+  if(TARGET reaper_orpheus)
+    add_custom_command(TARGET orpheus_tests POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+              $<TARGET_FILE:reaper_orpheus> $<TARGET_FILE_DIR:orpheus_tests>
+    )
+  endif()
 endif()
 
 include(GoogleTest)
