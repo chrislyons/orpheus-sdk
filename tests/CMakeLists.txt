@@ -1,5 +1,6 @@
 add_executable(orpheus_tests
   abi_smoke.cpp
+  session_graph_ownership.cpp
   session_roundtrip.cpp
 )
 
@@ -16,6 +17,7 @@ endif()
 target_include_directories(orpheus_tests
   PRIVATE
     ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src/core
 )
 
 include(${CMAKE_SOURCE_DIR}/cmake/CompilerWarnings.cmake)
