@@ -1,5 +1,5 @@
 set(ORPHEUS_LIBRARY_TYPE STATIC)
-if(ORPHEUS_BUILD_SHARED)
+if(ORP_BUILD_SHARED_CORE)
   set(ORPHEUS_LIBRARY_TYPE SHARED)
 endif()
 
@@ -64,7 +64,7 @@ if(ORP_ENABLE_UBSAN AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   endforeach()
 endif()
 
-if(WIN32 AND ORPHEUS_BUILD_SHARED)
+if(WIN32 AND ORP_BUILD_SHARED_CORE)
   foreach(target ${ORPHEUS_CORE_TARGETS})
     target_compile_definitions(${target} PRIVATE ORPHEUS_BUILDING_DLL)
     set_target_properties(${target} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS OFF)
@@ -74,7 +74,7 @@ endif()
 add_library(orpheus_core INTERFACE)
 target_link_libraries(orpheus_core INTERFACE ${ORPHEUS_CORE_TARGETS})
 
-if(WIN32 AND ORPHEUS_BUILD_SHARED)
+if(WIN32 AND ORP_BUILD_SHARED_CORE)
   target_compile_definitions(orpheus_core INTERFACE ORPHEUS_USING_DLL)
 endif()
 

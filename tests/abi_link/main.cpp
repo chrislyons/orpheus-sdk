@@ -11,8 +11,14 @@
 #if defined(_WIN32)
   #define WIN32_LEAN_AND_MEAN
   #include <windows.h>
+#elif defined(__APPLE__)
+  #include <dlfcn.h>
 #else
   #include <dlfcn.h>
+#endif
+
+#ifndef ORP_BUILD_SHARED_CORE
+#  define ORP_BUILD_SHARED_CORE 0
 #endif
 
 namespace fs = std::filesystem;
@@ -21,6 +27,7 @@ namespace {
 
 #if defined(_WIN32)
 using ModuleHandle = HMODULE;
+constexpr std::string_view kSharedExtension = ".dll";
 
 ModuleHandle LoadModule(const fs::path &path) {
   return ::LoadLibraryW(path.wstring().c_str());
@@ -84,6 +91,12 @@ std::string LastErrorString() {
   const char *message = dlerror();
   return message != nullptr ? std::string(message) : std::string("unknown");
 }
+
+#  if defined(__APPLE__)
+constexpr std::string_view kSharedExtension = ".dylib";
+#  else
+constexpr std::string_view kSharedExtension = ".so";
+#  endif
 #endif
 
 struct ModuleInfo {
@@ -103,6 +116,11 @@ void PrintResolution(const std::string &symbol, Fn &&fn) {
 }  // namespace
 
 int main() {
+#if !ORP_BUILD_SHARED_CORE
+  std::cout << "abi_link: skipping (shared core disabled)" << std::endl;
+  return 0;
+#endif
+
   const fs::path library_dir(ORPHEUS_ABI_LINK_DIR);
   std::cout << "Loading Orpheus ABI libraries from " << library_dir
             << std::endl;
@@ -119,6 +137,11 @@ int main() {
   try {
     for (const auto &module : modules) {
       const fs::path library_path = library_dir / module.library_name;
+      if (library_path.extension() != kSharedExtension) {
+        throw std::runtime_error("Expected shared library extension " +
+                                 std::string(kSharedExtension) + " for " +
+                                 library_path.string());
+      }
       std::cout << "Opening " << library_path << std::endl;
       ModuleHandle handle = LoadModule(library_path);
       if (handle == nullptr) {

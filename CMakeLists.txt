@@ -6,7 +6,16 @@ option(ORP_WITH_TESTS "Build Orpheus tests" ON)
 option(ORP_BUILD_REAPER "Build the REAPER adapter" ON)
 option(ORP_BUILD_MINHOST "Build the minimal host adapter" ON)
 option(ENABLE_LTO "Enable interprocedural optimization" OFF)
-option(ORPHEUS_BUILD_SHARED "Build Orpheus ABI libraries as shared" OFF)
+option(ORP_BUILD_SHARED_CORE "Build Orpheus ABI libraries as shared" OFF)
+option(ORP_BUILD_ABI_DYNAMIC "Build shared core libs for abi_link test" ON)
+
+if(DEFINED ORPHEUS_BUILD_SHARED)
+  set(ORP_BUILD_SHARED_CORE ${ORPHEUS_BUILD_SHARED} CACHE BOOL "" FORCE)
+endif()
+
+if(ORP_BUILD_ABI_DYNAMIC)
+  set(ORP_BUILD_SHARED_CORE ON CACHE BOOL "" FORCE)
+endif()
 
 include(CMakePackageConfigHelpers)
 
@@ -19,6 +28,14 @@ if(APPLE)
   set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
   add_compile_options(-stdlib=libc++)
   add_link_options(-stdlib=libc++)
+endif()
+
+if(APPLE)
+  set(CMAKE_INSTALL_RPATH "@loader_path")
+  set(CMAKE_BUILD_RPATH "${CMAKE_BINARY_DIR}")
+elseif(UNIX)
+  set(CMAKE_INSTALL_RPATH "$ORIGIN")
+  set(CMAKE_BUILD_RPATH "${CMAKE_BINARY_DIR}")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

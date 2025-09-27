@@ -44,7 +44,8 @@ target_compile_definitions(orpheus_abi_link
     ORPHEUS_SESSION_LIB="$<TARGET_FILE_NAME:orpheus_session>"
     ORPHEUS_CLIPGRID_LIB="$<TARGET_FILE_NAME:orpheus_clipgrid>"
     ORPHEUS_RENDER_LIB="$<TARGET_FILE_NAME:orpheus_render>"
-)
+    ORP_BUILD_SHARED_CORE=$<IF:$<BOOL:ORP_BUILD_SHARED_CORE>,1,0>
+  )
 
 target_link_libraries(orpheus_abi_link
   PRIVATE
@@ -59,3 +60,7 @@ target_include_directories(orpheus_abi_link
 orpheus_enable_warnings(orpheus_abi_link)
 
 add_test(NAME abi_link COMMAND orpheus_abi_link)
+
+if(NOT ORP_BUILD_SHARED_CORE)
+  set_tests_properties(abi_link PROPERTIES DISABLED ON)
+endif()
