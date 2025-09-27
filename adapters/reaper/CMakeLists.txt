@@ -8,8 +8,6 @@ target_link_libraries(reaper_orpheus
     Orpheus::core
 )
 
-target_compile_definitions(reaper_orpheus PRIVATE ORPHEUS_SHARED ORPHEUS_BUILDING)
-
 target_include_directories(reaper_orpheus
   PRIVATE
     ${CMAKE_SOURCE_DIR}/include

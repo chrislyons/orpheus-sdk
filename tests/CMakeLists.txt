@@ -33,3 +33,29 @@ add_test(NAME cmake_find_package
     -Dsource_dir=${FIND_PACKAGE_SOURCE_DIR}
     -Dbinary_dir=${FIND_PACKAGE_BINARY_DIR}
     -P ${CMAKE_SOURCE_DIR}/tests/cmake/run_find_package.cmake)
+
+add_executable(orpheus_abi_link
+  abi_link/main.cpp
+)
+
+target_compile_definitions(orpheus_abi_link
+  PRIVATE
+    ORPHEUS_ABI_LINK_DIR="$<TARGET_FILE_DIR:orpheus_session>"
+    ORPHEUS_SESSION_LIB="$<TARGET_FILE_NAME:orpheus_session>"
+    ORPHEUS_CLIPGRID_LIB="$<TARGET_FILE_NAME:orpheus_clipgrid>"
+    ORPHEUS_RENDER_LIB="$<TARGET_FILE_NAME:orpheus_render>"
+)
+
+target_link_libraries(orpheus_abi_link
+  PRIVATE
+    ${CMAKE_DL_LIBS}
+)
+
+target_include_directories(orpheus_abi_link
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+orpheus_enable_warnings(orpheus_abi_link)
+
+add_test(NAME abi_link COMMAND orpheus_abi_link)

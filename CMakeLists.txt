@@ -6,7 +6,7 @@ option(ORP_WITH_TESTS "Build Orpheus tests" ON)
 option(ORP_BUILD_REAPER "Build the REAPER adapter" ON)
 option(ORP_BUILD_MINHOST "Build the minimal host adapter" ON)
 option(ENABLE_LTO "Enable interprocedural optimization" OFF)
-option(ORP_BUILD_SHARED_CORE "Build orpheus_core as a shared library" OFF)
+option(ORPHEUS_BUILD_SHARED "Build Orpheus ABI libraries as shared" OFF)
 
 include(CMakePackageConfigHelpers)
 
@@ -73,11 +73,14 @@ endif()
 
 install(DIRECTORY include/orpheus DESTINATION include)
 
-install(TARGETS orpheus_core
+install(TARGETS orpheus_session orpheus_clipgrid orpheus_render
   EXPORT OrpheusSDKTargets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+
+install(TARGETS orpheus_core
+  EXPORT OrpheusSDKTargets)
 
 if(ORP_BUILD_MINHOST)
   install(TARGETS orpheus_minhost
