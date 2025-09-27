@@ -3,7 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
+#include <deque>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -132,10 +132,10 @@ class ORPHEUS_API EntityGraph {
   std::size_t bed_index(const Bed &bed) const;
   std::size_t object_index(const Object &object) const;
 
-  std::vector<std::unique_ptr<Programme>> programmes_;
-  std::vector<std::unique_ptr<Content>> contents_;
-  std::vector<std::unique_ptr<Bed>> beds_;
-  std::vector<std::unique_ptr<Object>> objects_;
+  std::deque<Programme> programmes_;
+  std::deque<Content> contents_;
+  std::deque<Bed> beds_;
+  std::deque<Object> objects_;
 };
 
 ORPHEUS_API std::string_view ToString(EntityKind kind);

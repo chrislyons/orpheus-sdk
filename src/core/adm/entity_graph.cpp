@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -144,71 +143,67 @@ const std::vector<std::size_t> &Programme::contents() const {
 }
 
 Programme &EntityGraph::add_programme(EntityEnvelope envelope) {
-  auto slot = std::make_unique<Programme>(std::move(envelope));
-  programmes_.push_back(std::move(slot));
-  return *programmes_.back();
+  programmes_.emplace_back(std::move(envelope));
+  return programmes_.back();
 }
 
 Content &EntityGraph::add_content(EntityEnvelope envelope) {
-  auto slot = std::make_unique<Content>(std::move(envelope));
-  contents_.push_back(std::move(slot));
-  return *contents_.back();
+  contents_.emplace_back(std::move(envelope));
+  return contents_.back();
 }
 
 Bed &EntityGraph::add_bed(EntityEnvelope envelope) {
-  auto slot = std::make_unique<Bed>(std::move(envelope));
-  beds_.push_back(std::move(slot));
-  return *beds_.back();
+  beds_.emplace_back(std::move(envelope));
+  return beds_.back();
 }
 
 Object &EntityGraph::add_object(EntityEnvelope envelope) {
-  auto slot = std::make_unique<Object>(std::move(envelope));
-  objects_.push_back(std::move(slot));
-  return *objects_.back();
+  objects_.emplace_back(std::move(envelope));
+  return objects_.back();
 }
 
 void EntityGraph::link_programme_to_content(const Programme &programme,
                                             const Content &content) {
-  programmes_.at(programme_index(programme))->attach_content(
+  programmes_.at(programme_index(programme)).attach_content(
       content_index(content));
 }
 
 void EntityGraph::link_content_to_bed(const Content &content, const Bed &bed) {
-  contents_.at(content_index(content))->attach_bed(bed_index(bed));
+  contents_.at(content_index(content)).attach_bed(bed_index(bed));
 }
 
 void EntityGraph::link_content_to_object(const Content &content,
                                          const Object &object) {
-  contents_.at(content_index(content))->attach_object(object_index(object));
+  contents_.at(content_index(content)).attach_object(object_index(object));
 }
 
 const Programme &EntityGraph::programme_at(std::size_t index) const {
-  return *programmes_.at(index);
+  return programmes_.at(index);
 }
 
 Programme &EntityGraph::programme_at(std::size_t index) {
-  return *programmes_.at(index);
+  return programmes_.at(index);
 }
 
 const Content &EntityGraph::content_at(std::size_t index) const {
-  return *contents_.at(index);
+  return contents_.at(index);
 }
 
 Content &EntityGraph::content_at(std::size_t index) {
-  return *contents_.at(index);
+  return contents_.at(index);
 }
 
 const Bed &EntityGraph::bed_at(std::size_t index) const {
-  return *beds_.at(index);
+  return beds_.at(index);
 }
 
-Bed &EntityGraph::bed_at(std::size_t index) { return *beds_.at(index); }
+Bed &EntityGraph::bed_at(std::size_t index) { return beds_.at(index); }
 
 const Object &EntityGraph::object_at(std::size_t index) const {
-  return *objects_.at(index);
+  return objects_.at(index);
 }
 
-Object &EntityGraph::object_at(std::size_t index) { return *objects_.at(index); }
+Object &EntityGraph::object_at(std::size_t index) { return objects_.at(index); }
 
 std::size_t EntityGraph::programme_count() const { return programmes_.size(); }
 
@@ -227,7 +222,7 @@ std::string EntityGraph::DebugDumpJson(ThinningPolicy policy) const {
     if (i > 0) {
       oss << ",";
     }
-    const Programme &programme = *programmes_[i];
+    const Programme &programme = programmes_[i];
     oss << "{";
     AppendEnvelopeJson(oss, programme.envelope());
     oss << ",\"contents\":[";
@@ -236,8 +231,8 @@ std::string EntityGraph::DebugDumpJson(ThinningPolicy policy) const {
         oss << ",";
       }
       const std::size_t content_idx = programme.contents()[j];
-      oss << "\""
-          << EscapeJson(contents_.at(content_idx)->envelope().id) << "\"";
+      oss << "\"" << EscapeJson(contents_.at(content_idx).envelope().id)
+          << "\"";
     }
     oss << "]}";
   }
@@ -248,7 +243,7 @@ std::string EntityGraph::DebugDumpJson(ThinningPolicy policy) const {
     if (i > 0) {
       oss << ",";
     }
-    const Content &content = *contents_[i];
+    const Content &content = contents_[i];
     oss << "{";
     AppendEnvelopeJson(oss, content.envelope());
     oss << ",\"beds\":[";
@@ -256,7 +251,7 @@ std::string EntityGraph::DebugDumpJson(ThinningPolicy policy) const {
       if (j > 0) {
         oss << ",";
       }
-      oss << "\"" << EscapeJson(beds_.at(content.beds()[j])->envelope().id)
+      oss << "\"" << EscapeJson(beds_.at(content.beds()[j]).envelope().id)
           << "\"";
     }
     oss << "],\"objects\":[";
@@ -264,8 +259,7 @@ std::string EntityGraph::DebugDumpJson(ThinningPolicy policy) const {
       if (j > 0) {
         oss << ",";
       }
-      oss << "\""
-          << EscapeJson(objects_.at(content.objects()[j])->envelope().id)
+      oss << "\"" << EscapeJson(objects_.at(content.objects()[j]).envelope().id)
           << "\"";
     }
     oss << "]}";
@@ -277,7 +271,7 @@ std::string EntityGraph::DebugDumpJson(ThinningPolicy policy) const {
     if (i > 0) {
       oss << ",";
     }
-    const Bed &bed = *beds_[i];
+    const Bed &bed = beds_[i];
     oss << "{";
     AppendEnvelopeJson(oss, bed.envelope());
     oss << ",\"channels\":[";
@@ -298,7 +292,7 @@ std::string EntityGraph::DebugDumpJson(ThinningPolicy policy) const {
     if (i > 0) {
       oss << ",";
     }
-    const Object &object = *objects_[i];
+    const Object &object = objects_[i];
     oss << "{";
     AppendEnvelopeJson(oss, object.envelope());
     oss << ",\"trajectory\":[";
@@ -323,7 +317,7 @@ std::string EntityGraph::DebugDumpJson(ThinningPolicy policy) const {
 
 std::size_t EntityGraph::programme_index(const Programme &programme) const {
   for (std::size_t i = 0; i < programmes_.size(); ++i) {
-    if (programmes_[i].get() == &programme) {
+    if (&programmes_[i] == &programme) {
       return i;
     }
   }
@@ -332,7 +326,7 @@ std::size_t EntityGraph::programme_index(const Programme &programme) const {
 
 std::size_t EntityGraph::content_index(const Content &content) const {
   for (std::size_t i = 0; i < contents_.size(); ++i) {
-    if (contents_[i].get() == &content) {
+    if (&contents_[i] == &content) {
       return i;
     }
   }
@@ -341,7 +335,7 @@ std::size_t EntityGraph::content_index(const Content &content) const {
 
 std::size_t EntityGraph::bed_index(const Bed &bed) const {
   for (std::size_t i = 0; i < beds_.size(); ++i) {
-    if (beds_[i].get() == &bed) {
+    if (&beds_[i] == &bed) {
       return i;
     }
   }
@@ -350,7 +344,7 @@ std::size_t EntityGraph::bed_index(const Bed &bed) const {
 
 std::size_t EntityGraph::object_index(const Object &object) const {
   for (std::size_t i = 0; i < objects_.size(); ++i) {
-    if (objects_[i].get() == &object) {
+    if (&objects_[i] == &object) {
       return i;
     }
   }
