@@ -8,6 +8,8 @@
 #include <string_view>
 #include <vector>
 
+#include "orpheus/export.h"
+
 namespace orpheus::core::adm {
 
 enum class EntityKind {
@@ -40,7 +42,7 @@ enum class ThinningPolicy {
   kEnabled,
 };
 
-class Bed {
+class ORPHEUS_API Bed {
  public:
   explicit Bed(EntityEnvelope envelope);
 
@@ -53,7 +55,7 @@ class Bed {
   std::vector<BedChannel> channels_;
 };
 
-class Object {
+class ORPHEUS_API Object {
  public:
   explicit Object(EntityEnvelope envelope);
 
@@ -66,7 +68,7 @@ class Object {
   std::vector<ObjectPoint> points_;
 };
 
-class Content {
+class ORPHEUS_API Content {
  public:
   explicit Content(EntityEnvelope envelope);
 
@@ -83,7 +85,7 @@ class Content {
   std::vector<std::size_t> objects_;
 };
 
-class Programme {
+class ORPHEUS_API Programme {
  public:
   explicit Programme(EntityEnvelope envelope);
 
@@ -96,7 +98,7 @@ class Programme {
   std::vector<std::size_t> contents_;
 };
 
-class EntityGraph {
+class ORPHEUS_API EntityGraph {
  public:
   Programme &add_programme(EntityEnvelope envelope);
   Content &add_content(EntityEnvelope envelope);
@@ -136,8 +138,9 @@ class EntityGraph {
   std::vector<std::unique_ptr<Object>> objects_;
 };
 
-std::string_view ToString(EntityKind kind);
-std::string DebugDumpEnvelope(const EntityEnvelope &envelope);
-std::vector<ObjectPoint> ThinTrajectory(const std::vector<ObjectPoint> &points);
+ORPHEUS_API std::string_view ToString(EntityKind kind);
+ORPHEUS_API std::string DebugDumpEnvelope(const EntityEnvelope &envelope);
+ORPHEUS_API std::vector<ObjectPoint> ThinTrajectory(
+    const std::vector<ObjectPoint> &points);
 
 }  // namespace orpheus::core::adm
