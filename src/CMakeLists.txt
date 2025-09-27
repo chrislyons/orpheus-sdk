@@ -65,6 +65,7 @@ if(ORP_ENABLE_UBSAN AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 if(WIN32 AND ORP_BUILD_SHARED_CORE)
+  target_compile_definitions(orpheus_core_runtime PRIVATE ORPHEUS_BUILDING_DLL)
   foreach(target ${ORPHEUS_CORE_TARGETS})
     target_compile_definitions(${target} PRIVATE ORPHEUS_BUILDING_DLL)
     set_target_properties(${target} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS OFF)

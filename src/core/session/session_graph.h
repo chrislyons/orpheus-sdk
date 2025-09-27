@@ -4,9 +4,11 @@
 #include <string>
 #include <vector>
 
+#include "orpheus/export.h"
+
 namespace orpheus::core {
 
-class Clip {
+class ORPHEUS_API Clip {
  public:
   Clip(std::string name, double start_beats, double length_beats);
 
@@ -23,7 +25,7 @@ class Clip {
   double length_beats_;
 };
 
-class Track {
+class ORPHEUS_API Track {
  public:
   explicit Track(std::string name);
 
@@ -44,13 +46,13 @@ class Track {
   std::vector<std::unique_ptr<Clip>> clips_;
 };
 
-struct TransportState {
+struct ORPHEUS_API TransportState {
   double tempo_bpm{120.0};
   double position_beats{0.0};
   bool is_playing{false};
 };
 
-class SessionGraph {
+class ORPHEUS_API SessionGraph {
  public:
   SessionGraph();
 

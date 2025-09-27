@@ -21,6 +21,17 @@ target_include_directories(orpheus_tests
 include(${CMAKE_SOURCE_DIR}/cmake/CompilerWarnings.cmake)
 orpheus_enable_warnings(orpheus_tests)
 
+if(ORP_BUILD_SHARED_CORE)
+  add_custom_command(TARGET orpheus_tests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:orpheus_session> $<TARGET_FILE_DIR:orpheus_tests>
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:orpheus_clipgrid> $<TARGET_FILE_DIR:orpheus_tests>
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:orpheus_render> $<TARGET_FILE_DIR:orpheus_tests>
+  )
+endif()
+
 include(GoogleTest)
 gtest_discover_tests(orpheus_tests)
 
