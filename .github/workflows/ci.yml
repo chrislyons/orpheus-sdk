@@ -41,6 +41,17 @@ jobs:
           key: ${{ runner.os }}-ccache-${{ hashFiles('**/CMakeLists.txt', 'cmake/**/*.cmake', 'include/**/*.hpp', 'src/**/*.cpp', 'tests/**/*.cpp') }}
           restore-keys: ${{ runner.os }}-ccache-
 
+      - name: Install ccache (Linux/macOS)
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        shell: bash
+        run: |
+          if command -v brew >/dev/null 2>&1; then
+            brew install ccache
+          else
+            sudo apt-get update
+            sudo apt-get install -y ccache
+          fi
+
       - name: Configure Debug
         shell: bash
         env:
