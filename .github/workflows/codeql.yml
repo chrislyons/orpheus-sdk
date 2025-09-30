@@ -1,13 +1,12 @@
+# SPDX-License-Identifier: MIT
 name: CodeQL
 
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'src/**'
-      - '.github/workflows/codeql.yml'
+    branches: [ main, release/** ]
+  pull_request:
   schedule:
-    - cron: '0 8 * * 1'  # Mondays 08:00 UTC weekly scan
+    - cron: '0 8 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -20,13 +19,22 @@ concurrency:
 
 jobs:
   analyze:
+    name: CodeQL Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 1
-      - uses: github/codeql-action/init@v3
+          fetch-depth: 0
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
         with:
-          languages: 'cpp'
-      - uses: github/codeql-action/analyze@v3
+          languages: cpp
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3

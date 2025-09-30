@@ -125,6 +125,11 @@ prints the suggested render path instead of writing audio.
 
 ## Tooling & Quality
 
+| Workflow | Status |
+| --- | --- |
+| Build & Package | [![Build & Package](https://github.com/orpheus-sdk/orpheus-sdk/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/orpheus-sdk/orpheus-sdk/actions/workflows/ci.yml) |
+| CodeQL | [![CodeQL](https://github.com/orpheus-sdk/orpheus-sdk/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/orpheus-sdk/orpheus-sdk/actions/workflows/codeql.yml) |
+
 - **Sanitizers** – AddressSanitizer and UBSan are enabled automatically for
   Debug builds on non-MSVC toolchains.
 - **Static analysis** – Repository-wide `.clang-format` and `.clang-tidy`
