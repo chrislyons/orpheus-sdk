@@ -7,7 +7,7 @@ on:
       - 'src/**'
       - '.github/workflows/codeql.yml'
   schedule:
-    - cron: '0 8 * * 1'  # Mondays 08:00 UTC weekly scan
+    - cron: '0 8 * * 1'   # Mondays 08:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -24,9 +24,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
+        with: { fetch-depth: 1 }
       - uses: github/codeql-action/init@v3
-        with:
-          languages: 'cpp'
+        with: { languages: 'cpp' }
       - uses: github/codeql-action/analyze@v3
