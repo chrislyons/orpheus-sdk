@@ -45,8 +45,10 @@ ModuleHandle LoadModule(const fs::path &path) {
   return ::LoadLibraryW(path.wstring().c_str());
 }
 
-void *LoadSymbol(ModuleHandle handle, const char *name) {
-  return reinterpret_cast<void *>(::GetProcAddress(handle, name));
+using SymbolHandle = FARPROC;
+
+SymbolHandle LoadSymbol(ModuleHandle handle, const char *name) {
+  return ::GetProcAddress(handle, name);
 }
 
 void CloseModule(ModuleHandle handle) {
@@ -89,7 +91,9 @@ ModuleHandle LoadModule(const fs::path &path) {
   return dlopen(encoded.c_str(), RTLD_NOW);
 }
 
-void *LoadSymbol(ModuleHandle handle, const char *name) {
+using SymbolHandle = void *;
+
+SymbolHandle LoadSymbol(ModuleHandle handle, const char *name) {
   return dlsym(handle, name);
 }
 
@@ -116,18 +120,11 @@ struct ModuleInfo {
   const char *factory_symbol;
 };
 
-void PrintResolution(const std::string &symbol, const void *address) {
-  if (address == nullptr) {
-    throw std::runtime_error("Factory returned null pointer for " + symbol);
-  }
-  std::cout << "Resolved " << symbol << " -> " << address << std::endl;
-}
-
 template <typename Fn>
-Fn AsFunction(void *symbol) {
+Fn AsFunction(SymbolHandle symbol) {
   static_assert(std::is_pointer_v<Fn>, "AsFunction requires a pointer type");
   static_assert(sizeof(Fn) == sizeof(symbol),
-                "Function pointer size mismatch with void* symbol");
+                "Function pointer size mismatch with symbol");
   Fn fn = nullptr;
   std::memcpy(&fn, &symbol, sizeof(fn));
   return fn;
@@ -170,7 +167,7 @@ int main() {
       }
       handles.push_back(handle);
 
-      void *symbol = LoadSymbol(handle, module.factory_symbol);
+      SymbolHandle symbol = LoadSymbol(handle, module.factory_symbol);
       if (symbol == nullptr) {
         throw std::runtime_error("Failed to resolve " +
                                  std::string(module.factory_symbol) +
@@ -178,7 +175,7 @@ int main() {
                                  LastErrorString());
       }
 
-      PrintResolution(module.factory_symbol, symbol);
+      std::cout << "Resolved " << module.factory_symbol << std::endl;
       if (module.factory_symbol == std::string("orpheus_session_abi_v1")) {
         auto fn = AsFunction<const orpheus_session_api_v1 *(*)(
             uint32_t, uint32_t *, uint32_t *)>(symbol);
