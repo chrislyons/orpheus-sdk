@@ -39,6 +39,7 @@ struct RenderSpec {
   std::uint64_t dither_seed{0x9e3779b97f4a7c15ull};
 };
 
+// Export the render entry point so Windows builds avoid C4251/4273 warnings.
 ORPHEUS_API std::vector<std::filesystem::path> render_tracks(
     const Session &session, const TrackList &tracks, const RenderSpec &spec);
 

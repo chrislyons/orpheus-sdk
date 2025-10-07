@@ -14,7 +14,7 @@
 
 #if defined(_WIN32)
 #  define WIN32_LEAN_AND_MEAN
-#  define NOMINMAX
+#  define NOMINMAX  // prevent <windows.h> from defining min/max macros
 #  if defined(_MSC_VER)
 #    pragma warning(push)
 #    pragma warning(disable : 5105)
