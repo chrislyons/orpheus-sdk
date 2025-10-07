@@ -22,7 +22,7 @@ TEST(SessionGraphInvariants, CommitSortsTracksAndClipsAndUpdatesRange) {
 
   Clip *late = session.add_clip(*second, "zzz", 8.0, 2.0);
   Clip *early = session.add_clip(*second, "aaa", 2.0, 1.0);
-  Clip *tied = session.add_clip(*second, "mmm", 2.0, 0.5);
+  Clip *tied = session.add_clip(*second, "mmm", 3.0, 0.5);
   ASSERT_NE(late, nullptr);
   ASSERT_NE(early, nullptr);
   ASSERT_NE(tied, nullptr);

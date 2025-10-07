@@ -54,25 +54,31 @@ std::string FormatSampleRateTag(std::uint32_t sample_rate_hz) {
 std::string SanitizeSessionName(const std::string &session_name) {
   std::string sanitized;
   sanitized.reserve(session_name.size());
+
+  bool needs_separator = false;
   for (char c : session_name) {
-    if (std::isalnum(static_cast<unsigned char>(c))) {
-      sanitized.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
-    } else if (c == '_' || c == '-' || c == ' ') {
-      sanitized.push_back('_');
+    const unsigned char uc = static_cast<unsigned char>(c);
+    if (std::isalnum(uc)) {
+      if (needs_separator && !sanitized.empty()) {
+        sanitized.push_back('_');
+      }
+      sanitized.push_back(static_cast<char>(std::tolower(uc)));
+      needs_separator = false;
+      continue;
+    }
+
+    if (c == '_' || c == '-' || std::isspace(uc)) {
+      if (!sanitized.empty()) {
+        needs_separator = true;
+      }
+      continue;
+    }
+
+    if (!sanitized.empty()) {
+      needs_separator = true;
     }
   }
-  while (sanitized.find("__") != std::string::npos) {
-    const auto pos = sanitized.find("__");
-    sanitized.replace(pos, 2, "_");
-  }
-  sanitized.erase(std::remove(sanitized.begin(), sanitized.end(), ' '),
-                  sanitized.end());
-  sanitized.erase(std::unique(sanitized.begin(), sanitized.end(),
-                              [](char lhs, char rhs) { return lhs == '_' && rhs == '_'; }),
-                  sanitized.end());
-  if (sanitized.empty()) {
-    sanitized = "session";
-  }
+
   return sanitized;
 }
 
