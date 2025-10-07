@@ -121,6 +121,18 @@ void PrintResolution(const std::string &symbol, const void *address) {
   std::cout << "Resolved " << symbol << " -> " << address << std::endl;
 }
 
+template <typename Fn>
+Fn AsFunction(void *symbol) {
+#if defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable : 4191)
+#endif
+  return reinterpret_cast<Fn>(symbol);
+#if defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
+}
+
 }  // namespace
 
 int main() {
@@ -168,7 +180,7 @@ int main() {
 
       PrintResolution(module.factory_symbol, symbol);
       if (module.factory_symbol == std::string("orpheus_session_abi_v1")) {
-        auto fn = reinterpret_cast<const orpheus_session_api_v1 *(*)(
+        auto fn = AsFunction<const orpheus_session_api_v1 *(*)(
             uint32_t, uint32_t *, uint32_t *)>(symbol);
         uint32_t major = 0;
         uint32_t minor = 0;
@@ -180,7 +192,7 @@ int main() {
                   << " caps=0x" << std::hex << abi->caps << std::dec << std::endl;
       } else if (module.factory_symbol ==
                  std::string("orpheus_clipgrid_abi_v1")) {
-        auto fn = reinterpret_cast<const orpheus_clipgrid_api_v1 *(*)(
+        auto fn = AsFunction<const orpheus_clipgrid_api_v1 *(*)(
             uint32_t, uint32_t *, uint32_t *)>(symbol);
         uint32_t major = 0;
         uint32_t minor = 0;
@@ -192,7 +204,7 @@ int main() {
                   << " caps=0x" << std::hex << abi->caps << std::dec << std::endl;
       } else if (module.factory_symbol ==
                  std::string("orpheus_render_abi_v1")) {
-        auto fn = reinterpret_cast<const orpheus_render_api_v1 *(*)(
+        auto fn = AsFunction<const orpheus_render_api_v1 *(*)(
             uint32_t, uint32_t *, uint32_t *)>(symbol);
         uint32_t major = 0;
         uint32_t minor = 0;
