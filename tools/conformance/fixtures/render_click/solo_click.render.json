@@ -1,0 +1,19 @@
+{
+  "command": "render-click",
+  "abi": {
+    "session": {"major": 1, "minor": 0, "ok": true},
+    "clipgrid": {"major": 1, "minor": 0, "ok": true},
+    "render": {"major": 1, "minor": 0, "ok": true}
+  },
+  "spec": {
+    "tempo_bpm": 120.000000,
+    "bars": 4,
+    "sample_rate": 44100,
+    "channels": 2,
+    "gain": 0.300000,
+    "click_frequency_hz": 1000.000000,
+    "click_duration_seconds": 0.050000
+  },
+  "output_path": "actual.wav",
+  "suggested_path": "out/solo_click_click_44p1k_16b.wav"
+}

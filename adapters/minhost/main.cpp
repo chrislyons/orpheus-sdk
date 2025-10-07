@@ -263,10 +263,34 @@ struct SessionGuard {
   const orpheus_session_api_v1 *api = nullptr;
   orpheus_session_handle handle = nullptr;
 
-  ~SessionGuard() {
+  SessionGuard() = default;
+  SessionGuard(const orpheus_session_api_v1 *api_in,
+               orpheus_session_handle handle_in) noexcept
+      : api(api_in), handle(handle_in) {}
+  SessionGuard(const SessionGuard &) = delete;
+  SessionGuard &operator=(const SessionGuard &) = delete;
+
+  SessionGuard(SessionGuard &&other) noexcept { *this = std::move(other); }
+
+  SessionGuard &operator=(SessionGuard &&other) noexcept {
+    if (this != &other) {
+      Reset();
+      api = other.api;
+      handle = other.handle;
+      other.api = nullptr;
+      other.handle = nullptr;
+    }
+    return *this;
+  }
+
+  ~SessionGuard() { Reset(); }
+
+  void Reset() {
     if (api && handle) {
       api->destroy(handle);
     }
+    api = nullptr;
+    handle = nullptr;
   }
 };
 
@@ -1210,10 +1234,13 @@ int RunRenderClickCommand(const CliGlobalOptions &global,
 
   const auto output_path =
       merged.output_path.value_or(fs::path(override_output.value_or("")));
+  const auto output_path_string = output_path.empty()
+                                     ? std::string{}
+                                     : output_path.string();
 
   if (!output_path.empty()) {
-    const auto status =
-        context.abi.render_api->render_click(&spec, output_path.string().c_str());
+    const auto status = context.abi.render_api->render_click(
+        &spec, output_path_string.c_str());
     if (status != ORPHEUS_STATUS_OK) {
       ErrorInfo render_error{"render.click", "Render failed",
                              {std::string{orpheus_status_to_string(status)}}};
@@ -1248,7 +1275,7 @@ int RunRenderClickCommand(const CliGlobalOptions &global,
               << FormatNumber(spec.click_duration_seconds) << "\n";
     std::cout << "  },\n";
     if (!output_path.empty()) {
-      std::cout << "  \"output_path\": \"" << JsonEscape(output_path.string())
+      std::cout << "  \"output_path\": \"" << JsonEscape(output_path_string)
                 << "\",\n";
     } else {
       std::cout << "  \"output_path\": null,\n";

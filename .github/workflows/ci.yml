@@ -26,21 +26,43 @@ concurrency:
 jobs:
   build-test:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest]
         build_type: [Debug, RelWithDebInfo]
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 1 }
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: matrix.os == 'windows-latest'
+        with:
+          arch: x64
       - name: Configure
+        shell: bash
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} $([[ "${{ matrix.build_type }}" == "Debug" ]] && echo "-DORP_ENABLE_SANITIZERS=ON")
+          args=("-S" "." "-B" "build" "-DCMAKE_BUILD_TYPE=${{ matrix.build_type }}")
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            args+=("-A" "x64")
+          fi
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.build_type }}" == "Debug" ]]; then
+            args+=("-DORP_ENABLE_UBSAN=ON")
+          fi
+          cmake "${args[@]}"
       - name: Build
+        shell: bash
         run: cmake --build build --config ${{ matrix.build_type }} --parallel
         timeout-minutes: 10
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        shell: bash
+        run: ctest --test-dir build --output-on-failure -C ${{ matrix.build_type }}
         timeout-minutes: 10
+      - name: Upload conformance diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-diff-${{ matrix.os }}-${{ matrix.build_type }}
+          path: build/tools/conformance/diff
+          if-no-files-found: ignore
