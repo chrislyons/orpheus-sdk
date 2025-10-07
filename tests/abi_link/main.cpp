@@ -11,12 +11,14 @@
 #include "orpheus/abi.h"
 
 #include <array>
+#include <cstring>
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #if defined(_WIN32)
@@ -130,14 +132,12 @@ void PrintResolution(const std::string &symbol, const void *address) {
 
 template <typename Fn>
 Fn AsFunction(void *symbol) {
-#if defined(_MSC_VER)
-#  pragma warning(push)
-#  pragma warning(disable : 4191)
-#endif
-  return reinterpret_cast<Fn>(symbol);
-#if defined(_MSC_VER)
-#  pragma warning(pop)
-#endif
+  static_assert(std::is_pointer_v<Fn>, "AsFunction requires a pointer type");
+  static_assert(sizeof(Fn) == sizeof(symbol),
+                "Function pointer size mismatch with void* symbol");
+  Fn fn = nullptr;
+  std::memcpy(&fn, &symbol, sizeof(fn));
+  return fn;
 }
 
 }  // namespace
