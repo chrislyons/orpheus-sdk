@@ -12,6 +12,11 @@
 
 #include "orpheus/export.h"
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4251)
+#endif
+
 namespace orpheus::json {
 
 struct JsonValue {
@@ -65,3 +70,7 @@ ORPHEUS_API void WriteIndent(std::ostringstream &stream, int indent);
 ORPHEUS_API std::string EscapeString(const std::string &value);
 
 }  // namespace orpheus::json
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

@@ -11,6 +11,11 @@
 
 #include "orpheus/export.h"
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4251)
+#endif
+
 namespace orpheus::core {
 
 class ORPHEUS_API Clip {
@@ -309,3 +314,7 @@ static_assert(std::is_same_v<decltype(std::declval<const orpheus::core::SessionG
 
 static_assert(std::is_same_v<decltype(std::declval<const orpheus::core::SessionGraph &>().playlist_lanes()),
                    const std::vector<std::unique_ptr<orpheus::core::PlaylistLane>> &>);
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

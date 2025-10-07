@@ -10,6 +10,11 @@
 
 #include "orpheus/export.h"
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4251)
+#endif
+
 namespace orpheus::core::adm {
 
 enum class EntityKind {
@@ -144,3 +149,7 @@ ORPHEUS_API std::vector<ObjectPoint> ThinTrajectory(
     const std::vector<ObjectPoint> &points);
 
 }  // namespace orpheus::core::adm
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
