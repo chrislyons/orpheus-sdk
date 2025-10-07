@@ -24,23 +24,69 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-test:
+  build-test-posix:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        build_type: [Debug, RelWithDebInfo]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify NOMINMAX guard
+        run: python3 tools/scripts/check_nomminmax.py
+      - name: Check for binary blobs
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 tools/scripts/check_no_binary_diffs.py
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel
+        timeout-minutes: 10
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --build-config ${{ matrix.build_type }}
+        timeout-minutes: 10
+      - name: Upload conformance diffs
+        if: failure() && hashFiles('build/conformance_failures/**/*') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-failures-${{ matrix.os }}-${{ matrix.build_type }}
+          path: build/conformance_failures
+          if-no-files-found: ignore
+
+  build-test-windows:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: windows-latest
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         build_type: [Debug, RelWithDebInfo]
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 1 }
+        with:
+          fetch-depth: 0
+      - name: Verify NOMINMAX guard
+        run: python tools/scripts/check_nomminmax.py
       - name: Configure
-        run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} $([[ "${{ matrix.build_type }}" == "Debug" ]] && echo "-DORP_ENABLE_SANITIZERS=ON")
+        run: cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        shell: pwsh
       - name: Build
         run: cmake --build build --config ${{ matrix.build_type }} --parallel
+        shell: pwsh
         timeout-minutes: 10
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build --output-on-failure --build-config ${{ matrix.build_type }}
+        shell: pwsh
         timeout-minutes: 10
+      - name: Upload conformance diffs
+        if: failure() && hashFiles('build/conformance_failures/**/*') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-failures-windows-${{ matrix.build_type }}
+          path: build/conformance_failures
+          if-no-files-found: ignore

@@ -12,6 +12,7 @@
 
 #if defined(_WIN32)
   #define WIN32_LEAN_AND_MEAN
+  #define NOMINMAX  // prevent <windows.h> from defining min/max macros
   #include <windows.h>
 #elif defined(__APPLE__)
   #include <dlfcn.h>

@@ -85,6 +85,8 @@ add_executable(orpheus_abi_link
   abi_link/main.cpp
 )
 
+option(ORPHEUS_TEST_ABILINK_NOWX "Build abi_link test without /WX on MSVC" OFF)
+
 target_compile_definitions(orpheus_abi_link
   PRIVATE
     ORPHEUS_ABI_LINK_DIR="$<TARGET_FILE_DIR:orpheus_session>"
@@ -104,7 +106,11 @@ target_include_directories(orpheus_abi_link
     ${CMAKE_SOURCE_DIR}/include
 )
 
-orpheus_enable_warnings(orpheus_abi_link)
+if(MSVC AND ORPHEUS_TEST_ABILINK_NOWX)
+  target_compile_options(orpheus_abi_link PRIVATE /W4)
+else()
+  orpheus_enable_warnings(orpheus_abi_link)
+endif()
 
 add_test(NAME abi_link COMMAND orpheus_abi_link)
 

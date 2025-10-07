@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Build artifacts
 *.wav
+!tools/conformance/fixtures/**/*.wav
 /build/
 /build*/
 /out/

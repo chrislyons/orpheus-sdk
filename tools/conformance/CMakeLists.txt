@@ -1,4 +1,12 @@
 # SPDX-License-Identifier: MIT
+find_package(Python3 COMPONENTS Interpreter)
+
+if(Python3_Interpreter_FOUND)
+  set(ORPHEUS_CONFORMANCE_PYTHON_EXECUTABLE "${Python3_EXECUTABLE}")
+else()
+  set(ORPHEUS_CONFORMANCE_PYTHON_EXECUTABLE "python3")
+endif()
+
 add_executable(orpheus_conformance_json
   json_roundtrip.cpp
 )
@@ -17,7 +25,10 @@ target_include_directories(orpheus_conformance_json
 
 target_compile_definitions(orpheus_conformance_json
   PRIVATE
-    ORPHEUS_FIXTURES_DIR="${CMAKE_SOURCE_DIR}/tools/fixtures"
+    ORPHEUS_CONFORMANCE_FIXTURES_DIR="${CMAKE_SOURCE_DIR}/tools/conformance/fixtures"
+    ORPHEUS_CONFORMANCE_OUTPUT_DIR="${CMAKE_BINARY_DIR}/conformance_failures"
+    ORPHEUS_COMPARE_JSON_SCRIPT="${CMAKE_SOURCE_DIR}/tools/conformance/compare_json.py"
+    ORPHEUS_CONFORMANCE_PYTHON="${ORPHEUS_CONFORMANCE_PYTHON_EXECUTABLE}"
 )
 
 include(GoogleTest)

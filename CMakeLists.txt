@@ -56,22 +56,21 @@ elseif(UNIX)
   set(CMAKE_BUILD_RPATH "${CMAKE_BINARY_DIR}")
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-  add_compile_options("$<$<CONFIG:Debug>:-fsanitize=address>")
-  add_link_options("$<$<CONFIG:Debug>:-fsanitize=address>")
-else()
-  message(STATUS "Sanitizers are not enabled on this compiler.")
-endif()
+option(ORP_ENABLE_DEBUG_SANITIZERS "Enable sanitizer instrumentation in Debug builds" ON)
 
-option(ORP_ENABLE_UBSAN "Enable Undefined Behavior Sanitizer in Debug" ON)
+set(ORP_EXTRA_UBSAN_LIB "")
 
-if(ORP_ENABLE_UBSAN AND CMAKE_BUILD_TYPE MATCHES "Debug" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-  add_compile_options(-fsanitize=undefined)
-  add_link_options(-fsanitize=undefined)
-  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+if(ORP_ENABLE_DEBUG_SANITIZERS AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  add_compile_options(
+    "$<$<CONFIG:Debug>:-fsanitize=address,undefined>"
+    "$<$<CONFIG:Debug>:-fno-omit-frame-pointer>")
+  add_link_options("$<$<CONFIG:Debug>:-fsanitize=address,undefined>")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # GCC-based UBSan builds sometimes require explicit runtime linkage.
     set(ORP_EXTRA_UBSAN_LIB ubsan)
   endif()
+elseif(NOT (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang"))
+  message(STATUS "Sanitizers are not enabled on this compiler.")
 endif()
 
 if(ENABLE_LTO)
