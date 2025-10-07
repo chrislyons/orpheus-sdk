@@ -48,6 +48,11 @@ if(APPLE)
   add_link_options(-stdlib=libc++)
 endif()
 
+if(WIN32)
+  set(CMAKE_THREAD_PREFER_PTHREAD OFF)
+  set(THREADS_PREFER_PTHREAD_FLAG OFF)
+endif()
+
 if(APPLE)
   set(CMAKE_INSTALL_RPATH "@loader_path")
   set(CMAKE_BUILD_RPATH "${CMAKE_BINARY_DIR}")
