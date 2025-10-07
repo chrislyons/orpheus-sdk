@@ -1,4 +1,13 @@
 // SPDX-License-Identifier: MIT
+#if defined(_WIN32)
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#endif
+
 #include "orpheus/abi.h"
 
 #include <array>
@@ -11,9 +20,7 @@
 #include <vector>
 
 #if defined(_WIN32)
-  #define WIN32_LEAN_AND_MEAN
-  #define NOMINMAX
-  #include <windows.h>
+#  include <windows.h>
 #elif defined(__APPLE__)
   #include <dlfcn.h>
 #else
