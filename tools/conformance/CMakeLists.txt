@@ -17,6 +17,9 @@ target_link_libraries(orpheus_conformance_json
     GTest::gtest_main
 )
 
+include(${CMAKE_SOURCE_DIR}/cmake/CompilerWarnings.cmake)
+orpheus_enable_warnings(orpheus_conformance_json)
+
 target_include_directories(orpheus_conformance_json
   PRIVATE
     ${CMAKE_SOURCE_DIR}/include
