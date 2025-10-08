@@ -220,14 +220,17 @@ class Oscillator {
     PinkState pink{};
   };
 
-  [[nodiscard]] double process_voice(std::size_t voice_index, double frequency_hz,
-                                     double phase_increment, double pulse_width,
-                                     double sample_rate, double& sub_mix) noexcept;
+  [[nodiscard]] double render_voice(VoiceState& voice, Waveform waveform,
+                                    double phase_increment, double pulse_width,
+                                    double sub_increment, double& sub_mix) noexcept;
 
   [[nodiscard]] static double poly_blep(double t, double dt) noexcept;
   [[nodiscard]] static double wrap_phase(double phase) noexcept;
   [[nodiscard]] static double clamp(double value, double min, double max) noexcept;
   [[nodiscard]] double voice_detune(std::size_t voice_index) const noexcept;
+  [[nodiscard]] static double detune_factor(double spread_cents, std::size_t voices,
+                                            std::size_t voice_index) noexcept;
+  static void advance_phase(double& phase, double increment) noexcept;
 
   template <typename T>
   static constexpr T lerp(T a, T b, T alpha) noexcept {

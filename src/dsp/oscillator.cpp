@@ -1,7 +1,9 @@
 #include "orpheus/dsp/oscillator.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdint>
 #include <random>
 
 namespace orpheus::dsp {
@@ -98,27 +100,34 @@ void Oscillator::set_frequency_modulation_depth(double depth_ratio) noexcept {
 double Oscillator::frequency_modulation_depth() const noexcept { return fm_depth_.load(); }
 
 float Oscillator::process(float fm_input) noexcept {
-  const auto sr = std::max(sample_rate_.load(std::memory_order_relaxed), kMinSampleRate);
-  const auto base_freq = std::max(frequency_.load(std::memory_order_relaxed), kMinFrequency);
-  const auto voices = voice_count_.load(std::memory_order_relaxed);
-  const auto pw = pulse_width_.load(std::memory_order_relaxed);
-  const auto fm_depth = fm_depth_.load(std::memory_order_relaxed);
-  const auto sub_enabled = sub_oscillator_.load(std::memory_order_relaxed);
+  const double sr = std::max(sample_rate_.load(std::memory_order_relaxed), kMinSampleRate);
+  const double base_freq = std::max(frequency_.load(std::memory_order_relaxed), kMinFrequency);
+  const std::size_t voices = std::max<std::size_t>(1, voice_count_.load(std::memory_order_relaxed));
+  const double pulse_width = pulse_width_.load(std::memory_order_relaxed);
+  const double fm_depth = fm_depth_.load(std::memory_order_relaxed);
+  const bool sub_enabled = sub_oscillator_.load(std::memory_order_relaxed);
+  const auto waveform = waveform_.load(std::memory_order_relaxed);
 
   const double lfo_scale = lfo_mode_.load(std::memory_order_relaxed) ? 0.5 : 1.0;
-
   const double fm_ratio = std::clamp(static_cast<double>(fm_input), -1.0, 1.0) * fm_depth;
   const double fm_hz = base_freq * fm_ratio;
+  const double detune_spread = detune_cents_.load(std::memory_order_relaxed);
+  const double base_with_fm = base_freq + fm_hz;
 
   double sample_accumulator = 0.0;
   double sub_accumulator = 0.0;
   for (std::size_t v = 0; v < voices; ++v) {
-    const double detune = voice_detune(v);
-    const double freq = (base_freq + fm_hz) * detune;
-    const double scaled_freq = std::max(freq, kMinFrequency) * lfo_scale;
+    const double detune = detune_factor(detune_spread, voices, v);
+    const double scaled_freq =
+        std::max(base_with_fm * detune, kMinFrequency) * lfo_scale;
     const double phase_increment = scaled_freq / sr;
+
+    auto& voice = voices_[v];
+    advance_phase(voice.phase, phase_increment);
+    const double sub_increment = std::max(scaled_freq * 0.5 / sr, 0.0);
     sample_accumulator +=
-        process_voice(v, scaled_freq, phase_increment, pw, sr, sub_accumulator);
+        render_voice(voice, waveform, phase_increment, pulse_width, sub_increment,
+                     sub_accumulator);
   }
 
   double sample = sample_accumulator / static_cast<double>(voices);
@@ -131,18 +140,58 @@ float Oscillator::process(float fm_input) noexcept {
 }
 
 void Oscillator::process(std::span<float> output, float fm_input) noexcept {
+  if (output.empty()) {
+    return;
+  }
+
+  const double sr = std::max(sample_rate_.load(std::memory_order_relaxed), kMinSampleRate);
+  const double base_freq = std::max(frequency_.load(std::memory_order_relaxed), kMinFrequency);
+  const std::size_t voices = std::max<std::size_t>(1, voice_count_.load(std::memory_order_relaxed));
+  const double pulse_width = pulse_width_.load(std::memory_order_relaxed);
+  const double fm_depth = fm_depth_.load(std::memory_order_relaxed);
+  const bool sub_enabled = sub_oscillator_.load(std::memory_order_relaxed);
+  const double detune_spread = detune_cents_.load(std::memory_order_relaxed);
+  const double lfo_scale = lfo_mode_.load(std::memory_order_relaxed) ? 0.5 : 1.0;
+
+  const double fm_ratio = std::clamp(static_cast<double>(fm_input), -1.0, 1.0) * fm_depth;
+  const double fm_hz = base_freq * fm_ratio;
+  const double base_with_fm = base_freq + fm_hz;
+
+  std::array<double, kMaxVoices> phase_increment{};
+  std::array<double, kMaxVoices> sub_increment{};
+  for (std::size_t v = 0; v < voices; ++v) {
+    const double detune = detune_factor(detune_spread, voices, v);
+    const double scaled_freq =
+        std::max(base_with_fm * detune, kMinFrequency) * lfo_scale;
+    phase_increment[v] = scaled_freq / sr;
+    sub_increment[v] = std::max(scaled_freq * 0.5 / sr, 0.0);
+  }
+
   for (auto& sample : output) {
-    sample = process(fm_input);
+    double sample_accumulator = 0.0;
+    double sub_accumulator = 0.0;
+    const auto waveform = waveform_.load(std::memory_order_relaxed);
+    for (std::size_t v = 0; v < voices; ++v) {
+      auto& voice = voices_[v];
+      advance_phase(voice.phase, phase_increment[v]);
+      sample_accumulator +=
+          render_voice(voice, waveform, phase_increment[v], pulse_width,
+                       sub_increment[v], sub_accumulator);
+    }
+
+    double mixed = sample_accumulator / static_cast<double>(voices);
+    if (sub_enabled) {
+      const double sub_sample = sub_accumulator / static_cast<double>(voices);
+      mixed = (mixed + sub_sample) * 0.5;
+    }
+
+    sample = static_cast<float>(std::clamp(mixed, -1.0, 1.0));
   }
 }
 
-double Oscillator::process_voice(std::size_t voice_index, double frequency_hz,
-                                 double phase_increment, double pulse_width,
-                                 double sample_rate, double& sub_mix) noexcept {
-  auto& voice = voices_[voice_index];
-  voice.phase = wrap_phase(voice.phase + phase_increment);
-
-  const auto waveform = waveform_.load(std::memory_order_relaxed);
+double Oscillator::render_voice(VoiceState& voice, Waveform waveform,
+                                double phase_increment, double pulse_width,
+                                double sub_increment, double& sub_mix) noexcept {
   double sample = 0.0;
 
   switch (waveform) {
@@ -210,8 +259,7 @@ double Oscillator::process_voice(std::size_t voice_index, double frequency_hz,
     }
   }
 
-  const double sub_increment = std::max(frequency_hz * 0.5 / sample_rate, 0.0);
-  voice.sub_phase = wrap_phase(voice.sub_phase + sub_increment);
+  advance_phase(voice.sub_phase, sub_increment);
   sub_mix += sine_from_table(voice.sub_phase);
 
   const double dc_alpha = 0.001;
@@ -253,17 +301,30 @@ double Oscillator::clamp(double value, double min, double max) noexcept {
 
 double Oscillator::voice_detune(std::size_t voice_index) const noexcept {
   const auto voices = voice_count_.load(std::memory_order_relaxed);
-  if (voices <= 1) {
-    return 1.0;
-  }
   const double spread = detune_cents_.load(std::memory_order_relaxed);
-  if (spread <= 0.0) {
+  return detune_factor(spread, voices, voice_index);
+}
+
+double Oscillator::detune_factor(double spread_cents, std::size_t voices,
+                                 std::size_t voice_index) noexcept {
+  if (voices <= 1 || spread_cents <= 0.0) {
     return 1.0;
   }
 
-  const double cents_per_voice = spread / static_cast<double>(voices - 1);
-  const double offset_cents = (static_cast<double>(voice_index) * cents_per_voice) - spread / 2.0;
+  const std::size_t bounded_index = std::min<std::size_t>(voice_index, voices - 1);
+  const double cents_per_voice = spread_cents / static_cast<double>(voices - 1);
+  const double offset_cents =
+      (static_cast<double>(bounded_index) * cents_per_voice) - spread_cents / 2.0;
   return std::pow(2.0, offset_cents / 1200.0);
+}
+
+void Oscillator::advance_phase(double& phase, double increment) noexcept {
+  phase += increment;
+  if (phase >= 1.0) {
+    phase -= static_cast<double>(static_cast<std::uint32_t>(phase));
+  } else if (phase < 0.0) {
+    phase += 1.0;
+  }
 }
 
 double Oscillator::sine_from_table(double phase) noexcept {
