@@ -41,6 +41,13 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(WIN32)
+  set(CMAKE_THREAD_PREFER_PTHREAD OFF)
+  set(THREADS_PREFER_PTHREAD_FLAG OFF)
+endif()
+
+find_package(Threads REQUIRED)
+
 if(APPLE)
   # Force a single architecture slice and ensure libc++ is used across all builds.
   set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)

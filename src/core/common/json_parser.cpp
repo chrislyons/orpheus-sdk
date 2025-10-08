@@ -11,7 +11,8 @@
 
 namespace orpheus::json {
 
-JsonParser::JsonParser(std::string_view input) : input_(input) {}
+JsonParser::JsonParser(std::string_view input)
+    : storage_(input), input_(storage_) {}
 
 JsonValue JsonParser::Parse() {
   SkipWhitespace();
@@ -336,7 +337,7 @@ std::string FormatDouble(double value) {
   return text;
 }
 
-void WriteIndent(std::ostringstream &stream, int indent) {
+void WriteIndent(std::ostringstream &stream, std::size_t indent) {
   stream << std::string(indent, ' ');
 }
 

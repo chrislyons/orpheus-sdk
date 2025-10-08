@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <optional>
@@ -45,6 +46,7 @@ class ORPHEUS_API JsonParser {
   void ParseNull();
   double ParseNumber();
 
+  std::string storage_;
   std::string_view input_;
   std::size_t index_ = 0;
 };
@@ -61,7 +63,7 @@ ORPHEUS_API std::string RequireString(const JsonValue &value,
                                       const std::string &key);
 
 ORPHEUS_API std::string FormatDouble(double value);
-ORPHEUS_API void WriteIndent(std::ostringstream &stream, int indent);
+ORPHEUS_API void WriteIndent(std::ostringstream &stream, std::size_t indent);
 ORPHEUS_API std::string EscapeString(const std::string &value);
 
 }  // namespace orpheus::json

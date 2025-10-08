@@ -22,7 +22,7 @@ enum class EntityKind {
 struct EntityEnvelope {
   std::string id;
   std::string name;
-  EntityKind kind;
+  EntityKind kind{EntityKind::kProgramme};
 };
 
 struct BedChannel {
@@ -42,42 +42,43 @@ enum class ThinningPolicy {
   kEnabled,
 };
 
-class ORPHEUS_API Bed {
+class Bed {
  public:
-  explicit Bed(EntityEnvelope envelope);
+  ORPHEUS_API explicit Bed(EntityEnvelope envelope);
 
-  const EntityEnvelope &envelope() const;
-  void add_channel(BedChannel channel);
-  const std::vector<BedChannel> &channels() const;
+  [[nodiscard]] ORPHEUS_API const EntityEnvelope &envelope() const;
+  ORPHEUS_API void add_channel(BedChannel channel);
+  [[nodiscard]] ORPHEUS_API const std::vector<BedChannel> &channels() const;
 
  private:
   EntityEnvelope envelope_;
   std::vector<BedChannel> channels_;
 };
 
-class ORPHEUS_API Object {
+class Object {
  public:
-  explicit Object(EntityEnvelope envelope);
+  ORPHEUS_API explicit Object(EntityEnvelope envelope);
 
-  const EntityEnvelope &envelope() const;
-  void add_point(ObjectPoint point);
-  std::vector<ObjectPoint> trajectory(ThinningPolicy policy) const;
+  [[nodiscard]] ORPHEUS_API const EntityEnvelope &envelope() const;
+  ORPHEUS_API void add_point(ObjectPoint point);
+  [[nodiscard]] ORPHEUS_API std::vector<ObjectPoint> trajectory(
+      ThinningPolicy policy) const;
 
  private:
   EntityEnvelope envelope_;
   std::vector<ObjectPoint> points_;
 };
 
-class ORPHEUS_API Content {
+class Content {
  public:
-  explicit Content(EntityEnvelope envelope);
+  ORPHEUS_API explicit Content(EntityEnvelope envelope);
 
-  const EntityEnvelope &envelope() const;
-  void attach_bed(std::size_t bed_index);
-  void attach_object(std::size_t object_index);
+  [[nodiscard]] ORPHEUS_API const EntityEnvelope &envelope() const;
+  ORPHEUS_API void attach_bed(std::size_t bed_index);
+  ORPHEUS_API void attach_object(std::size_t object_index);
 
-  const std::vector<std::size_t> &beds() const;
-  const std::vector<std::size_t> &objects() const;
+  [[nodiscard]] ORPHEUS_API const std::vector<std::size_t> &beds() const;
+  [[nodiscard]] ORPHEUS_API const std::vector<std::size_t> &objects() const;
 
  private:
   EntityEnvelope envelope_;
@@ -85,52 +86,56 @@ class ORPHEUS_API Content {
   std::vector<std::size_t> objects_;
 };
 
-class ORPHEUS_API Programme {
+class Programme {
  public:
-  explicit Programme(EntityEnvelope envelope);
+  ORPHEUS_API explicit Programme(EntityEnvelope envelope);
 
-  const EntityEnvelope &envelope() const;
-  void attach_content(std::size_t content_index);
-  const std::vector<std::size_t> &contents() const;
+  [[nodiscard]] ORPHEUS_API const EntityEnvelope &envelope() const;
+  ORPHEUS_API void attach_content(std::size_t content_index);
+  [[nodiscard]] ORPHEUS_API const std::vector<std::size_t> &contents() const;
 
  private:
   EntityEnvelope envelope_;
   std::vector<std::size_t> contents_;
 };
 
-class ORPHEUS_API EntityGraph {
+class EntityGraph {
  public:
-  Programme &add_programme(EntityEnvelope envelope);
-  Content &add_content(EntityEnvelope envelope);
-  Bed &add_bed(EntityEnvelope envelope);
-  Object &add_object(EntityEnvelope envelope);
+  ORPHEUS_API Programme &add_programme(EntityEnvelope envelope);
+  ORPHEUS_API Content &add_content(EntityEnvelope envelope);
+  ORPHEUS_API Bed &add_bed(EntityEnvelope envelope);
+  ORPHEUS_API Object &add_object(EntityEnvelope envelope);
 
-  void link_programme_to_content(const Programme &programme,
-                                 const Content &content);
-  void link_content_to_bed(const Content &content, const Bed &bed);
-  void link_content_to_object(const Content &content, const Object &object);
+  ORPHEUS_API void link_programme_to_content(const Programme &programme,
+                                             const Content &content);
+  ORPHEUS_API void link_content_to_bed(const Content &content,
+                                       const Bed &bed);
+  ORPHEUS_API void link_content_to_object(const Content &content,
+                                          const Object &object);
 
-  const Programme &programme_at(std::size_t index) const;
-  Programme &programme_at(std::size_t index);
-  const Content &content_at(std::size_t index) const;
-  Content &content_at(std::size_t index);
-  const Bed &bed_at(std::size_t index) const;
-  Bed &bed_at(std::size_t index);
-  const Object &object_at(std::size_t index) const;
-  Object &object_at(std::size_t index);
+  [[nodiscard]] ORPHEUS_API const Programme &programme_at(
+      std::size_t index) const;
+  ORPHEUS_API Programme &programme_at(std::size_t index);
+  [[nodiscard]] ORPHEUS_API const Content &content_at(std::size_t index) const;
+  ORPHEUS_API Content &content_at(std::size_t index);
+  [[nodiscard]] ORPHEUS_API const Bed &bed_at(std::size_t index) const;
+  ORPHEUS_API Bed &bed_at(std::size_t index);
+  [[nodiscard]] ORPHEUS_API const Object &object_at(std::size_t index) const;
+  ORPHEUS_API Object &object_at(std::size_t index);
 
-  std::size_t programme_count() const;
-  std::size_t content_count() const;
-  std::size_t bed_count() const;
-  std::size_t object_count() const;
+  [[nodiscard]] ORPHEUS_API std::size_t programme_count() const;
+  [[nodiscard]] ORPHEUS_API std::size_t content_count() const;
+  [[nodiscard]] ORPHEUS_API std::size_t bed_count() const;
+  [[nodiscard]] ORPHEUS_API std::size_t object_count() const;
 
-  std::string DebugDumpJson(ThinningPolicy policy) const;
+  [[nodiscard]] ORPHEUS_API std::string DebugDumpJson(
+      ThinningPolicy policy) const;
 
  private:
-  std::size_t programme_index(const Programme &programme) const;
-  std::size_t content_index(const Content &content) const;
-  std::size_t bed_index(const Bed &bed) const;
-  std::size_t object_index(const Object &object) const;
+  [[nodiscard]] std::size_t programme_index(const Programme &programme) const;
+  [[nodiscard]] std::size_t content_index(const Content &content) const;
+  [[nodiscard]] std::size_t bed_index(const Bed &bed) const;
+  [[nodiscard]] std::size_t object_index(const Object &object) const;
 
   std::deque<Programme> programmes_;
   std::deque<Content> contents_;

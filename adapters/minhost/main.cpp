@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <cerrno>
 #include <chrono>
 #include <cmath>
@@ -510,9 +511,9 @@ void PrintSessionSummary(const SessionContext &context) {
   }
 }
 
-void PrintAbiJson(const AbiContext &abi, int indent) {
+void PrintAbiJson(const AbiContext &abi, std::size_t indent) {
   const std::string base(indent, ' ');
-  const std::string inner(indent + 2, ' ');
+  const std::string inner(indent + 2u, ' ');
   const bool session_ok = abi.session_api != nullptr &&
                           abi.session_major == ORPHEUS_ABI_MAJOR &&
                           abi.session_minor == ORPHEUS_ABI_MINOR;
@@ -748,7 +749,7 @@ int RunLoadCommand(const CliGlobalOptions &global, const LoadCommandOptions &opt
     const SessionGraph *session_impl = context.session_impl();
     std::cout << "{\n";
     std::cout << "  \"command\": \"load\",\n";
-    PrintAbiJson(context.abi, 2);
+    PrintAbiJson(context.abi, std::size_t{2});
     std::cout << ",\n";
     std::cout << "  \"session\": {\n";
     std::cout << "    \"name\": \"" << JsonEscape(context.graph.name()) << "\",\n";
@@ -915,7 +916,7 @@ int RunRenderTracksCommand(const CliGlobalOptions &global,
   } else {
     std::cout << "{\n";
     std::cout << "  \"command\": \"render-tracks\",\n";
-    PrintAbiJson(context.abi, 2);
+    PrintAbiJson(context.abi, std::size_t{2});
     std::cout << ",\n";
     std::cout << "  \"output_directory\": \""
               << JsonEscape(options.output_directory.string()) << "\",\n";
@@ -1234,7 +1235,7 @@ int RunRenderClickCommand(const CliGlobalOptions &global,
   } else {
     std::cout << "{\n";
     std::cout << "  \"command\": \"render-click\",\n";
-    PrintAbiJson(context.abi, 2);
+    PrintAbiJson(context.abi, std::size_t{2});
     std::cout << ",\n";
     std::cout << "  \"spec\": {\n";
     std::cout << "    \"tempo_bpm\": " << FormatNumber(spec.tempo_bpm) << ",\n";
@@ -1349,7 +1350,7 @@ int RunSimulateTransportCommand(const CliGlobalOptions &global,
   if (global.json_output) {
     std::cout << "{\n";
     std::cout << "  \"command\": \"simulate-transport\",\n";
-    PrintAbiJson(context.abi, 2);
+    PrintAbiJson(context.abi, std::size_t{2});
     std::cout << ",\n";
     std::cout << "  \"tempo_bpm\": " << FormatNumber(context.tempo_bpm) << ",\n";
     std::cout << "  \"beats\": " << FormatNumber(beats) << ",\n";
