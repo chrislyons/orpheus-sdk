@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
-#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -26,11 +25,17 @@ struct JsonValue {
   std::vector<JsonValue> array;
 };
 
-class ORPHEUS_API JsonParser {
+class JsonParser {
  public:
-  explicit JsonParser(std::string_view input);
+  ORPHEUS_API explicit JsonParser(std::string_view input);
+  ORPHEUS_API ~JsonParser();
 
-  JsonValue Parse();
+  JsonParser(const JsonParser &) = delete;
+  JsonParser &operator=(const JsonParser &) = delete;
+  JsonParser(JsonParser &&) = delete;
+  JsonParser &operator=(JsonParser &&) = delete;
+
+  ORPHEUS_API JsonValue Parse();
 
  private:
   bool AtEnd() const;

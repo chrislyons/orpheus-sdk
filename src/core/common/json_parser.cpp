@@ -14,6 +14,8 @@ namespace orpheus::json {
 JsonParser::JsonParser(std::string_view input)
     : storage_(input), input_(storage_) {}
 
+JsonParser::~JsonParser() = default;
+
 JsonValue JsonParser::Parse() {
   SkipWhitespace();
   JsonValue value = ParseValue();
