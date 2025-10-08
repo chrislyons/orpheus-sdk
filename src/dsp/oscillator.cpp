@@ -53,11 +53,8 @@ Waveform Oscillator::waveform() const noexcept { return waveform_.load(); }
 
 void Oscillator::set_phase(double phase) noexcept {
   const double wrapped = wrap_phase(phase);
-  for (auto& voice : voices_) {
-    voice.phase = wrapped;
-    voice.integrator = 0.0;
-    voice.sub_phase = wrapped * 0.5;
-  }
+  requested_phase_.store(wrapped, std::memory_order_relaxed);
+  phase_sync_pending_.store(true, std::memory_order_release);
 }
 
 void Oscillator::reset_phase() noexcept { set_phase(0.0); }
@@ -100,6 +97,8 @@ void Oscillator::set_frequency_modulation_depth(double depth_ratio) noexcept {
 double Oscillator::frequency_modulation_depth() const noexcept { return fm_depth_.load(); }
 
 float Oscillator::process(float fm_input) noexcept {
+  apply_phase_sync_if_needed();
+
   const double sr = std::max(sample_rate_.load(std::memory_order_relaxed), kMinSampleRate);
   const double base_freq = std::max(frequency_.load(std::memory_order_relaxed), kMinFrequency);
   const std::size_t voices = std::max<std::size_t>(1, voice_count_.load(std::memory_order_relaxed));
@@ -144,6 +143,8 @@ void Oscillator::process(std::span<float> output, float fm_input) noexcept {
     return;
   }
 
+  apply_phase_sync_if_needed();
+
   const double sr = std::max(sample_rate_.load(std::memory_order_relaxed), kMinSampleRate);
   const double base_freq = std::max(frequency_.load(std::memory_order_relaxed), kMinFrequency);
   const std::size_t voices = std::max<std::size_t>(1, voice_count_.load(std::memory_order_relaxed));
@@ -187,6 +188,24 @@ void Oscillator::process(std::span<float> output, float fm_input) noexcept {
 
     sample = static_cast<float>(std::clamp(mixed, -1.0, 1.0));
   }
+}
+
+void Oscillator::apply_phase_sync_if_needed() noexcept {
+  if (!phase_sync_pending_.load(std::memory_order_acquire)) {
+    return;
+  }
+
+  const double target_phase = wrap_phase(requested_phase_.load(std::memory_order_relaxed));
+  const double sub_phase = wrap_phase(target_phase * 0.5);
+  const double triangle_seed = 4.0 * std::abs(target_phase - 0.5) - 1.0;
+  for (auto& voice : voices_) {
+    voice.phase = target_phase;
+    voice.integrator = std::clamp(triangle_seed, -1.0, 1.0);
+    voice.sub_phase = sub_phase;
+    voice.dc = 0.0;
+  }
+
+  phase_sync_pending_.store(false, std::memory_order_release);
 }
 
 double Oscillator::render_voice(VoiceState& voice, Waveform waveform,
@@ -237,9 +256,13 @@ double Oscillator::render_voice(VoiceState& voice, Waveform waveform,
         t -= 1.0;
       }
       square -= poly_blep(t, phase_increment);
-      voice.integrator += square * phase_increment;
-      voice.integrator -= voice.integrator * 0.001;
-      sample = voice.integrator * 4.0;
+      voice.integrator += square * phase_increment * 4.0;
+      if (voice.integrator > 1.0) {
+        voice.integrator = 1.0 - (voice.integrator - 1.0);
+      } else if (voice.integrator < -1.0) {
+        voice.integrator = -1.0 - (voice.integrator + 1.0);
+      }
+      sample = std::clamp(voice.integrator, -1.0, 1.0);
       break;
     }
     case Waveform::WhiteNoise: {

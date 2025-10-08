@@ -224,6 +224,8 @@ class Oscillator {
                                     double phase_increment, double pulse_width,
                                     double sub_increment, double& sub_mix) noexcept;
 
+  void apply_phase_sync_if_needed() noexcept;
+
   [[nodiscard]] static double poly_blep(double t, double dt) noexcept;
   [[nodiscard]] static double wrap_phase(double phase) noexcept;
   [[nodiscard]] static double clamp(double value, double min, double max) noexcept;
@@ -261,6 +263,8 @@ class Oscillator {
   std::atomic<bool> lfo_mode_{false};
   std::atomic<Waveform> waveform_{Waveform::Sine};
   std::atomic<double> fm_depth_{0.0};
+  std::atomic<bool> phase_sync_pending_{false};
+  std::atomic<double> requested_phase_{0.0};
 };
 
 }  // namespace orpheus::dsp
