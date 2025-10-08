@@ -153,14 +153,15 @@ std::vector<std::uint8_t> DecodeBase64(std::string_view encoded) {
   std::vector<std::uint8_t> result;
   int value = 0;
   int bits = -8;
-  for (const unsigned char ch : encoded) {
-    if (std::isspace(ch) != 0) {
+  for (const char ch : encoded) {
+    const unsigned char byte = static_cast<unsigned char>(ch);
+    if (std::isspace(byte) != 0) {
       continue;
     }
-    if (ch == '=') {
+    if (byte == '=') {
       break;
     }
-    const int decoded = table[ch];
+    const int decoded = table[byte];
     if (decoded < 0) {
       throw std::runtime_error("Invalid character in base64 fixture");
     }
