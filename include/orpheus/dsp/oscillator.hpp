@@ -240,7 +240,7 @@ class Oscillator {
   }
 
   static constexpr std::size_t kSineTableSize = 2048;
-  static constexpr std::array<double, kSineTableSize> kSineTable = [] {
+  static inline const std::array<double, kSineTableSize> kSineTable = [] {
     std::array<double, kSineTableSize> table{};
     for (std::size_t i = 0; i < kSineTableSize; ++i) {
       table[i] =

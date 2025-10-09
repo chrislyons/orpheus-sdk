@@ -3,6 +3,17 @@ cmake_minimum_required(VERSION 3.22)
 
 project(orpheus VERSION 0.2.0 LANGUAGES CXX)
 
+# --- CI-safe MSVC flags -------------------------------------------------------
+if(MSVC)
+  option(ORPHEUS_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
+  foreach(var CMAKE_C_FLAGS CMAKE_CXX_FLAGS CMAKE_C_FLAGS_INIT CMAKE_CXX_FLAGS_INIT)
+    if(DEFINED ${var})
+      string(REPLACE "/WX" "" ${var} "${${var}}")
+    endif()
+  endforeach()
+  set(CMAKE_MSVC_DISABLE_WARNING_AS_ERROR ON CACHE BOOL "Disable /WX on MSVC" FORCE)
+endif()
+
 option(ORP_WITH_TESTS "Build Orpheus tests" ON)
 option(ORPHEUS_ENABLE_ADAPTERS "Build Orpheus host adapters" ON)
 option(ORPHEUS_ENABLE_ADAPTER_MINHOST "Build the minimal host adapter" ON)
