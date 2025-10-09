@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: MIT
 # Build artifacts
-*.wav
 /build/
 /build*/
 /out/
@@ -50,19 +49,3 @@ out/
 *.wav
 *.pdf
 
-# Orpheus binary guard
-*.node
-*.wasm
-*.dylib
-*.dll
-*.so
-*.zip
-*.7z
-*.tar
-*.gz
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.mp3
-*.wav

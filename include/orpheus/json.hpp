@@ -13,12 +13,13 @@
 
 #include "orpheus/export.h"
 
+namespace orpheus::json {
+
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable : 4244)
+#pragma warning(disable : 4251) // STL members in exported classes
+#pragma warning(disable : 4244) // narrowing conversions in parsing helpers
 #endif
-
-namespace orpheus::json {
 
 struct JsonValue {
   enum class Type { kNull, kObject, kArray, kString, kNumber, kBoolean };
@@ -32,12 +33,12 @@ struct JsonValue {
 };
 
 class ORPHEUS_API JsonParser {
- public:
+public:
   explicit JsonParser(std::string_view input);
 
   [[nodiscard]] JsonValue Parse();
 
- private:
+private:
   [[nodiscard]] bool AtEnd() const;
   [[nodiscard]] char Peek() const;
   char Consume();
@@ -55,23 +56,20 @@ class ORPHEUS_API JsonParser {
   std::size_t index_ = 0;
 };
 
-[[nodiscard]] ORPHEUS_API const JsonValue &ExpectObject(const JsonValue &value,
-                                                       const char *context);
-[[nodiscard]] ORPHEUS_API const JsonValue &ExpectArray(const JsonValue &value,
-                                                      const char *context);
-[[nodiscard]] ORPHEUS_API const JsonValue *RequireField(
-    const JsonValue &object, const std::string &key);
-[[nodiscard]] ORPHEUS_API double RequireNumber(const JsonValue &value,
-                                               const std::string &key);
-[[nodiscard]] ORPHEUS_API std::string RequireString(const JsonValue &value,
-                                                    const std::string &key);
+[[nodiscard]] ORPHEUS_API const JsonValue& ExpectObject(const JsonValue& value,
+                                                        const char* context);
+[[nodiscard]] ORPHEUS_API const JsonValue& ExpectArray(const JsonValue& value, const char* context);
+[[nodiscard]] ORPHEUS_API const JsonValue* RequireField(const JsonValue& object,
+                                                        const std::string& key);
+[[nodiscard]] ORPHEUS_API double RequireNumber(const JsonValue& value, const std::string& key);
+[[nodiscard]] ORPHEUS_API std::string RequireString(const JsonValue& value, const std::string& key);
 
 ORPHEUS_API std::string FormatDouble(double value);
-ORPHEUS_API void WriteIndent(std::ostringstream &stream, std::size_t indent);
-ORPHEUS_API std::string EscapeString(const std::string &value);
+ORPHEUS_API void WriteIndent(std::ostringstream& stream, std::size_t indent);
+ORPHEUS_API std::string EscapeString(const std::string& value);
 
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
 
-}  // namespace orpheus::json
+} // namespace orpheus::json

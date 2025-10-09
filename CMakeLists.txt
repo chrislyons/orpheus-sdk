@@ -3,15 +3,12 @@ cmake_minimum_required(VERSION 3.22)
 
 project(orpheus VERSION 0.2.0 LANGUAGES CXX)
 
-# --- CI-safe MSVC flags -------------------------------------------------------
+option(ORPHEUS_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 if(MSVC)
-  option(ORPHEUS_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
-  foreach(var CMAKE_C_FLAGS CMAKE_CXX_FLAGS CMAKE_C_FLAGS_INIT CMAKE_CXX_FLAGS_INIT)
-    if(DEFINED ${var})
-      string(REPLACE "/WX" "" ${var} "${${var}}")
-    endif()
-  endforeach()
+  # Avoid /WX on MSVC by default (CI stability); can re-enable locally via option.
   set(CMAKE_MSVC_DISABLE_WARNING_AS_ERROR ON CACHE BOOL "Disable /WX on MSVC" FORCE)
+elseif(ORPHEUS_WARNINGS_AS_ERRORS)
+  add_compile_options(-Werror)
 endif()
 
 option(ORP_WITH_TESTS "Build Orpheus tests" ON)

@@ -11,7 +11,7 @@
     "prepare": "husky install || echo 'Husky not installed'",
     "build": "pnpm -r build",
     "lint": "pnpm run lint:js && pnpm run lint:cpp",
-    "lint:js": "eslint --ext .js,.jsx,.ts,.tsx packages/*/src",
+    "lint:js": "eslint \"packages/**/src/**/*.{js,jsx,ts,tsx}\" --no-error-on-unmatched-pattern",
     "lint:cpp": "scripts/lint-cpp.sh",
     "format": "pnpm run format:js && pnpm run format:cpp",
     "format:js": "prettier --write \"packages/*/src/**/*.{js,jsx,ts,tsx,json,md}\"",

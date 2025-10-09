@@ -56,12 +56,12 @@ double magnitude_at(const std::vector<float>& buffer, std::size_t harmonic) {
     real += buffer[n] * std::cos(phase);
     imag -= buffer[n] * std::sin(phase);
   }
-  const double magnitude = std::sqrt(real * real + imag * imag) /
-                           static_cast<double>(buffer.size());
+  const double magnitude =
+      std::sqrt(real * real + imag * imag) / static_cast<double>(buffer.size());
   return magnitude;
 }
 
-}  // namespace
+} // namespace
 
 TEST(OscillatorTest, FrequencyAccuracySine) {
   orpheus::dsp::Oscillator osc{kSampleRate};
@@ -78,8 +78,8 @@ TEST(OscillatorTest, DCBalanceAcrossWaveforms) {
   osc.set_unison_voice_count(1);
 
   const std::array<orpheus::dsp::Waveform, 4> waveforms = {
-      orpheus::dsp::Waveform::Sine, orpheus::dsp::Waveform::Saw,
-      orpheus::dsp::Waveform::Square, orpheus::dsp::Waveform::Triangle};
+      orpheus::dsp::Waveform::Sine, orpheus::dsp::Waveform::Saw, orpheus::dsp::Waveform::Square,
+      orpheus::dsp::Waveform::Triangle};
 
   for (auto waveform : waveforms) {
     osc.set_waveform(waveform);
@@ -152,4 +152,3 @@ TEST(OscillatorTest, ProcessesEfficiently) {
 
   EXPECT_GT(throughput, 1'000'000.0);
 }
-
