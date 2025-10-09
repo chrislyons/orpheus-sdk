@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+cd "$REPO_ROOT"
+
 echo "=== Orpheus SDK Bootstrap ==="
 
 # Version checks
@@ -53,7 +58,7 @@ pnpm run prepare || echo "⚠️  Husky not configured yet (will be added in Pha
 
 echo ""
 echo "→ Running validation..."
-./scripts/validate-phase0.sh
+"$REPO_ROOT/scripts/validate-phase0.sh"
 
 echo ""
 echo "✅ Bootstrap complete!"
