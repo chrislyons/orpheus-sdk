@@ -57,10 +57,10 @@ jobs:
         with:
           node-version: '18'
       
-      - name: Setup PNPM
+      - name: Setup PNPM (v8 pinned)
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 8.15.4
       
       - name: Get PNPM store directory
         shell: bash
