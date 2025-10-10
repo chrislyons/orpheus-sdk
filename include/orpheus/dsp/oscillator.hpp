@@ -139,8 +139,7 @@ public:
     return *this;
   }
 
-  operator bool() const noexcept
-  {
+  operator bool() const noexcept {
     return load();
   }
 
