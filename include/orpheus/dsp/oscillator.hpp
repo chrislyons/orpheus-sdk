@@ -58,11 +58,10 @@ constexpr std::array<double, Size> make_sine_table() noexcept {
 
 class AtomicDouble {
 public:
-  AtomicDouble() noexcept : storage_{0u} {}
+  AtomicDouble() noexcept : storage_{kZeroBits} {}
 
-  explicit AtomicDouble(double value) noexcept {
-    store(value);
-  }
+  explicit AtomicDouble(double value) noexcept
+      : storage_{std::bit_cast<std::uint64_t>(value)} {}
 
   void store(double value,
              std::memory_order order = std::memory_order_relaxed) noexcept {
@@ -84,9 +83,9 @@ public:
   }
 
 private:
-  // Initialize with integer zero in the constructor to avoid MSVC warning when
-  // /WX is enabled. The IEEE-754 representation of 0.0 is all zero bits.
-  std::atomic<std::uint64_t> storage_;
+  // Initialize with integer zero to avoid MSVC warnings when /WX is enabled.
+  inline static constexpr std::uint64_t kZeroBits = 0u;
+  std::atomic<std::uint64_t> storage_{kZeroBits};
 };
 
 /**
