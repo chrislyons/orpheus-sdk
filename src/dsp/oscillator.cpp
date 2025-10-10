@@ -33,10 +33,22 @@ RandomEngine& random_engine() {
 
 } // namespace
 
-Oscillator::Oscillator() = default;
+Oscillator::Oscillator() {
+  initialize_defaults(48000.0);
+}
 
 Oscillator::Oscillator(double sample_rate) {
+  initialize_defaults(sample_rate);
+}
+
+void Oscillator::initialize_defaults(double sample_rate) noexcept {
   set_sample_rate(sample_rate);
+  set_frequency(440.0);
+  set_pulse_width(0.5);
+  set_unison_detune_cents(12.0);
+  set_frequency_modulation_depth(0.0);
+  requested_phase_.store(0.0, std::memory_order_relaxed);
+  phase_sync_pending_.store(false, std::memory_order_relaxed);
 }
 
 void Oscillator::set_sample_rate(double sample_rate) noexcept {
