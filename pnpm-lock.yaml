@@ -13,7 +13,7 @@ overrides:
 
 patchedDependencies:
   shadcn@3.3.1:
-    hash: e4fzjw23dyztfnfspaa5kjaate
+    hash: v73vcg2kf7zqdeuub3sg52eu54
     path: patches/shadcn@3.3.1.patch
 
 importers:
@@ -391,7 +391,7 @@ importers:
         version: 5.0.10
       shadcn:
         specifier: 3.3.1
-        version: 3.3.1(patch_hash=e4fzjw23dyztfnfspaa5kjaate)(@types/node@20.19.20)(typescript@5.9.3)
+        version: 3.3.1(patch_hash=v73vcg2kf7zqdeuub3sg52eu54)(@types/node@20.19.20)(typescript@5.9.3)
       shiki:
         specifier: ^3.13.0
         version: 3.13.0
@@ -6240,11 +6240,6 @@ packages:
   /commander@11.1.0:
     resolution: {integrity: sha512-yPVavfyCcRhmorC7rWlkHn15b4wDVgVmBA7kV4QVBsF7kv/9TKJAbAXVTxvTnwP8HHKjRCJDClKbciiYS7p0DQ==}
     engines: {node: '>=16'}
-    dev: false
-
-  /commander@14.0.1:
-    resolution: {integrity: sha512-2JkV3gUZUVrbNA+1sjBOYLsMZ5cEEl8GTFP2a4AVz5hvasAMCQ1D2l2le/cX+pV4N6ZU17zjUahLpIXRrnWL8A==}
-    engines: {node: '>=20'}
     dev: false
 
   /commander@4.1.1:
@@ -12981,7 +12976,7 @@ packages:
     resolution: {integrity: sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==}
     dev: false
 
-  /shadcn@3.3.1(patch_hash=e4fzjw23dyztfnfspaa5kjaate)(@types/node@20.19.20)(typescript@5.9.3):
+  /shadcn@3.3.1(patch_hash=v73vcg2kf7zqdeuub3sg52eu54)(@types/node@20.19.20)(typescript@5.9.3):
     resolution: {integrity: sha512-sgai5gahy/TiyTiqJEwIFpAuPhmkpt7sGVdRfcmNH53Yc3yI57+zFVmIaqbTST0jP/7tSqZuI0aSllXL2HIw5w==}
     hasBin: true
     dependencies:
@@ -12993,7 +12988,7 @@ packages:
       '@dotenvx/dotenvx': 1.51.0
       '@modelcontextprotocol/sdk': 1.20.0
       browserslist: 4.26.3
-      commander: 14.0.1
+      commander: 11.1.0
       cosmiconfig: 9.0.0(typescript@5.9.3)
       dedent: 1.7.0
       deepmerge: 4.3.1
