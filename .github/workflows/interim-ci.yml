@@ -54,10 +54,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Node.js
+      - name: Setup Node.js (Node 20 per workspace engines)
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20.x'
+          cache: 'pnpm'
       
       - name: Setup PNPM (v8 pinned)
         uses: pnpm/action-setup@v2
