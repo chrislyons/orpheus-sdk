@@ -11,13 +11,36 @@
 #include <future>
 #include <numbers>
 #include <numeric>
+#include <optional>
 #include <random>
+#include <string>
 #include <thread>
 #include <vector>
 
 namespace {
 constexpr std::size_t kTestBlock = 48000;
 constexpr double kSampleRate = 48000.0;
+
+std::optional<std::string> GetEnvVar(const char* name) {
+#if defined(_MSC_VER)
+  char* value = nullptr;
+  std::size_t length = 0;
+  if (_dupenv_s(&value, &length, name) == 0 && value != nullptr && value[0] != '\0') {
+    std::string result(value);
+    std::free(value);
+    return result;
+  }
+  if (value != nullptr) {
+    std::free(value);
+  }
+  return std::nullopt;
+#else
+  if (const char* value = std::getenv(name); value != nullptr && value[0] != '\0') {
+    return std::string(value);
+  }
+  return std::nullopt;
+#endif
+}
 
 std::vector<float> render_buffer(orpheus::dsp::Oscillator& osc, std::size_t frames) {
   std::vector<float> buffer(frames);
@@ -57,12 +80,12 @@ double magnitude_at(const std::vector<float>& buffer, std::size_t harmonic) {
     real += buffer[n] * std::cos(phase);
     imag -= buffer[n] * std::sin(phase);
   }
-  const double magnitude = std::sqrt(real * real + imag * imag) /
-                           static_cast<double>(buffer.size());
+  const double magnitude =
+      std::sqrt(real * real + imag * imag) / static_cast<double>(buffer.size());
   return magnitude;
 }
 
-}  // namespace
+} // namespace
 
 TEST(OscillatorTest, FrequencyAccuracySine) {
   orpheus::dsp::Oscillator osc{kSampleRate};
@@ -79,8 +102,8 @@ TEST(OscillatorTest, DCBalanceAcrossWaveforms) {
   osc.set_unison_voice_count(1);
 
   const std::array<orpheus::dsp::Waveform, 4> waveforms = {
-      orpheus::dsp::Waveform::Sine, orpheus::dsp::Waveform::Saw,
-      orpheus::dsp::Waveform::Square, orpheus::dsp::Waveform::Triangle};
+      orpheus::dsp::Waveform::Sine, orpheus::dsp::Waveform::Saw, orpheus::dsp::Waveform::Square,
+      orpheus::dsp::Waveform::Triangle};
 
   for (auto waveform : waveforms) {
     osc.set_waveform(waveform);
@@ -151,9 +174,8 @@ TEST(OscillatorTest, ProcessesEfficiently) {
 #else
       500'000.0;
 #endif
-  const char* env_min = std::getenv("ORPHEUS_MIN_THROUGHPUT");
-  const double required_throughput =
-      env_min ? std::strtod(env_min, nullptr) : default_required;
+  const auto env_min = GetEnvVar("ORPHEUS_MIN_THROUGHPUT");
+  const double required_throughput = env_min ? std::stod(*env_min) : default_required;
 
   osc.process(buffer);
 
@@ -172,4 +194,3 @@ TEST(OscillatorTest, ProcessesEfficiently) {
       << "Measured best throughput = " << best_throughput
       << " samples/sec (required = " << required_throughput << ")";
 }
-

@@ -26,7 +26,7 @@ struct JsonValue {
   std::vector<JsonValue> array;
 };
 
-class JsonParser {
+class ORPHEUS_API JsonParser {
 public:
   explicit JsonParser(std::string_view input);
 
@@ -46,7 +46,11 @@ private:
   void ParseNull();
   [[nodiscard]] double ParseNumber();
 
-  std::string_view input_;
+  [[nodiscard]] std::string_view Slice(std::size_t start, std::size_t length) const;
+
+  const char* data_ = nullptr;
+  std::size_t size_ = 0;
+
   std::size_t index_ = 0;
 };
 

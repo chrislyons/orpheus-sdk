@@ -11,7 +11,7 @@
 
 namespace orpheus::json {
 
-JsonParser::JsonParser(std::string_view input) : input_(input) {}
+JsonParser::JsonParser(std::string_view input) : data_(input.data()), size_(input.size()) {}
 
 JsonValue JsonParser::Parse() {
   SkipWhitespace();
@@ -24,21 +24,21 @@ JsonValue JsonParser::Parse() {
 }
 
 bool JsonParser::AtEnd() const {
-  return index_ >= input_.size();
+  return index_ >= size_;
 }
 
 char JsonParser::Peek() const {
   if (AtEnd()) {
     return '\0';
   }
-  return input_[index_];
+  return data_[index_];
 }
 
 char JsonParser::Consume() {
   if (AtEnd()) {
     throw std::runtime_error("Unexpected end of input");
   }
-  return input_[index_++];
+  return data_[index_++];
 }
 
 void JsonParser::SkipWhitespace() {
@@ -216,11 +216,11 @@ std::string JsonParser::ParseString() {
 }
 
 bool JsonParser::ParseBoolean() {
-  if (input_.substr(index_, 4) == "true") {
+  if (size_ - index_ >= 4 && Slice(index_, 4) == "true") {
     index_ += 4;
     return true;
   }
-  if (input_.substr(index_, 5) == "false") {
+  if (size_ - index_ >= 5 && Slice(index_, 5) == "false") {
     index_ += 5;
     return false;
   }
@@ -228,7 +228,7 @@ bool JsonParser::ParseBoolean() {
 }
 
 void JsonParser::ParseNull() {
-  if (input_.substr(index_, 4) != "null") {
+  if (size_ - index_ < 4 || Slice(index_, 4) != "null") {
     throw std::runtime_error("Invalid null literal");
   }
   index_ += 4;
@@ -270,7 +270,7 @@ double JsonParser::ParseNumber() {
       ++index_;
     }
   }
-  const std::string_view number_view = input_.substr(start, index_ - start);
+  const std::string_view number_view = Slice(start, index_ - start);
   const std::string number_string(number_view);
   errno = 0;
   char* end_ptr = nullptr;
@@ -280,6 +280,14 @@ double JsonParser::ParseNumber() {
     throw std::runtime_error("Failed to parse number");
   }
   return value;
+}
+
+std::string_view JsonParser::Slice(std::size_t start, std::size_t length) const {
+  if (start >= size_) {
+    return std::string_view();
+  }
+  const std::size_t clamped = std::min(length, size_ - start);
+  return std::string_view(data_ + start, clamped);
 }
 
 const JsonValue& ExpectObject(const JsonValue& value, const char* context) {
