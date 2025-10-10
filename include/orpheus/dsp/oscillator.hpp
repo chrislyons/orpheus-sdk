@@ -78,11 +78,10 @@ public:
   }
 
 private:
-  // Initialize with integer zero in the constructor to avoid MSVC warning when
-  // /WX is enabled. The IEEE-754 representation of 0.0 is all zero bits, so
-  // this preserves the default value without requiring a bit_cast in the
-  // member initializer.
-  std::atomic<std::uint64_t> storage_;
+  // Initialize with integer zero to avoid MSVC warning when /WX is enabled.
+  // The IEEE-754 representation of 0.0 is all zero bits, so this preserves the
+  // default value without requiring a bit_cast in the member initializer.
+  std::atomic<std::uint64_t> storage_{0u};
 };
 
 /**
