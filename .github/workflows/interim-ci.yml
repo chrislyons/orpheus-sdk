@@ -58,7 +58,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18.20.4'
-          cache: 'pnpm'
 
       - name: Enable Corepack
         run: corepack enable
@@ -66,24 +65,26 @@ jobs:
       - name: Prepare pnpm (via Corepack)
         run: corepack prepare pnpm@8.15.4 --activate
 
-      - name: Install pnpm globally (npm fallback)
+      - name: Fallback install pnpm
         run: npm install -g pnpm@8.15.4
 
       - name: Verify pnpm
         run: |
           which pnpm
           pnpm -v
-      
-      - name: Get PNPM store directory
+
+      - name: Get PNPM store path
+        id: storepath
         shell: bash
         run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-      
+
       - name: Cache PNPM store
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ env.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-store-
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
       
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
