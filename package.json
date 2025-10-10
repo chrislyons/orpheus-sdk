@@ -38,7 +38,9 @@
       "@orama/orama": "3.0.0",
       "lru-cache": "10.4.3",
       "mermaid": "10.9.1",
-      "marked": "9.1.6"
+      "marked": "9.1.6",
+      "shadcn@3.3.1>commander": "11.1.0",
+      "@ts-morph/common@0.27.0>minimatch": "9.0.5"
     },
     "patchedDependencies": {
       "shadcn@3.3.1": "patches/shadcn@3.3.1.patch"
