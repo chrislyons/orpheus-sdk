@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -56,11 +57,11 @@ template <std::size_t Size> constexpr std::array<double, Size> make_sine_table()
 class ORPHEUS_API AtomicDouble {
 public:
   AtomicDouble() noexcept {
-    storage_.store(0.0, std::memory_order_relaxed);
+    storage_.store(std::bit_cast<std::uint64_t>(0.0), std::memory_order_relaxed);
   }
 
   explicit AtomicDouble(double value) noexcept {
-    storage_.store(value, std::memory_order_relaxed);
+    storage_.store(std::bit_cast<std::uint64_t>(value), std::memory_order_relaxed);
   }
 
   AtomicDouble(const AtomicDouble&) = delete;
@@ -69,11 +70,12 @@ public:
   AtomicDouble& operator=(AtomicDouble&&) = delete;
 
   void store(double value, std::memory_order order = std::memory_order_relaxed) noexcept {
-    storage_.store(value, order);
+    storage_.store(std::bit_cast<std::uint64_t>(value), order);
   }
 
   [[nodiscard]] double load(std::memory_order order = std::memory_order_relaxed) const noexcept {
-    return storage_.load(order);
+    const std::uint64_t bits = storage_.load(order);
+    return std::bit_cast<double>(bits);
   }
 
   AtomicDouble& operator=(double value) noexcept {
@@ -86,7 +88,7 @@ public:
   }
 
 private:
-  std::atomic<double> storage_;
+  std::atomic<std::uint64_t> storage_;
 };
 
 /**
