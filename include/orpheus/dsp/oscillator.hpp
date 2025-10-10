@@ -42,34 +42,29 @@ constexpr double sine_taylor(double angle) noexcept {
   return x - (x3 / 6.0) + (x5 / 120.0) - (x7 / 5040.0) + (x9 / 362880.0);
 }
 
-template <std::size_t Size>
-constexpr std::array<double, Size> make_sine_table() noexcept {
+template <std::size_t Size> constexpr std::array<double, Size> make_sine_table() noexcept {
   std::array<double, Size> table{};
   for (std::size_t i = 0; i < Size; ++i) {
     const double phase =
-        (static_cast<double>(i) / static_cast<double>(Size)) * 2.0 *
-        std::numbers::pi_v<double>;
+        (static_cast<double>(i) / static_cast<double>(Size)) * 2.0 * std::numbers::pi_v<double>;
     table[i] = sine_taylor(phase);
   }
   return table;
 }
 
-}  // namespace detail
+} // namespace detail
 
 class AtomicDouble {
 public:
   AtomicDouble() noexcept : storage_{kZeroBits} {}
 
-  explicit AtomicDouble(double value) noexcept
-      : storage_{std::bit_cast<std::uint64_t>(value)} {}
+  explicit AtomicDouble(double value) noexcept : storage_{std::bit_cast<std::uint64_t>(value)} {}
 
-  void store(double value,
-             std::memory_order order = std::memory_order_relaxed) noexcept {
+  void store(double value, std::memory_order order = std::memory_order_relaxed) noexcept {
     storage_.store(std::bit_cast<std::uint64_t>(value), order);
   }
 
-  [[nodiscard]] double load(
-      std::memory_order order = std::memory_order_relaxed) const noexcept {
+  [[nodiscard]] double load(std::memory_order order = std::memory_order_relaxed) const noexcept {
     return std::bit_cast<double>(storage_.load(order));
   }
 
@@ -286,11 +281,8 @@ private:
     PinkState pink{};
   };
 
-  [[nodiscard]] double render_voice(VoiceState& voice,
-                                    Waveform waveform,
-                                    double phase_increment,
-                                    double pulse_width,
-                                    double sub_increment,
+  [[nodiscard]] double render_voice(VoiceState& voice, Waveform waveform, double phase_increment,
+                                    double pulse_width, double sub_increment,
                                     double& sub_mix) noexcept;
 
   void apply_phase_sync_if_needed() noexcept;
@@ -303,14 +295,12 @@ private:
 
   [[nodiscard]] double voice_detune(std::size_t voice_index) const noexcept;
 
-  [[nodiscard]] static double detune_factor(double spread_cents,
-                                            std::size_t voices,
+  [[nodiscard]] static double detune_factor(double spread_cents, std::size_t voices,
                                             std::size_t voice_index) noexcept;
 
   static void advance_phase(double& phase, double increment) noexcept;
 
-  template <typename T>
-  static constexpr T lerp(T a, T b, T alpha) noexcept {
+  template <typename T> static constexpr T lerp(T a, T b, T alpha) noexcept {
     return a + (b - a) * alpha;
   }
 
@@ -343,4 +333,4 @@ private:
   AtomicDouble requested_phase_{};
 };
 
-}  // namespace orpheus::dsp
+} // namespace orpheus::dsp
