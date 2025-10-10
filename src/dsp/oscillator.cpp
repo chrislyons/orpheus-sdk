@@ -33,9 +33,16 @@ RandomEngine& random_engine() {
 
 } // namespace
 
-Oscillator::Oscillator() = default;
+Oscillator::Oscillator() {
+  set_sample_rate(kDefaultSampleRate);
+  set_frequency(kDefaultFrequency);
+  set_pulse_width(kDefaultPulseWidth);
+  set_unison_detune_cents(kDefaultDetuneCents);
+  set_frequency_modulation_depth(0.0);
+  requested_phase_.store(0.0);
+}
 
-Oscillator::Oscillator(double sample_rate) {
+Oscillator::Oscillator(double sample_rate) : Oscillator() {
   set_sample_rate(sample_rate);
 }
 

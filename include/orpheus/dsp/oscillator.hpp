@@ -325,17 +325,22 @@ private:
   static constexpr std::size_t kVoiceAlignment = 64;
   alignas(kVoiceAlignment) std::array<VoiceState, kMaxVoices> voices_{};
 
-  AtomicDouble sample_rate_{48000.0};
-  AtomicDouble frequency_{440.0};
-  AtomicDouble pulse_width_{0.5};
-  AtomicDouble detune_cents_{12.0};
+  inline static constexpr double kDefaultSampleRate = 48'000.0;
+  inline static constexpr double kDefaultFrequency = 440.0;
+  inline static constexpr double kDefaultPulseWidth = 0.5;
+  inline static constexpr double kDefaultDetuneCents = 12.0;
+
+  AtomicDouble sample_rate_{};
+  AtomicDouble frequency_{};
+  AtomicDouble pulse_width_{};
+  AtomicDouble detune_cents_{};
   std::atomic<std::size_t> voice_count_{1};
   std::atomic<bool> sub_oscillator_{false};
   std::atomic<bool> lfo_mode_{false};
   std::atomic<Waveform> waveform_{Waveform::Sine};
-  AtomicDouble fm_depth_{0.0};
+  AtomicDouble fm_depth_{};
   std::atomic<bool> phase_sync_pending_{false};
-  AtomicDouble requested_phase_{0.0};
+  AtomicDouble requested_phase_{};
 };
 
 }  // namespace orpheus::dsp
