@@ -16,6 +16,41 @@
 
 namespace orpheus::dsp {
 
+namespace detail {
+
+constexpr double wrap_to_pi(double angle) noexcept {
+  const double two_pi = 2.0 * std::numbers::pi;
+  while (angle > std::numbers::pi) {
+    angle -= two_pi;
+  }
+  while (angle < -std::numbers::pi) {
+    angle += two_pi;
+  }
+  return angle;
+}
+
+constexpr double sine_taylor(double angle) noexcept {
+  const double x = wrap_to_pi(angle);
+  const double x2 = x * x;
+  const double x3 = x * x2;
+  const double x5 = x3 * x2;
+  const double x7 = x5 * x2;
+  const double x9 = x7 * x2;
+  return x - (x3 / 6.0) + (x5 / 120.0) - (x7 / 5040.0) + (x9 / 362880.0);
+}
+
+template <std::size_t Size>
+constexpr std::array<double, Size> make_sine_table() noexcept {
+  std::array<double, Size> table{};
+  for (std::size_t i = 0; i < Size; ++i) {
+    const double phase = (static_cast<double>(i) / Size) * 2.0 * std::numbers::pi;
+    table[i] = sine_taylor(phase);
+  }
+  return table;
+}
+
+}  // namespace detail
+
 /**
  * @brief Oscillator waveforms.
  */
@@ -240,14 +275,8 @@ class Oscillator {
   }
 
   static constexpr std::size_t kSineTableSize = 2048;
-  static constexpr std::array<double, kSineTableSize> kSineTable = [] {
-    std::array<double, kSineTableSize> table{};
-    for (std::size_t i = 0; i < kSineTableSize; ++i) {
-      table[i] =
-          std::sin((static_cast<double>(i) / kSineTableSize) * 2.0 * std::numbers::pi);
-    }
-    return table;
-  }();
+  static constexpr std::array<double, kSineTableSize> kSineTable =
+      detail::make_sine_table<kSineTableSize>();
 
   [[nodiscard]] static double sine_from_table(double phase) noexcept;
 

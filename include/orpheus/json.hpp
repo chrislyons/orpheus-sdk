@@ -26,7 +26,7 @@ struct JsonValue {
   std::vector<JsonValue> array;
 };
 
-class ORPHEUS_API JsonParser {
+class JsonParser {
  public:
   explicit JsonParser(std::string_view input);
 
