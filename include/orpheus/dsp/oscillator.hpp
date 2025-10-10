@@ -148,8 +148,7 @@ private:
   std::atomic<std::uint8_t> storage_{0U};
 };
 
-template <typename Enum>
-class ORPHEUS_API AtomicEnum {
+template <typename Enum> class ORPHEUS_API AtomicEnum {
   static_assert(std::is_enum_v<Enum>, "AtomicEnum requires an enum type");
 
 public:
@@ -165,27 +164,21 @@ public:
   AtomicEnum(AtomicEnum&&) = delete;
   AtomicEnum& operator=(AtomicEnum&&) = delete;
 
-  void store(Enum value,
-             std::memory_order order = std::memory_order_seq_cst) noexcept {
+  void store(Enum value, std::memory_order order = std::memory_order_seq_cst) noexcept {
     storage_.store(static_cast<underlying_type>(value), order);
   }
 
-  [[nodiscard]] Enum load(
-      std::memory_order order = std::memory_order_seq_cst) const noexcept {
+  [[nodiscard]] Enum load(std::memory_order order = std::memory_order_seq_cst) const noexcept {
     return static_cast<Enum>(storage_.load(order));
   }
 
-  Enum exchange(Enum desired,
-                std::memory_order order = std::memory_order_seq_cst) noexcept {
-    return static_cast<Enum>(
-        storage_.exchange(static_cast<underlying_type>(desired), order));
+  Enum exchange(Enum desired, std::memory_order order = std::memory_order_seq_cst) noexcept {
+    return static_cast<Enum>(storage_.exchange(static_cast<underlying_type>(desired), order));
   }
 
-  bool compare_exchange_strong(
-      Enum& expected,
-      Enum desired,
-      std::memory_order success = std::memory_order_seq_cst,
-      std::memory_order failure = std::memory_order_seq_cst) noexcept {
+  bool compare_exchange_strong(Enum& expected, Enum desired,
+                               std::memory_order success = std::memory_order_seq_cst,
+                               std::memory_order failure = std::memory_order_seq_cst) noexcept {
     auto expected_value = static_cast<underlying_type>(expected);
     const bool result = storage_.compare_exchange_strong(
         expected_value, static_cast<underlying_type>(desired), success, failure);
@@ -193,11 +186,9 @@ public:
     return result;
   }
 
-  bool compare_exchange_weak(
-      Enum& expected,
-      Enum desired,
-      std::memory_order success = std::memory_order_seq_cst,
-      std::memory_order failure = std::memory_order_seq_cst) noexcept {
+  bool compare_exchange_weak(Enum& expected, Enum desired,
+                             std::memory_order success = std::memory_order_seq_cst,
+                             std::memory_order failure = std::memory_order_seq_cst) noexcept {
     auto expected_value = static_cast<underlying_type>(expected);
     const bool result = storage_.compare_exchange_weak(
         expected_value, static_cast<underlying_type>(desired), success, failure);
@@ -210,7 +201,9 @@ public:
     return *this;
   }
 
-  operator Enum() const noexcept { return load(); }
+  operator Enum() const noexcept {
+    return load();
+  }
 
 private:
   std::atomic<underlying_type> storage_{static_cast<underlying_type>(Enum{})};
