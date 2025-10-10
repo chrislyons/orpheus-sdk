@@ -56,8 +56,8 @@ template <std::size_t Size> constexpr std::array<double, Size> make_sine_table()
 } // namespace detail
 
 #if defined(_MSC_VER)
-#  pragma warning(push)
-#  pragma warning(disable : 4251)
+#pragma warning(push)
+#pragma warning(disable : 4251)
 #endif
 
 class ORPHEUS_API AtomicDouble {
@@ -216,7 +216,7 @@ private:
 };
 
 #if defined(_MSC_VER)
-#  pragma warning(pop)
+#pragma warning(pop)
 #endif
 
 /**
