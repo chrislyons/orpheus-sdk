@@ -54,17 +54,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Node.js (Node 18 per workspace engines)
+      - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '18.20.4'
+          node-version: '18'
           cache: 'pnpm'
-      
-      - name: Install pnpm (v8.15.4)
-        run: npm install -g pnpm@8.15.4
 
-      - name: Verify pnpm installation
-        run: pnpm --version
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Verify pnpm
+        run: pnpm -v
       
       - name: Get PNPM store directory
         shell: bash
