@@ -33,17 +33,21 @@ RandomEngine& random_engine() {
 
 } // namespace
 
-Oscillator::Oscillator() {
-  set_sample_rate(kDefaultSampleRate);
-  set_frequency(kDefaultFrequency);
-  set_pulse_width(kDefaultPulseWidth);
-  set_unison_detune_cents(kDefaultDetuneCents);
-  set_frequency_modulation_depth(0.0);
-  requested_phase_.store(0.0);
-}
+Oscillator::Oscillator() : Oscillator(kDefaultSampleRate) {}
 
-Oscillator::Oscillator(double sample_rate) : Oscillator() {
-  set_sample_rate(sample_rate);
+Oscillator::Oscillator(double sample_rate) {
+  sample_rate_.store(std::max(sample_rate, kMinSampleRate));
+  frequency_.store(kDefaultFrequency);
+  pulse_width_.store(kDefaultPulseWidth);
+  detune_cents_.store(kDefaultDetuneCents);
+  fm_depth_.store(0.0);
+  requested_phase_.store(0.0);
+
+  voice_count_.store(1);
+  sub_oscillator_.store(false);
+  lfo_mode_.store(false);
+  waveform_.store(Waveform::Sine);
+  phase_sync_pending_.store(false, std::memory_order_relaxed);
 }
 
 void Oscillator::set_sample_rate(double sample_rate) noexcept {

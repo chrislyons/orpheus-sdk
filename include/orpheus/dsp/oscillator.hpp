@@ -55,9 +55,18 @@ template <std::size_t Size> constexpr std::array<double, Size> make_sine_table()
 
 class AtomicDouble {
 public:
-  AtomicDouble() noexcept : storage_{0.0} {}
+  AtomicDouble() noexcept {
+    storage_.store(0.0, std::memory_order_relaxed);
+  }
 
-  explicit AtomicDouble(double value) noexcept : storage_{value} {}
+  explicit AtomicDouble(double value) noexcept {
+    storage_.store(value, std::memory_order_relaxed);
+  }
+
+  AtomicDouble(const AtomicDouble&) = delete;
+  AtomicDouble& operator=(const AtomicDouble&) = delete;
+  AtomicDouble(AtomicDouble&&) = delete;
+  AtomicDouble& operator=(AtomicDouble&&) = delete;
 
   void store(double value, std::memory_order order = std::memory_order_relaxed) noexcept {
     storage_.store(value, order);
@@ -77,7 +86,7 @@ public:
   }
 
 private:
-  std::atomic<double> storage_{0.0};
+  std::atomic<double> storage_;
 };
 
 /**
@@ -317,17 +326,17 @@ private:
   inline static constexpr double kDefaultPulseWidth = 0.5;
   inline static constexpr double kDefaultDetuneCents = 12.0;
 
-  AtomicDouble sample_rate_{};
-  AtomicDouble frequency_{};
-  AtomicDouble pulse_width_{};
-  AtomicDouble detune_cents_{};
+  AtomicDouble sample_rate_;
+  AtomicDouble frequency_;
+  AtomicDouble pulse_width_;
+  AtomicDouble detune_cents_;
   std::atomic<std::size_t> voice_count_{1};
   std::atomic<bool> sub_oscillator_{false};
   std::atomic<bool> lfo_mode_{false};
   std::atomic<Waveform> waveform_{Waveform::Sine};
-  AtomicDouble fm_depth_{};
+  AtomicDouble fm_depth_;
   std::atomic<bool> phase_sync_pending_{false};
-  AtomicDouble requested_phase_{};
+  AtomicDouble requested_phase_;
 };
 
 } // namespace orpheus::dsp
