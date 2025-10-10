@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -51,6 +52,34 @@ template <std::size_t Size> constexpr std::array<double, Size> make_sine_table()
 }
 
 } // namespace detail
+
+class AtomicDouble {
+public:
+  AtomicDouble() noexcept = default;
+  explicit AtomicDouble(double value) noexcept {
+    store(value);
+  }
+
+  void store(double value, std::memory_order order = std::memory_order_relaxed) noexcept {
+    storage_.store(std::bit_cast<std::uint64_t>(value), order);
+  }
+
+  [[nodiscard]] double load(std::memory_order order = std::memory_order_relaxed) const noexcept {
+    return std::bit_cast<double>(storage_.load(order));
+  }
+
+  AtomicDouble& operator=(double value) noexcept {
+    store(value);
+    return *this;
+  }
+
+  operator double() const noexcept {
+    return load();
+  }
+
+private:
+  std::atomic<std::uint64_t> storage_{std::bit_cast<std::uint64_t>(0.0)};
+};
 
 /**
  * @brief Oscillator waveforms.
@@ -283,17 +312,17 @@ private:
   static constexpr std::size_t kVoiceAlignment = 64;
   alignas(kVoiceAlignment) std::array<VoiceState, kMaxVoices> voices_{};
 
-  std::atomic<double> sample_rate_{48000.0};
-  std::atomic<double> frequency_{440.0};
-  std::atomic<double> pulse_width_{0.5};
-  std::atomic<double> detune_cents_{12.0};
+  AtomicDouble sample_rate_{48000.0};
+  AtomicDouble frequency_{440.0};
+  AtomicDouble pulse_width_{0.5};
+  AtomicDouble detune_cents_{12.0};
   std::atomic<std::size_t> voice_count_{1};
   std::atomic<bool> sub_oscillator_{false};
   std::atomic<bool> lfo_mode_{false};
   std::atomic<Waveform> waveform_{Waveform::Sine};
-  std::atomic<double> fm_depth_{0.0};
+  AtomicDouble fm_depth_{0.0};
   std::atomic<bool> phase_sync_pending_{false};
-  std::atomic<double> requested_phase_{0.0};
+  AtomicDouble requested_phase_{0.0};
 };
 
 } // namespace orpheus::dsp
