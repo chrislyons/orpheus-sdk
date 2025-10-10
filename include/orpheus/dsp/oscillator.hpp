@@ -91,6 +91,60 @@ private:
   std::atomic<std::uint64_t> storage_;
 };
 
+class ORPHEUS_API AtomicBool {
+public:
+  constexpr AtomicBool() noexcept = default;
+
+  constexpr explicit AtomicBool(bool value) noexcept : storage_(value ? 1U : 0U) {}
+
+  AtomicBool(const AtomicBool&) = delete;
+  AtomicBool& operator=(const AtomicBool&) = delete;
+  AtomicBool(AtomicBool&&) = delete;
+  AtomicBool& operator=(AtomicBool&&) = delete;
+
+  void store(bool value, std::memory_order order = std::memory_order_seq_cst) noexcept {
+    storage_.store(value ? 1U : 0U, order);
+  }
+
+  [[nodiscard]] bool load(std::memory_order order = std::memory_order_seq_cst) const noexcept {
+    return storage_.load(order) != 0U;
+  }
+
+  bool exchange(bool desired, std::memory_order order = std::memory_order_seq_cst) noexcept {
+    return storage_.exchange(desired ? 1U : 0U, order) != 0U;
+  }
+
+  bool compare_exchange_strong(bool& expected, bool desired,
+                               std::memory_order success = std::memory_order_seq_cst,
+                               std::memory_order failure = std::memory_order_seq_cst) noexcept {
+    std::uint8_t expected_value = expected ? 1U : 0U;
+    const bool result =
+        storage_.compare_exchange_strong(expected_value, desired ? 1U : 0U, success, failure);
+    expected = expected_value != 0U;
+    return result;
+  }
+
+  bool compare_exchange_weak(bool& expected, bool desired,
+                             std::memory_order success = std::memory_order_seq_cst,
+                             std::memory_order failure = std::memory_order_seq_cst) noexcept {
+    std::uint8_t expected_value = expected ? 1U : 0U;
+    const bool result =
+        storage_.compare_exchange_weak(expected_value, desired ? 1U : 0U, success, failure);
+    expected = expected_value != 0U;
+    return result;
+  }
+
+  AtomicBool& operator=(bool value) noexcept {
+    store(value);
+    return *this;
+  }
+
+  operator bool() const noexcept { return load(); }
+
+private:
+  std::atomic<std::uint8_t> storage_{0U};
+};
+
 /**
  * @brief Oscillator waveforms.
  */
@@ -333,11 +387,11 @@ private:
   AtomicDouble pulse_width_;
   AtomicDouble detune_cents_;
   std::atomic<std::size_t> voice_count_{1};
-  std::atomic<bool> sub_oscillator_{false};
-  std::atomic<bool> lfo_mode_{false};
+  AtomicBool sub_oscillator_{false};
+  AtomicBool lfo_mode_{false};
   std::atomic<Waveform> waveform_{Waveform::Sine};
   AtomicDouble fm_depth_;
-  std::atomic<bool> phase_sync_pending_{false};
+  AtomicBool phase_sync_pending_{false};
   AtomicDouble requested_phase_;
 };
 
