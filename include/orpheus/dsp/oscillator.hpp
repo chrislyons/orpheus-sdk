@@ -55,7 +55,7 @@ template <std::size_t Size> constexpr std::array<double, Size> make_sine_table()
 
 class AtomicDouble {
 public:
-  AtomicDouble() noexcept = default;
+  AtomicDouble() noexcept : storage_{0u} {}
   explicit AtomicDouble(double value) noexcept {
     store(value);
   }
@@ -78,10 +78,11 @@ public:
   }
 
 private:
-  // Initialize with integer zero to avoid MSVC warning when /WX is enabled.
-  // The IEEE-754 representation of 0.0 is all zero bits, so this preserves
-  // the default value without requiring a bit_cast in the initializer.
-  std::atomic<std::uint64_t> storage_{0u};
+  // Initialize with integer zero in the constructor to avoid MSVC warning when
+  // /WX is enabled. The IEEE-754 representation of 0.0 is all zero bits, so
+  // this preserves the default value without requiring a bit_cast in the
+  // member initializer.
+  std::atomic<std::uint64_t> storage_;
 };
 
 /**
