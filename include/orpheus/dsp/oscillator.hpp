@@ -1,3 +1,5 @@
+{
+
 #pragma once
 
 /**
@@ -330,3 +332,5 @@ private:
 };
 
 } // namespace orpheus::dsp
+
+}
