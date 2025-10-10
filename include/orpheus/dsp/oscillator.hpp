@@ -22,11 +22,11 @@ namespace orpheus::dsp {
 namespace detail {
 
 constexpr double wrap_to_pi(double angle) noexcept {
-  const double two_pi = 2.0 * std::numbers::pi;
-  while (angle > std::numbers::pi) {
+  const double two_pi = 2.0 * std::numbers::pi_v<double>;
+  while (angle > std::numbers::pi_v<double>) {
     angle -= two_pi;
   }
-  while (angle < -std::numbers::pi) {
+  while (angle < -std::numbers::pi_v<double>) {
     angle += two_pi;
   }
   return angle;
@@ -47,26 +47,30 @@ constexpr std::array<double, Size> make_sine_table() noexcept {
   std::array<double, Size> table{};
   for (std::size_t i = 0; i < Size; ++i) {
     const double phase =
-        (static_cast<double>(i) / static_cast<double>(Size)) * 2.0 * std::numbers::pi;
+        (static_cast<double>(i) / static_cast<double>(Size)) * 2.0 *
+        std::numbers::pi_v<double>;
     table[i] = sine_taylor(phase);
   }
   return table;
 }
 
-} // namespace detail
+}  // namespace detail
 
 class AtomicDouble {
 public:
   AtomicDouble() noexcept : storage_{0u} {}
+
   explicit AtomicDouble(double value) noexcept {
     store(value);
   }
 
-  void store(double value, std::memory_order order = std::memory_order_relaxed) noexcept {
+  void store(double value,
+             std::memory_order order = std::memory_order_relaxed) noexcept {
     storage_.store(std::bit_cast<std::uint64_t>(value), order);
   }
 
-  [[nodiscard]] double load(std::memory_order order = std::memory_order_relaxed) const noexcept {
+  [[nodiscard]] double load(
+      std::memory_order order = std::memory_order_relaxed) const noexcept {
     return std::bit_cast<double>(storage_.load(order));
   }
 
@@ -81,9 +85,7 @@ public:
 
 private:
   // Initialize with integer zero in the constructor to avoid MSVC warning when
-  // /WX is enabled. The IEEE-754 representation of 0.0 is all zero bits, so
-  // this preserves the default value without requiring a bit_cast in the
-  // member initializer.
+  // /WX is enabled. The IEEE-754 representation of 0.0 is all zero bits.
   std::atomic<std::uint64_t> storage_;
 };
 
@@ -113,16 +115,6 @@ enum class Waveform : std::uint8_t {
  * The oscillator is sample-rate agnostic and safe for real-time audio threads. Parameters
  * can be updated concurrently from control threads without locking. The class exposes both
  * scalar and span-based processing helpers.
- *
- * ### Usage Example
- * @code
- * orpheus::dsp::Oscillator osc;
- * osc.set_sample_rate(48000.0);
- * osc.set_waveform(orpheus::dsp::Waveform::Saw);
- * osc.set_frequency(220.0);
- * std::array<float, 512> buffer{};
- * osc.process(buffer);
- * @endcode
  */
 class ORPHEUS_API Oscillator {
 public:
@@ -141,6 +133,7 @@ public:
 
   /// @name Configuration
   ///@{
+
   /**
    * @brief Sets the processing sample rate.
    * @param sample_rate The new sample rate in Hz.
@@ -256,10 +249,12 @@ public:
    * @brief Returns the modulation depth ratio.
    */
   [[nodiscard]] double frequency_modulation_depth() const noexcept;
+
   ///@}
 
   /// @name Processing
   ///@{
+
   /**
    * @brief Processes a single sample.
    * @param fm_input Optional normalized FM input in [-1, 1].
@@ -273,6 +268,7 @@ public:
    * @param fm_input Optional normalized FM input for every sample.
    */
   void process(std::span<float> output, float fm_input = 0.0f) noexcept;
+
   ///@}
 
 private:
@@ -291,18 +287,27 @@ private:
     PinkState pink{};
   };
 
-  [[nodiscard]] double render_voice(VoiceState& voice, Waveform waveform,
-                                    double phase_increment, double pulse_width,
-                                    double sub_increment, double& sub_mix) noexcept;
+  [[nodiscard]] double render_voice(VoiceState& voice,
+                                    Waveform waveform,
+                                    double phase_increment,
+                                    double pulse_width,
+                                    double sub_increment,
+                                    double& sub_mix) noexcept;
 
   void apply_phase_sync_if_needed() noexcept;
 
   [[nodiscard]] static double poly_blep(double t, double dt) noexcept;
+
   [[nodiscard]] static double wrap_phase(double phase) noexcept;
+
   [[nodiscard]] static double clamp(double value, double min, double max) noexcept;
+
   [[nodiscard]] double voice_detune(std::size_t voice_index) const noexcept;
-  [[nodiscard]] static double detune_factor(double spread_cents, std::size_t voices,
+
+  [[nodiscard]] static double detune_factor(double spread_cents,
+                                            std::size_t voices,
                                             std::size_t voice_index) noexcept;
+
   static void advance_phase(double& phase, double increment) noexcept;
 
   template <typename T>
@@ -311,7 +316,9 @@ private:
   }
 
   static constexpr std::size_t kSineTableSize = 2048;
-  static constexpr std::array<double, kSineTableSize> kSineTable =
+
+  // Inline variable to avoid ODR violations across translation units.
+  inline static constexpr std::array<double, kSineTableSize> kSineTable =
       detail::make_sine_table<kSineTableSize>();
 
   [[nodiscard]] static double sine_from_table(double phase) noexcept;
@@ -332,4 +339,4 @@ private:
   AtomicDouble requested_phase_{0.0};
 };
 
-} // namespace orpheus::dsp
+}  // namespace orpheus::dsp
