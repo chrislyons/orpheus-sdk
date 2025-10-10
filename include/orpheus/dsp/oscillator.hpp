@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -56,16 +55,16 @@ template <std::size_t Size> constexpr std::array<double, Size> make_sine_table()
 
 class AtomicDouble {
 public:
-  AtomicDouble() noexcept : storage_{kZeroBits} {}
+  AtomicDouble() noexcept : storage_{0.0} {}
 
-  explicit AtomicDouble(double value) noexcept : storage_{std::bit_cast<std::uint64_t>(value)} {}
+  explicit AtomicDouble(double value) noexcept : storage_{value} {}
 
   void store(double value, std::memory_order order = std::memory_order_relaxed) noexcept {
-    storage_.store(std::bit_cast<std::uint64_t>(value), order);
+    storage_.store(value, order);
   }
 
   [[nodiscard]] double load(std::memory_order order = std::memory_order_relaxed) const noexcept {
-    return std::bit_cast<double>(storage_.load(order));
+    return storage_.load(order);
   }
 
   AtomicDouble& operator=(double value) noexcept {
@@ -78,9 +77,7 @@ public:
   }
 
 private:
-  // Initialize with integer zero to avoid MSVC warnings when /WX is enabled.
-  inline static constexpr std::uint64_t kZeroBits = 0u;
-  std::atomic<std::uint64_t> storage_{kZeroBits};
+  std::atomic<double> storage_{0.0};
 };
 
 /**
