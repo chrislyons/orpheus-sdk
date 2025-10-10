@@ -1,4 +1,4 @@
-import { type Registry } from "shadcn/schema"
+import { type Registry } from "shadcn"
 
 export const lib: Registry["items"] = [
   // {

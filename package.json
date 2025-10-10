@@ -39,6 +39,9 @@
       "lru-cache": "10.4.3",
       "mermaid": "10.9.1",
       "marked": "9.1.6"
+    },
+    "patchedDependencies": {
+      "shadcn@3.3.1": "patches/shadcn@3.3.1.patch"
     }
   }
 }

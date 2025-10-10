@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { registryItemSchema } from "shadcn/schema"
+import { registryItemSchema } from "shadcn"
 import { z } from "zod"
 
 import { siteConfig } from "@/lib/config"
