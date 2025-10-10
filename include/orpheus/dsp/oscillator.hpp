@@ -94,9 +94,9 @@ private:
 
 class ORPHEUS_API AtomicBool {
 public:
-  constexpr AtomicBool() noexcept = default;
+  AtomicBool() noexcept : storage_(0U) {}
 
-  constexpr explicit AtomicBool(bool value) noexcept : storage_(value ? 1U : 0U) {}
+  explicit AtomicBool(bool value) noexcept : storage_(value ? 1U : 0U) {}
 
   AtomicBool(const AtomicBool&) = delete;
   AtomicBool& operator=(const AtomicBool&) = delete;
@@ -145,7 +145,7 @@ public:
   }
 
 private:
-  std::atomic<std::uint8_t> storage_{0U};
+  std::atomic<std::uint8_t> storage_;
 };
 
 template <typename Enum> class ORPHEUS_API AtomicEnum {
@@ -154,9 +154,11 @@ template <typename Enum> class ORPHEUS_API AtomicEnum {
 public:
   using underlying_type = std::underlying_type_t<Enum>;
 
-  constexpr AtomicEnum() noexcept = default;
+  // Default-construct the atomic storage at run time to avoid MSVC warnings
+  // about constexpr initialization of std::atomic.
+  AtomicEnum() noexcept : storage_(static_cast<underlying_type>(Enum{})) {}
 
-  constexpr explicit AtomicEnum(Enum value) noexcept
+  explicit AtomicEnum(Enum value) noexcept
       : storage_(static_cast<underlying_type>(value)) {}
 
   AtomicEnum(const AtomicEnum&) = delete;
@@ -206,7 +208,7 @@ public:
   }
 
 private:
-  std::atomic<underlying_type> storage_{static_cast<underlying_type>(Enum{})};
+  std::atomic<underlying_type> storage_;
 };
 
 /**
