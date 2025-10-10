@@ -39,8 +39,7 @@ constexpr double sine_taylor(double angle) noexcept {
   return x - (x3 / 6.0) + (x5 / 120.0) - (x7 / 5040.0) + (x9 / 362880.0);
 }
 
-template <std::size_t Size>
-constexpr std::array<double, Size> make_sine_table() noexcept {
+template <std::size_t Size> constexpr std::array<double, Size> make_sine_table() noexcept {
   std::array<double, Size> table{};
   for (std::size_t i = 0; i < Size; ++i) {
     const double phase = (static_cast<double>(i) / Size) * 2.0 * std::numbers::pi;
@@ -49,7 +48,7 @@ constexpr std::array<double, Size> make_sine_table() noexcept {
   return table;
 }
 
-}  // namespace detail
+} // namespace detail
 
 /**
  * @brief Oscillator waveforms.
@@ -89,7 +88,7 @@ enum class Waveform : std::uint8_t {
  * @endcode
  */
 class Oscillator {
- public:
+public:
   static constexpr std::size_t kMaxVoices = 8;
 
   /**
@@ -239,7 +238,7 @@ class Oscillator {
   void process(std::span<float> output, float fm_input = 0.0f) noexcept;
   ///@}
 
- private:
+private:
   struct PinkState {
     double b0{};
     double b1{};
@@ -255,9 +254,9 @@ class Oscillator {
     PinkState pink{};
   };
 
-  [[nodiscard]] double render_voice(VoiceState& voice, Waveform waveform,
-                                    double phase_increment, double pulse_width,
-                                    double sub_increment, double& sub_mix) noexcept;
+  [[nodiscard]] double render_voice(VoiceState& voice, Waveform waveform, double phase_increment,
+                                    double pulse_width, double sub_increment,
+                                    double& sub_mix) noexcept;
 
   void apply_phase_sync_if_needed() noexcept;
 
@@ -269,8 +268,7 @@ class Oscillator {
                                             std::size_t voice_index) noexcept;
   static void advance_phase(double& phase, double increment) noexcept;
 
-  template <typename T>
-  static constexpr T lerp(T a, T b, T alpha) noexcept {
+  template <typename T> static constexpr T lerp(T a, T b, T alpha) noexcept {
     return a + (b - a) * alpha;
   }
 
@@ -296,5 +294,4 @@ class Oscillator {
   std::atomic<double> requested_phase_{0.0};
 };
 
-}  // namespace orpheus::dsp
-
+} // namespace orpheus::dsp
