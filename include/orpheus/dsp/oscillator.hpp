@@ -55,7 +55,7 @@ template <std::size_t Size> constexpr std::array<double, Size> make_sine_table()
 
 } // namespace detail
 
-class AtomicDouble {
+class ORPHEUS_API AtomicDouble {
 public:
   AtomicDouble() noexcept {
     storage_.store(std::bit_cast<std::uint64_t>(0.0), std::memory_order_relaxed);
@@ -92,7 +92,7 @@ private:
   std::atomic<std::uint64_t> storage_;
 };
 
-class AtomicBool {
+class ORPHEUS_API AtomicBool {
 public:
   constexpr AtomicBool() noexcept = default;
 
@@ -148,7 +148,7 @@ private:
   std::atomic<std::uint8_t> storage_{0U};
 };
 
-template <typename Enum> class AtomicEnum {
+template <typename Enum> class ORPHEUS_API AtomicEnum {
   static_assert(std::is_enum_v<Enum>, "AtomicEnum requires an enum type");
 
 public:
