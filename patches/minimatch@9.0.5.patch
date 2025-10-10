@@ -6,7 +6,7 @@ index 41d16a98ebe793da4033a0bfc7c24d0055bee45d..87c11d8c4852f4605a45d3be19e2ada8
  export declare const braceExpand: (pattern: string, options?: MinimatchOptions) => string[];
  export declare const makeRe: (pattern: string, options?: MinimatchOptions) => false | MMRegExp;
  export declare const match: (list: string[], pattern: string, options?: MinimatchOptions) => string[];
-+export default typeof minimatch;
++export default minimatch;
  export type MMRegExp = RegExp & {
      _src?: string;
      _glob?: string;
