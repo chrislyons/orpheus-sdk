@@ -10,8 +10,8 @@
 @theme inline {
   --breakpoint-3xl: 1600px;
   --breakpoint-4xl: 2000px;
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
+  --font-sans: var(--font-geist-sans, "Inter", system-ui, sans-serif);
+  --font-mono: var(--font-geist-mono, "ui-monospace", monospace);
   --font-waldenburg: var(--font-waldenburg);
   --font-waldenburg-ht: var(--font-waldenburg-ht);
   --radius-sm: calc(var(--radius) - 4px);

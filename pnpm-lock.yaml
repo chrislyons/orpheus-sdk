@@ -13,7 +13,7 @@ overrides:
 
 patchedDependencies:
   shadcn@3.3.1:
-    hash: v73vcg2kf7zqdeuub3sg52eu54
+    hash: jqorxjbrj52hao6ek3a3wdjxvm
     path: patches/shadcn@3.3.1.patch
 
 importers:
@@ -338,6 +338,9 @@ importers:
       fumadocs-ui:
         specifier: 15.3.1
         version: 15.3.1(@types/react-dom@19.1.2)(@types/react@19.1.2)(next@15.3.1)(react-dom@19.1.0)(react@19.1.0)(tailwindcss@4.1.14)
+      geist:
+        specifier: ^1.5.1
+        version: 1.5.1(next@15.3.1)
       input-otp:
         specifier: ^1.4.2
         version: 1.4.2(react-dom@19.1.0)(react@19.1.0)
@@ -391,7 +394,7 @@ importers:
         version: 5.0.10
       shadcn:
         specifier: 3.3.1
-        version: 3.3.1(patch_hash=v73vcg2kf7zqdeuub3sg52eu54)(@types/node@20.19.20)(typescript@5.9.3)
+        version: 3.3.1(patch_hash=jqorxjbrj52hao6ek3a3wdjxvm)(@types/node@20.19.20)(typescript@5.9.3)
       shiki:
         specifier: ^3.13.0
         version: 3.13.0
@@ -6242,6 +6245,11 @@ packages:
     engines: {node: '>=16'}
     dev: false
 
+  /commander@14.0.1:
+    resolution: {integrity: sha512-2JkV3gUZUVrbNA+1sjBOYLsMZ5cEEl8GTFP2a4AVz5hvasAMCQ1D2l2le/cX+pV4N6ZU17zjUahLpIXRrnWL8A==}
+    engines: {node: '>=20'}
+    dev: false
+
   /commander@4.1.1:
     resolution: {integrity: sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA==}
     engines: {node: '>= 6'}
@@ -8680,6 +8688,14 @@ packages:
 
   /fzf@0.5.2:
     resolution: {integrity: sha512-Tt4kuxLXFKHy8KT40zwsUPUkg1CrsgY25FxA2U/j/0WgEDCk3ddc/zLTCCcbSHX9FcKtLuVaDGtGE/STWC+j3Q==}
+    dev: false
+
+  /geist@1.5.1(next@15.3.1):
+    resolution: {integrity: sha512-mAHZxIsL2o3ZITFaBVFBnwyDOw+zNLYum6A6nIjpzCGIO8QtC3V76XF2RnZTyLx1wlDTmMDy8jg3Ib52MIjGvQ==}
+    peerDependencies:
+      next: '>=13.2.0'
+    dependencies:
+      next: 15.3.1(@babel/core@7.28.4)(react-dom@19.1.0)(react@19.1.0)
     dev: false
 
   /generator-function@2.0.1:
@@ -12976,7 +12992,7 @@ packages:
     resolution: {integrity: sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==}
     dev: false
 
-  /shadcn@3.3.1(patch_hash=v73vcg2kf7zqdeuub3sg52eu54)(@types/node@20.19.20)(typescript@5.9.3):
+  /shadcn@3.3.1(patch_hash=jqorxjbrj52hao6ek3a3wdjxvm)(@types/node@20.19.20)(typescript@5.9.3):
     resolution: {integrity: sha512-sgai5gahy/TiyTiqJEwIFpAuPhmkpt7sGVdRfcmNH53Yc3yI57+zFVmIaqbTST0jP/7tSqZuI0aSllXL2HIw5w==}
     hasBin: true
     dependencies:
@@ -12988,7 +13004,7 @@ packages:
       '@dotenvx/dotenvx': 1.51.0
       '@modelcontextprotocol/sdk': 1.20.0
       browserslist: 4.26.3
-      commander: 11.1.0
+      commander: 14.0.1
       cosmiconfig: 9.0.0(typescript@5.9.3)
       dedent: 1.7.0
       deepmerge: 4.3.1

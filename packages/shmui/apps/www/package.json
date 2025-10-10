@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack --port 4000",
-    "build": "next build",
+    "build": "NEXT_DISABLE_FONT_DOWNLOADS=1 next build",
     "start": "next start --port 4000",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
@@ -77,6 +77,7 @@
     "fumadocs-docgen": "2.0.0",
     "fumadocs-mdx": "11.6.3",
     "fumadocs-ui": "15.3.1",
+    "geist": "^1.5.1",
     "input-otp": "^1.4.2",
     "jotai": "^2.1.0",
     "little-date": "^1.0.0",
