@@ -55,6 +55,11 @@ template <std::size_t Size> constexpr std::array<double, Size> make_sine_table()
 
 } // namespace detail
 
+#if defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable : 4251)
+#endif
+
 class ORPHEUS_API AtomicDouble {
 public:
   AtomicDouble() noexcept {
@@ -209,6 +214,10 @@ public:
 private:
   std::atomic<underlying_type> storage_;
 };
+
+#if defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 
 /**
  * @brief Oscillator waveforms.
