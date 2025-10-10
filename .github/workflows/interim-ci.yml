@@ -48,7 +48,9 @@ jobs:
   build-ui:
     name: Build UI & Run Tests
     runs-on: ubuntu-latest
-    
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+
     steps:
       - uses: actions/checkout@v4
       
