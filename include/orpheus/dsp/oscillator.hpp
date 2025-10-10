@@ -158,8 +158,7 @@ public:
   // about constexpr initialization of std::atomic.
   AtomicEnum() noexcept : storage_(static_cast<underlying_type>(Enum{})) {}
 
-  explicit AtomicEnum(Enum value) noexcept
-      : storage_(static_cast<underlying_type>(value)) {}
+  explicit AtomicEnum(Enum value) noexcept : storage_(static_cast<underlying_type>(value)) {}
 
   AtomicEnum(const AtomicEnum&) = delete;
   AtomicEnum& operator=(const AtomicEnum&) = delete;
