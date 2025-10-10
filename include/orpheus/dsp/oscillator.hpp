@@ -14,6 +14,8 @@
 #include <numbers>
 #include <span>
 
+#include "orpheus/export.h"
+
 namespace orpheus::dsp {
 
 namespace detail {
@@ -87,7 +89,7 @@ enum class Waveform : std::uint8_t {
  * osc.process(buffer);
  * @endcode
  */
-class Oscillator {
+class ORPHEUS_API Oscillator {
 public:
   static constexpr std::size_t kMaxVoices = 8;
 
