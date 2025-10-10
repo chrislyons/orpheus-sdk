@@ -90,8 +90,8 @@ SessionGraph ParseSession(const std::string &json_text) {
   const JsonValue &object = ExpectObject(root, "session root");
 
   SessionGraph session;
-  const JsonValue *name_field = RequireField(object, "name");
-  session.set_name(RequireString(*name_field, "name"));
+  const JsonValue *session_name_field = RequireField(object, "name");
+  session.set_name(RequireString(*session_name_field, "name"));
   const JsonValue *tempo_field = RequireField(object, "tempo_bpm");
   session.set_tempo(RequireNumber(*tempo_field, "tempo_bpm"));
 
@@ -140,9 +140,10 @@ SessionGraph ParseSession(const std::string &json_text) {
     for (const auto &marker_set_value : marker_sets_value.array) {
       const JsonValue &marker_set_object =
           ExpectObject(marker_set_value, "marker_set");
-      const JsonValue *name_field = RequireField(marker_set_object, "name");
+      const JsonValue *marker_set_name_field =
+          RequireField(marker_set_object, "name");
       const std::string marker_set_name =
-          RequireString(*name_field, "marker_set.name");
+          RequireString(*marker_set_name_field, "marker_set.name");
       MarkerSet *marker_set = session.add_marker_set(marker_set_name);
       const JsonValue *markers_field =
           RequireField(marker_set_object, "markers");
@@ -172,9 +173,9 @@ SessionGraph ParseSession(const std::string &json_text) {
         ExpectArray(playlist_lanes_it->second, "playlist_lanes");
     for (const auto &lane_value : playlist_lanes_array.array) {
       const JsonValue &lane_object = ExpectObject(lane_value, "playlist_lane");
-      const JsonValue *name_field = RequireField(lane_object, "name");
+      const JsonValue *lane_name_field = RequireField(lane_object, "name");
       const std::string lane_name =
-          RequireString(*name_field, "playlist_lane.name");
+          RequireString(*lane_name_field, "playlist_lane.name");
       bool is_active = false;
       if (auto active_it = lane_object.object.find("is_active");
           active_it != lane_object.object.end()) {
