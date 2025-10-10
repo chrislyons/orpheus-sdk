@@ -53,7 +53,7 @@ template <std::size_t Size> constexpr std::array<double, Size> make_sine_table()
 
 } // namespace detail
 
-class AtomicDouble {
+class ORPHEUS_API AtomicDouble {
 public:
   AtomicDouble() noexcept {
     storage_.store(0.0, std::memory_order_relaxed);
