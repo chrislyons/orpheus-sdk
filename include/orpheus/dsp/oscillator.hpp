@@ -139,7 +139,10 @@ public:
     return *this;
   }
 
-  operator bool() const noexcept { return load(); }
+  operator bool() const noexcept
+  {
+    return load();
+  }
 
 private:
   std::atomic<std::uint8_t> storage_{0U};
