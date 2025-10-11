@@ -13,7 +13,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "echo \"shmui build (deferred)\"",
+    "build": "cross-env CI=1 NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 TURBO_TELEMETRY_DISABLED=1 BROWSERSLIST_IGNORE_OLD_DATA=1 turbo run build",
     "build:turbo": "turbo run build",
     "lint": "turbo run lint",
     "test": "start-server-and-test dev http://localhost:4000 test:dev",

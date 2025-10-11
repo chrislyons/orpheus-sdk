@@ -1,11 +1,25 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@fontsource/geist/400.css";
+@import "@fontsource/geist/500.css";
+@import "@fontsource/geist/600.css";
+@import "@fontsource/geist/700.css";
+@import "@fontsource/geist/800.css";
+@import "@fontsource/geist/900.css";
+@import "@fontsource/geist-mono/400.css";
+@import "@fontsource-variable/inter/index.css";
 
 @import "./themes.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @custom-variant fixed (&:is(.layout-fixed *));
+
+.font-stack {
+  --font-sans: "Geist", "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-inter: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
 
 @theme inline {
   --breakpoint-3xl: 1600px;
@@ -60,6 +74,11 @@
 }
 
 :root {
+  --font-sans: "Geist", "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-inter: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-waldenburg: "Waldenburg", "Geist", serif;
+  --font-waldenburg-ht: "Waldenburg SemiCondensed", "Waldenburg", serif;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
