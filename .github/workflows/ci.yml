@@ -123,9 +123,18 @@ jobs:
               print(f"  {violation}")
             sys.exit(1)
           PY
+      - name: Cache googletest source
+        uses: actions/cache@v4
+        with:
+          path: build/_deps/googletest-subbuild
+          key: ${{ runner.os }}-googletest-v1.14.0
       - name: Configure
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} $([[ "${{ matrix.build_type }}" == "Debug" ]] && echo "-DORP_ENABLE_SANITIZERS=ON")
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -Dgtest_force_shared_crt=ON \
+            -DINSTALL_GTEST=OFF \
+            $([[ "${{ matrix.build_type }}" == "Debug" ]] && echo "-DORP_ENABLE_SANITIZERS=ON")
       - name: Build
         run: cmake --build build --config ${{ matrix.build_type }} --parallel
         timeout-minutes: 10
