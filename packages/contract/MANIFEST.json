@@ -1,0 +1,13 @@
+{
+  "currentVersion": "0.9.0",
+  "currentPath": "src/schemas/v0.9.0",
+  "checksum": "sha256:1fcd4c22379e00fa3c99e9f2476049884cf68eb91502209c8913cea2ebb87ef3",
+  "availableVersions": [
+    {
+      "version": "0.9.0",
+      "path": "src/schemas/v0.9.0",
+      "checksum": "sha256:1fcd4c22379e00fa3c99e9f2476049884cf68eb91502209c8913cea2ebb87ef3",
+      "status": "alpha"
+    }
+  ]
+}
