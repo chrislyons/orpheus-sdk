@@ -246,6 +246,10 @@ enum class Waveform : std::uint8_t {
  * can be updated concurrently from control threads without locking. The class exposes both
  * scalar and span-based processing helpers.
  */
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4251)
+#endif
 class ORPHEUS_API Oscillator {
 public:
   static constexpr std::size_t kMaxVoices = 8;
@@ -468,5 +472,8 @@ private:
   AtomicBool phase_sync_pending_{false};
   AtomicDouble requested_phase_;
 };
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 } // namespace orpheus::dsp
