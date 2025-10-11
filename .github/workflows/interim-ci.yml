@@ -81,7 +81,10 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
+      - name: Clean stale Next.js export artifacts
+        run: node packages/shmui/scripts/clean-next-export.mjs packages/shmui/apps/www/.next/export
+
       - name: Lint TypeScript
         run: pnpm run lint:js
       
