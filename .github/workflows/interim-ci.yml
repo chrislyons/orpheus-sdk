@@ -23,7 +23,10 @@ jobs:
             generator: "Unix Makefiles"
     
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - name: Install CMake
         uses: jwlawson/actions-setup-cmake@v1
@@ -52,7 +55,10 @@ jobs:
       PUPPETEER_SKIP_DOWNLOAD: 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -101,7 +107,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - name: Install clang-format
         run: sudo apt-get update && sudo apt-get install -y clang-format-14
