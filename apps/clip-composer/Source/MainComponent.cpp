@@ -526,8 +526,8 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
   // Get clip metadata from SessionManager
   auto clipData = m_sessionManager.getClip(buttonIndex);
 
-  // Create edit dialog
-  auto* dialog = new ClipEditDialog();
+  // Create edit dialog (pass AudioEngine for Cue Buss allocation)
+  auto* dialog = new ClipEditDialog(m_audioEngine.get());
 
   // Convert SessionManager::ClipData to ClipEditDialog::ClipMetadata
   ClipEditDialog::ClipMetadata metadata;

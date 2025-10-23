@@ -3,9 +3,9 @@
 #include "ClipEditDialog.h"
 
 //==============================================================================
-ClipEditDialog::ClipEditDialog() {
-  // Create preview player
-  m_previewPlayer = std::make_unique<PreviewPlayer>();
+ClipEditDialog::ClipEditDialog(AudioEngine* audioEngine) : m_audioEngine(audioEngine) {
+  // Create preview player with AudioEngine reference (for Cue Buss allocation)
+  m_previewPlayer = std::make_unique<PreviewPlayer>(m_audioEngine);
 
   // Build Phase 1 UI (basic metadata)
   buildPhase1UI();
@@ -25,9 +25,9 @@ ClipEditDialog::~ClipEditDialog() {
   if (m_previewPlayer) {
     m_previewPlayer->onPositionChanged = nullptr;
     m_previewPlayer->onPlaybackStopped = nullptr;
-    m_previewPlayer->stop(); // Ensure audio is stopped
+    m_previewPlayer->stop(); // Ensure Cue Buss is stopped
   }
-  // PreviewPlayer destructor will safely stop audio device
+  // PreviewPlayer destructor will safely release Cue Buss (via AudioEngine)
 }
 
 //==============================================================================

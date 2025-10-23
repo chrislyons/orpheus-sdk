@@ -7,9 +7,16 @@
 #include <functional>
 #include <juce_gui_extra/juce_gui_extra.h>
 
+// Forward declaration
+class AudioEngine;
+
 //==============================================================================
 /**
  * ClipEditDialog - Modal dialog for editing clip metadata
+ *
+ * ARCHITECTURE CHANGE (v0.2.0):
+ * - PreviewPlayer now uses Cue Buss instead of separate audio device
+ * - Requires AudioEngine reference for Cue Buss allocation
  *
  * Features (phased implementation):
  * - Phase 1: File metadata (name, color, clip group)
@@ -52,7 +59,7 @@ public:
   };
 
   //==============================================================================
-  ClipEditDialog();
+  ClipEditDialog(AudioEngine* audioEngine);
   ~ClipEditDialog() override;
 
   //==============================================================================
@@ -87,6 +94,7 @@ private:
 
   //==============================================================================
   ClipMetadata m_metadata;
+  AudioEngine* m_audioEngine = nullptr; // Non-owning reference
 
   // Phase 1: Basic metadata controls
   std::unique_ptr<juce::Label> m_nameLabel;
