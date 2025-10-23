@@ -30,6 +30,10 @@ public:
   std::function<void()> onPanic;
 
   //==============================================================================
+  // Update latency display (call periodically from MainComponent)
+  void setLatencyInfo(double latencyMs, int bufferSize, int sampleRate);
+
+  //==============================================================================
   void paint(juce::Graphics& g) override;
   void resized() override;
 
@@ -37,6 +41,7 @@ private:
   //==============================================================================
   std::unique_ptr<juce::TextButton> m_stopAllButton;
   std::unique_ptr<juce::TextButton> m_panicButton;
+  std::unique_ptr<juce::Label> m_latencyLabel;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TransportControls)
 };

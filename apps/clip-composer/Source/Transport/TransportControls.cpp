@@ -23,6 +23,13 @@ TransportControls::TransportControls() {
   m_panicButton->setColour(juce::TextButton::buttonColourId, juce::Colours::darkred);
   m_panicButton->setColour(juce::TextButton::textColourOffId, juce::Colours::white);
   addAndMakeVisible(m_panicButton.get());
+
+  // Create latency label
+  m_latencyLabel = std::make_unique<juce::Label>("Latency", "Latency: -- ms");
+  m_latencyLabel->setFont(juce::Font(12.0f, juce::Font::plain));
+  m_latencyLabel->setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+  m_latencyLabel->setJustificationType(juce::Justification::centredLeft);
+  addAndMakeVisible(m_latencyLabel.get());
 }
 
 //==============================================================================
@@ -54,4 +61,27 @@ void TransportControls::resized() {
   auto stopBounds = bounds.removeFromRight(buttonWidth);
   stopBounds = stopBounds.withSizeKeepingCentre(buttonWidth, buttonHeight);
   m_stopAllButton->setBounds(stopBounds);
+
+  // Latency label (left side)
+  auto latencyBounds = bounds.removeFromLeft(200);
+  latencyBounds = latencyBounds.withSizeKeepingCentre(200, buttonHeight);
+  m_latencyLabel->setBounds(latencyBounds);
+}
+
+void TransportControls::setLatencyInfo(double latencyMs, int bufferSize, int sampleRate) {
+  juce::String text =
+      juce::String::formatted("Latency: %.1f ms (%d @ %dHz)", latencyMs, bufferSize, sampleRate);
+
+  // Color-code for user feedback (green < 10ms, orange < 20ms, red >= 20ms)
+  juce::Colour color;
+  if (latencyMs < 10.0) {
+    color = juce::Colours::lightgreen;
+  } else if (latencyMs < 20.0) {
+    color = juce::Colours::orange;
+  } else {
+    color = juce::Colours::red;
+  }
+
+  m_latencyLabel->setText(text, juce::dontSendNotification);
+  m_latencyLabel->setColour(juce::Label::textColourId, color);
 }

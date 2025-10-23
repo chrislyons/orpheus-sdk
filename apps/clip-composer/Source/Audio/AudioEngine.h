@@ -76,6 +76,19 @@ public:
   /// @param buttonIndex Button index
   void unloadClip(int buttonIndex);
 
+  /// Update clip metadata (trim points, fades, etc.)
+  /// @param buttonIndex Button index (0-47 for MVP)
+  /// @param trimInSamples Trim IN point in samples
+  /// @param trimOutSamples Trim OUT point in samples
+  /// @param fadeInSeconds Fade-in duration in seconds
+  /// @param fadeOutSeconds Fade-out duration in seconds
+  /// @param fadeInCurve Fade-in curve type ("Linear", "EqualPower", "Exponential")
+  /// @param fadeOutCurve Fade-out curve type ("Linear", "EqualPower", "Exponential")
+  /// @return true if metadata was updated successfully
+  bool updateClipMetadata(int buttonIndex, int64_t trimInSamples, int64_t trimOutSamples,
+                          double fadeInSeconds, double fadeOutSeconds,
+                          const juce::String& fadeInCurve, const juce::String& fadeOutCurve);
+
   //==============================================================================
   // Playback Control (UI Thread, Lock-Free)
 
@@ -111,6 +124,18 @@ public:
   /// Get current transport position
   /// @return Transport position (samples, seconds, beats)
   orpheus::TransportPosition getCurrentPosition() const;
+
+  /// Get audio latency in samples (device + buffer)
+  /// @return Total latency in samples
+  uint32_t getLatencySamples() const;
+
+  /// Get configured buffer size
+  /// @return Buffer size in samples
+  uint32_t getBufferSize() const;
+
+  /// Get configured sample rate
+  /// @return Sample rate in Hz
+  uint32_t getSampleRate() const;
 
   //==============================================================================
   // Callbacks from UI
@@ -153,6 +178,7 @@ private:
 
   // Engine state
   uint32_t m_sampleRate = 48000;
+  uint32_t m_bufferSize = 512;
   bool m_initialized = false;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioEngine)

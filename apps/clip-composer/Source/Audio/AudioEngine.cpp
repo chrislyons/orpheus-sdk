@@ -48,9 +48,11 @@ bool AudioEngine::initialize(uint32_t sampleRate) {
   // Configure driver
   orpheus::AudioDriverConfig config;
   config.sample_rate = sampleRate;
-  config.buffer_size = 1024; // Larger buffer to prevent distortion
-  config.num_inputs = 0;     // No input for now
-  config.num_outputs = 2;    // Stereo output
+  config.buffer_size = 512; // Balanced for professional low-latency use (10.7ms @ 48kHz)
+  config.num_inputs = 0;    // No input for now
+  config.num_outputs = 2;   // Stereo output
+
+  m_bufferSize = config.buffer_size; // Store for latency queries
 
   auto result = m_audioDriver->initialize(config);
   if (result != orpheus::SessionGraphError::OK) {
@@ -134,6 +136,9 @@ bool AudioEngine::loadClip(int buttonIndex, const juce::String& filePath) {
           << " Hz. Audio will sound distorted. Please convert file to "
           << static_cast<int>(m_sampleRate) << " Hz.");
     }
+
+    // Pre-seek to start of file (warm up OS page cache, reduce first-play latency)
+    reader->seek(0);
   }
 
   DBG("AudioEngine: Loaded clip to button " << buttonIndex << ": " << filePath);
@@ -160,6 +165,61 @@ void AudioEngine::unloadClip(int buttonIndex) {
   // TODO: Unregister from transport controller (needs SDK API)
 
   DBG("AudioEngine: Unloaded clip from button " << buttonIndex);
+}
+
+bool AudioEngine::updateClipMetadata(int buttonIndex, int64_t trimInSamples, int64_t trimOutSamples,
+                                     double fadeInSeconds, double fadeOutSeconds,
+                                     const juce::String& fadeInCurve,
+                                     const juce::String& fadeOutCurve) {
+  if (buttonIndex < 0 || buttonIndex >= 48)
+    return false;
+
+  auto handle = m_clipHandles[buttonIndex];
+  if (handle == 0) {
+    DBG("AudioEngine: Cannot update metadata - no clip loaded at button " << buttonIndex);
+    return false;
+  }
+
+  if (!m_transportController) {
+    DBG("AudioEngine: No transport controller");
+    return false;
+  }
+
+  // Map fade curve strings to SDK enum
+  orpheus::FadeCurve fadeInCurveEnum = orpheus::FadeCurve::Linear;
+  if (fadeInCurve == "EqualPower")
+    fadeInCurveEnum = orpheus::FadeCurve::EqualPower;
+  else if (fadeInCurve == "Exponential")
+    fadeInCurveEnum = orpheus::FadeCurve::Exponential;
+
+  orpheus::FadeCurve fadeOutCurveEnum = orpheus::FadeCurve::Linear;
+  if (fadeOutCurve == "EqualPower")
+    fadeOutCurveEnum = orpheus::FadeCurve::EqualPower;
+  else if (fadeOutCurve == "Exponential")
+    fadeOutCurveEnum = orpheus::FadeCurve::Exponential;
+
+  // Call SDK methods to update trim points
+  auto trimResult =
+      m_transportController->updateClipTrimPoints(handle, trimInSamples, trimOutSamples);
+  if (trimResult != orpheus::SessionGraphError::OK) {
+    DBG("AudioEngine: Failed to update trim points: " << static_cast<int>(trimResult));
+    return false;
+  }
+
+  // Call SDK method to update fades
+  auto fadeResult = m_transportController->updateClipFades(handle, fadeInSeconds, fadeOutSeconds,
+                                                           fadeInCurveEnum, fadeOutCurveEnum);
+  if (fadeResult != orpheus::SessionGraphError::OK) {
+    DBG("AudioEngine: Failed to update fades: " << static_cast<int>(fadeResult));
+    return false;
+  }
+
+  DBG("AudioEngine: Successfully updated clip metadata for button "
+      << buttonIndex << " - Trim: [" << trimInSamples << ", " << trimOutSamples << "]"
+      << ", Fade IN: " << fadeInSeconds << "s (" << fadeInCurve << ")"
+      << ", Fade OUT: " << fadeOutSeconds << "s (" << fadeOutCurve << ")");
+
+  return true;
 }
 
 //==============================================================================
@@ -249,6 +309,21 @@ orpheus::TransportPosition AudioEngine::getCurrentPosition() const {
     return {0, 0.0, 0.0};
 
   return m_transportController->getCurrentPosition();
+}
+
+uint32_t AudioEngine::getLatencySamples() const {
+  if (!m_audioDriver)
+    return m_bufferSize; // Conservative estimate if driver not initialized
+
+  return m_audioDriver->getLatencySamples();
+}
+
+uint32_t AudioEngine::getBufferSize() const {
+  return m_bufferSize;
+}
+
+uint32_t AudioEngine::getSampleRate() const {
+  return m_sampleRate;
 }
 
 //==============================================================================

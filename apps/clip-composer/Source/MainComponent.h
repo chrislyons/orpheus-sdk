@@ -6,6 +6,7 @@
 #include "ClipGrid/ClipGrid.h"
 #include "Session/SessionManager.h"
 #include "Transport/TransportControls.h"
+#include "UI/AudioSettingsDialog.h"
 #include "UI/ClipEditDialog.h"
 #include "UI/InterLookAndFeel.h"
 #include "UI/TabSwitcher.h"
@@ -27,7 +28,7 @@
  * - Communicates with audio thread via lock-free commands
  * - Never blocks the audio thread
  */
-class MainComponent : public juce::Component, public juce::MenuBarModel {
+class MainComponent : public juce::Component, public juce::MenuBarModel, private juce::Timer {
 public:
   //==============================================================================
   MainComponent();
@@ -45,6 +46,10 @@ public:
   void menuItemSelected(int menuItemID, int topLevelMenuIndex) override;
 
 private:
+  //==============================================================================
+  // Timer callback for latency updates
+  void timerCallback() override;
+
   //==============================================================================
   // Core Functionality
   void onClipRightClicked(int buttonIndex);
@@ -85,6 +90,9 @@ private:
 
   // Per-button "stop others on play" mode (bitset for 48 buttons)
   std::array<bool, 48> m_stopOthersOnPlay = {};
+
+  // Per-button loop mode (bitset for 48 buttons)
+  std::array<bool, 48> m_loopEnabled = {};
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

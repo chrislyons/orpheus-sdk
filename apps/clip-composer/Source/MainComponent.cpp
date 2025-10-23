@@ -24,8 +24,9 @@ MainComponent::MainComponent() {
   // Wire up left-click handler for triggering clips
   m_clipGrid->onButtonClicked = [this](int buttonIndex) { onClipTriggered(buttonIndex); };
 
-  // Wire up double-click handler for editing clips
-  m_clipGrid->onButtonDoubleClicked = [this](int buttonIndex) { onClipDoubleClicked(buttonIndex); };
+  // Double-click does nothing - right-click is the ONLY way to open edit dialog
+  // m_clipGrid->onButtonDoubleClicked = [this](int buttonIndex) { onClipDoubleClicked(buttonIndex);
+  // };
 
   // Wire up drag & drop handler
   m_clipGrid->onFilesDropped = [this](const juce::Array<juce::File>& files, int buttonIndex) {
@@ -67,6 +68,9 @@ MainComponent::MainComponent() {
       DBG("MainComponent: Failed to start audio engine");
     }
   }
+
+  // Start timer for latency display updates (once per second)
+  startTimer(1000);
 
   // TODO (Month 3-4): Create RoutingPanel component
   // TODO (Month 5-6): Create WaveformDisplay component
@@ -120,6 +124,21 @@ void MainComponent::resized() {
   // - Remaining: Clip grid
 }
 
+//==============================================================================
+void MainComponent::timerCallback() {
+  // Update latency display in transport controls
+  if (m_transportControls && m_audioEngine) {
+    uint32_t latencySamples = m_audioEngine->getLatencySamples();
+    uint32_t sampleRate = m_audioEngine->getSampleRate();
+    uint32_t bufferSize = m_audioEngine->getBufferSize();
+
+    double latencyMs = (latencySamples / static_cast<double>(sampleRate)) * 1000.0;
+
+    m_transportControls->setLatencyInfo(latencyMs, bufferSize, sampleRate);
+  }
+}
+
+//==============================================================================
 bool MainComponent::keyPressed(const juce::KeyPress& key) {
   // Tab switching: Cmd+1 through Cmd+8 (Mac) or Ctrl+1 through Ctrl+8 (Windows/Linux)
   if (key.getModifiers().isCommandDown()) {
@@ -323,6 +342,11 @@ void MainComponent::onClipRightClicked(int buttonIndex) {
   if (hasClip) {
     // Clip is loaded - show options
     auto clipData = m_sessionManager.getClip(buttonIndex);
+
+    // Edit Clip at the top (most important action)
+    menu.addItem(5, "Edit Clip...");
+    menu.addSeparator();
+
     menu.addItem(1, "Load New Audio File...");
     menu.addItem(6, "Load Multiple Audio Files...");
     menu.addSeparator();
@@ -341,6 +365,7 @@ void MainComponent::onClipRightClicked(int buttonIndex) {
 
     menu.addSeparator();
     menu.addItem(4, "Stop Others On Play", true, m_stopOthersOnPlay[buttonIndex]);
+    menu.addItem(7, "Loop", true, m_loopEnabled[buttonIndex]);
     menu.addSeparator();
     menu.addItem(2, "Remove Clip");
     menu.addSeparator();
@@ -352,7 +377,10 @@ void MainComponent::onClipRightClicked(int buttonIndex) {
   }
 
   menu.showMenuAsync(juce::PopupMenu::Options(), [this, buttonIndex, hasClip](int result) {
-    if (result == 1) {
+    if (result == 5 && hasClip) {
+      // Edit Clip - open edit dialog
+      onClipDoubleClicked(buttonIndex);
+    } else if (result == 1) {
       // Load audio file
       juce::FileChooser chooser("Select Audio File",
                                 juce::File::getSpecialLocation(juce::File::userMusicDirectory),
@@ -371,6 +399,14 @@ void MainComponent::onClipRightClicked(int buttonIndex) {
       m_stopOthersOnPlay[buttonIndex] = !m_stopOthersOnPlay[buttonIndex];
       DBG("Button " << buttonIndex << ": Stop others on play = "
                     << (m_stopOthersOnPlay[buttonIndex] ? "ON" : "OFF"));
+    } else if (result == 7 && hasClip) {
+      // Toggle loop mode
+      m_loopEnabled[buttonIndex] = !m_loopEnabled[buttonIndex];
+      auto button = m_clipGrid->getButton(buttonIndex);
+      if (button) {
+        button->setLoopEnabled(m_loopEnabled[buttonIndex]);
+      }
+      DBG("Button " << buttonIndex << ": Loop = " << (m_loopEnabled[buttonIndex] ? "ON" : "OFF"));
     } else if (result == 6) {
       // Load multiple audio files
       juce::FileChooser chooser("Select Audio Files",
@@ -536,6 +572,21 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
     // Persist to SessionManager
     m_sessionManager.setClip(buttonIndex, clipData);
 
+    // Apply trim/fade metadata to AudioEngine
+    if (m_audioEngine) {
+      bool updated = m_audioEngine->updateClipMetadata(
+          buttonIndex, clipData.trimInSamples, clipData.trimOutSamples, clipData.fadeInSeconds,
+          clipData.fadeOutSeconds, juce::String(clipData.fadeInCurve),
+          juce::String(clipData.fadeOutCurve));
+
+      if (updated) {
+        DBG("MainComponent: Applied trim/fade metadata to AudioEngine for button " << buttonIndex);
+      } else {
+        DBG("MainComponent: Failed to apply trim/fade metadata to AudioEngine for button "
+            << buttonIndex);
+      }
+    }
+
     // Update button visual state
     auto button = m_clipGrid->getButton(buttonIndex);
     if (button) {
@@ -639,6 +690,9 @@ void MainComponent::onClipDraggedToButton(int sourceButtonIndex, int targetButto
   // Swap stop-others mode flags
   std::swap(m_stopOthersOnPlay[sourceButtonIndex], m_stopOthersOnPlay[targetButtonIndex]);
 
+  // Swap loop mode flags
+  std::swap(m_loopEnabled[sourceButtonIndex], m_loopEnabled[targetButtonIndex]);
+
   // Update both buttons visually
   updateButtonFromClip(sourceButtonIndex);
   updateButtonFromClip(targetButtonIndex);
@@ -675,6 +729,9 @@ void MainComponent::updateButtonFromClip(int buttonIndex) {
     // Derive keyboard shortcut from button index
     juce::String shortcut = getKeyboardShortcutForButton(buttonIndex);
     button->setKeyboardShortcut(shortcut);
+
+    // Restore loop state
+    button->setLoopEnabled(m_loopEnabled[buttonIndex]);
 
     // TODO: Parse beat offset from clip name if it contains "//" notation
     // For now, leave beat offset empty (will be set via edit dialogue later)
@@ -899,20 +956,18 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
 
   case 20: // Audio I/O Settings
   {
-    juce::String info = "Audio Engine Status:\n\n";
-    if (m_audioEngine && m_audioEngine->isRunning()) {
-      info += "Status: Running\n";
-      info += "Sample Rate: 48000 Hz\n";
-      info += "Buffer Size: 1024 samples\n";
-      info += "Channels: 2 (Stereo)\n";
-      info += "Latency: ~21 ms\n\n";
-      info += "To change settings, restart the application.";
-    } else {
-      info += "Status: Not running\n";
-    }
+    // Create and show Audio I/O Settings Dialog
+    auto* dialog = new AudioSettingsDialog(m_audioEngine.get());
+    dialog->onCloseClicked = [this, dialog]() {
+      dialog->setVisible(false);
+      delete dialog;
+    };
+    dialog->setSize(400, 220);
+    dialog->setCentrePosition(getWidth() / 2, getHeight() / 2);
+    addAndMakeVisible(dialog);
+    dialog->toFront(true);
 
-    juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Audio I/O Settings", info,
-                                           "OK");
+    DBG("MainComponent: Audio I/O Settings dialog opened");
     break;
   }
 
