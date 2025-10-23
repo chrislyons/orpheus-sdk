@@ -138,6 +138,47 @@ public:
   uint32_t getSampleRate() const;
 
   //==============================================================================
+  // Cue Buss Management (for Edit Dialog preview)
+  // ClipHandles 10001+ are Cue Busses (dynamically allocated)
+
+  /// Allocate a Cue Buss for preview playback
+  /// @param filePath Audio file path to load into Cue Buss
+  /// @return Cue Buss ClipHandle (10001+), or 0 if allocation failed
+  orpheus::ClipHandle allocateCueBuss(const juce::String& filePath);
+
+  /// Release a Cue Buss (stops playback, unloads clip, frees handle)
+  /// @param cueBussHandle Cue Buss ClipHandle to release
+  void releaseCueBuss(orpheus::ClipHandle cueBussHandle);
+
+  /// Start Cue Buss playback
+  /// @param cueBussHandle Cue Buss ClipHandle
+  /// @return true if started successfully
+  bool startCueBuss(orpheus::ClipHandle cueBussHandle);
+
+  /// Stop Cue Buss playback
+  /// @param cueBussHandle Cue Buss ClipHandle
+  /// @return true if stopped successfully
+  bool stopCueBuss(orpheus::ClipHandle cueBussHandle);
+
+  /// Update Cue Buss metadata (trim points, fades)
+  /// @param cueBussHandle Cue Buss ClipHandle
+  /// @param trimInSamples Trim IN point
+  /// @param trimOutSamples Trim OUT point
+  /// @param fadeInSeconds Fade-in duration
+  /// @param fadeOutSeconds Fade-out duration
+  /// @param fadeInCurve Fade-in curve type
+  /// @param fadeOutCurve Fade-out curve type
+  /// @return true if updated successfully
+  bool updateCueBussMetadata(orpheus::ClipHandle cueBussHandle, int64_t trimInSamples,
+                             int64_t trimOutSamples, double fadeInSeconds, double fadeOutSeconds,
+                             const juce::String& fadeInCurve, const juce::String& fadeOutCurve);
+
+  /// Check if Cue Buss is playing
+  /// @param cueBussHandle Cue Buss ClipHandle
+  /// @return true if playing
+  bool isCueBussPlaying(orpheus::ClipHandle cueBussHandle) const;
+
+  //==============================================================================
   // Callbacks from UI
 
   /// Set callback for clip events
@@ -175,6 +216,10 @@ private:
 
   // Clip metadata cache (for UI queries)
   std::array<std::optional<orpheus::AudioFileMetadata>, 48> m_clipMetadata;
+
+  // Cue Buss management (ClipHandles 10001+)
+  std::vector<orpheus::ClipHandle> m_cueBussHandles; // Active Cue Busses
+  orpheus::ClipHandle m_nextCueBussHandle = 10001;   // Next available Cue Buss handle
 
   // Engine state
   uint32_t m_sampleRate = 48000;

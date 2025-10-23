@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "PreviewPlayer.h"
 #include "WaveformDisplay.h"
 #include <functional>
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -52,7 +53,7 @@ public:
 
   //==============================================================================
   ClipEditDialog();
-  ~ClipEditDialog() override = default;
+  ~ClipEditDialog() override;
 
   //==============================================================================
   // Set metadata to edit
@@ -71,6 +72,7 @@ public:
   //==============================================================================
   void paint(juce::Graphics& g) override;
   void resized() override;
+  bool keyPressed(const juce::KeyPress& key) override;
 
 private:
   //==============================================================================
@@ -78,6 +80,10 @@ private:
   void buildPhase2UI();       // In/Out points
   void buildPhase3UI();       // Fade times
   void updateTrimInfoLabel(); // Update trim duration display
+  juce::String samplesToTimeString(int64_t samples,
+                                   int sampleRate); // Convert samples to hh:mm:ss.tt
+  int64_t timeStringToSamples(const juce::String& timeStr,
+                              int sampleRate); // Convert hh:mm:ss.tt to samples
 
   //==============================================================================
   ClipMetadata m_metadata;
@@ -97,19 +103,36 @@ private:
 
   // Phase 2: In/Out point controls
   std::unique_ptr<WaveformDisplay> m_waveformDisplay;
+  std::unique_ptr<juce::TextButton> m_zoom1xButton;
+  std::unique_ptr<juce::TextButton> m_zoom2xButton;
+  std::unique_ptr<juce::TextButton> m_zoom4xButton;
+  std::unique_ptr<juce::TextButton> m_zoom8xButton;
+
+  // Preview transport controls
+  std::unique_ptr<juce::TextButton> m_playButton;
+  std::unique_ptr<juce::TextButton> m_stopButton;
+  std::unique_ptr<juce::ToggleButton> m_loopButton;
+  std::unique_ptr<juce::Label> m_transportPositionLabel;
+
+  // Preview audio player
+  std::unique_ptr<PreviewPlayer> m_previewPlayer;
   std::unique_ptr<juce::Label> m_trimInLabel;
-  std::unique_ptr<juce::Slider> m_trimInSlider;
+  std::unique_ptr<juce::TextEditor> m_trimInTimeEditor;
+  std::unique_ptr<juce::TextButton> m_trimInDecButton;
+  std::unique_ptr<juce::TextButton> m_trimInIncButton;
   std::unique_ptr<juce::Label> m_trimOutLabel;
-  std::unique_ptr<juce::Slider> m_trimOutSlider;
+  std::unique_ptr<juce::TextEditor> m_trimOutTimeEditor;
+  std::unique_ptr<juce::TextButton> m_trimOutDecButton;
+  std::unique_ptr<juce::TextButton> m_trimOutIncButton;
   std::unique_ptr<juce::Label> m_trimInfoLabel;
 
   // Phase 3: Fade time controls
   std::unique_ptr<juce::Label> m_fadeInLabel;
-  std::unique_ptr<juce::Slider> m_fadeInSlider;
+  std::unique_ptr<juce::ComboBox> m_fadeInCombo;
   std::unique_ptr<juce::ComboBox> m_fadeInCurveCombo;
 
   std::unique_ptr<juce::Label> m_fadeOutLabel;
-  std::unique_ptr<juce::Slider> m_fadeOutSlider;
+  std::unique_ptr<juce::ComboBox> m_fadeOutCombo;
   std::unique_ptr<juce::ComboBox> m_fadeOutCurveCombo;
 
   // Dialog buttons

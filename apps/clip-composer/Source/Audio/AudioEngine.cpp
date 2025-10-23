@@ -2,6 +2,7 @@
 
 #include "AudioEngine.h"
 #include "../../../src/core/transport/transport_controller.h" // Concrete class for extended API
+#include <algorithm>                                          // For std::find
 #include <orpheus/audio_driver.h>
 
 //==============================================================================
@@ -324,6 +325,134 @@ uint32_t AudioEngine::getBufferSize() const {
 
 uint32_t AudioEngine::getSampleRate() const {
   return m_sampleRate;
+}
+
+//==============================================================================
+// Cue Buss Management (for Edit Dialog preview)
+
+orpheus::ClipHandle AudioEngine::allocateCueBuss(const juce::String& filePath) {
+  if (!m_transportController)
+    return 0;
+
+  // Allocate next Cue handle (10001, 10002, 10003, ...)
+  orpheus::ClipHandle cueBussHandle = m_nextCueBussHandle++;
+
+  // Register audio file with transport controller
+  auto result = m_transportController->registerClipAudio(cueBussHandle, filePath.toStdString());
+
+  if (result != orpheus::SessionGraphError::OK) {
+    DBG("AudioEngine: Failed to allocate Cue Buss for: " << filePath);
+    return 0;
+  }
+
+  // Track active Cue Buss
+  m_cueBussHandles.push_back(cueBussHandle);
+
+  // Determine Cue number for UI display (Cue 1, Cue 2, Cue 3, ...)
+  int cueNumber = static_cast<int>(m_cueBussHandles.size());
+
+  DBG("AudioEngine: Allocated Cue " << cueNumber << " (handle " << cueBussHandle
+                                    << "): " << filePath);
+  return cueBussHandle;
+}
+
+void AudioEngine::releaseCueBuss(orpheus::ClipHandle cueBussHandle) {
+  if (cueBussHandle < 10001 || !m_transportController)
+    return;
+
+  // Stop if playing
+  if (m_transportController->isClipPlaying(cueBussHandle)) {
+    m_transportController->stopClip(cueBussHandle);
+  }
+
+  // Remove from active Cue Busses
+  auto it = std::find(m_cueBussHandles.begin(), m_cueBussHandles.end(), cueBussHandle);
+  if (it != m_cueBussHandles.end()) {
+    m_cueBussHandles.erase(it);
+  }
+
+  // TODO: Unregister from transport controller (needs SDK API)
+
+  DBG("AudioEngine: Released Cue Buss (handle " << cueBussHandle << ")");
+}
+
+bool AudioEngine::startCueBuss(orpheus::ClipHandle cueBussHandle) {
+  if (cueBussHandle < 10001 || !m_transportController)
+    return false;
+
+  auto result = m_transportController->startClip(cueBussHandle);
+  if (result != orpheus::SessionGraphError::OK) {
+    DBG("AudioEngine: Failed to start Cue Buss " << cueBussHandle);
+    return false;
+  }
+
+  DBG("AudioEngine: Started Cue Buss " << cueBussHandle);
+  return true;
+}
+
+bool AudioEngine::stopCueBuss(orpheus::ClipHandle cueBussHandle) {
+  if (cueBussHandle < 10001 || !m_transportController)
+    return false;
+
+  auto result = m_transportController->stopClip(cueBussHandle);
+  if (result != orpheus::SessionGraphError::OK) {
+    DBG("AudioEngine: Failed to stop Cue Buss " << cueBussHandle);
+    return false;
+  }
+
+  DBG("AudioEngine: Stopped Cue Buss " << cueBussHandle);
+  return true;
+}
+
+bool AudioEngine::updateCueBussMetadata(orpheus::ClipHandle cueBussHandle, int64_t trimInSamples,
+                                        int64_t trimOutSamples, double fadeInSeconds,
+                                        double fadeOutSeconds, const juce::String& fadeInCurve,
+                                        const juce::String& fadeOutCurve) {
+  if (cueBussHandle < 10001 || !m_transportController)
+    return false;
+
+  // Map fade curve strings to SDK enum
+  orpheus::FadeCurve fadeInCurveEnum = orpheus::FadeCurve::Linear;
+  if (fadeInCurve == "EqualPower")
+    fadeInCurveEnum = orpheus::FadeCurve::EqualPower;
+  else if (fadeInCurve == "Exponential")
+    fadeInCurveEnum = orpheus::FadeCurve::Exponential;
+
+  orpheus::FadeCurve fadeOutCurveEnum = orpheus::FadeCurve::Linear;
+  if (fadeOutCurve == "EqualPower")
+    fadeOutCurveEnum = orpheus::FadeCurve::EqualPower;
+  else if (fadeOutCurve == "Exponential")
+    fadeOutCurveEnum = orpheus::FadeCurve::Exponential;
+
+  // Update trim points
+  auto trimResult =
+      m_transportController->updateClipTrimPoints(cueBussHandle, trimInSamples, trimOutSamples);
+  if (trimResult != orpheus::SessionGraphError::OK) {
+    DBG("AudioEngine: Failed to update Cue Buss trim points: " << static_cast<int>(trimResult));
+    return false;
+  }
+
+  // Update fades
+  auto fadeResult = m_transportController->updateClipFades(
+      cueBussHandle, fadeInSeconds, fadeOutSeconds, fadeInCurveEnum, fadeOutCurveEnum);
+  if (fadeResult != orpheus::SessionGraphError::OK) {
+    DBG("AudioEngine: Failed to update Cue Buss fades: " << static_cast<int>(fadeResult));
+    return false;
+  }
+
+  DBG("AudioEngine: Updated Cue Buss "
+      << cueBussHandle << " - Trim: [" << trimInSamples << ", " << trimOutSamples << "]"
+      << ", Fade IN: " << fadeInSeconds << "s (" << fadeInCurve << ")"
+      << ", Fade OUT: " << fadeOutSeconds << "s (" << fadeOutCurve << ")");
+
+  return true;
+}
+
+bool AudioEngine::isCueBussPlaying(orpheus::ClipHandle cueBussHandle) const {
+  if (cueBussHandle < 10001 || !m_transportController)
+    return false;
+
+  return m_transportController->isClipPlaying(cueBussHandle);
 }
 
 //==============================================================================
