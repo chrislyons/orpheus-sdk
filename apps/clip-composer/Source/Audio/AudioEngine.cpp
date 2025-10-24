@@ -348,6 +348,20 @@ orpheus::ClipHandle AudioEngine::allocateCueBuss(const juce::String& filePath) {
   // Track active Cue Buss
   m_cueBussHandles.push_back(cueBussHandle);
 
+  // Read metadata for UI (same as loadClip does for buttons)
+  auto reader = orpheus::createAudioFileReader();
+  auto metadataResult = reader->open(filePath.toStdString());
+  if (metadataResult.isOk()) {
+    m_cueBussMetadata[cueBussHandle] = metadataResult.value;
+    DBG("AudioEngine: Cue Buss " << cueBussHandle << " metadata: "
+                                 << static_cast<int>(metadataResult.value.sample_rate) << " Hz, "
+                                 << static_cast<int>(metadataResult.value.num_channels) << " ch, "
+                                 << static_cast<int>(metadataResult.value.duration_samples)
+                                 << " samples");
+  } else {
+    DBG("AudioEngine: WARNING - Failed to read metadata for Cue Buss " << cueBussHandle);
+  }
+
   // Determine Cue number for UI display (Cue 1, Cue 2, Cue 3, ...)
   int cueNumber = static_cast<int>(m_cueBussHandles.size());
 
@@ -370,6 +384,9 @@ void AudioEngine::releaseCueBuss(orpheus::ClipHandle cueBussHandle) {
   if (it != m_cueBussHandles.end()) {
     m_cueBussHandles.erase(it);
   }
+
+  // Remove metadata
+  m_cueBussMetadata.erase(cueBussHandle);
 
   // TODO: Unregister from transport controller (needs SDK API)
 
@@ -455,6 +472,14 @@ bool AudioEngine::isCueBussPlaying(orpheus::ClipHandle cueBussHandle) const {
   return m_transportController->isClipPlaying(cueBussHandle);
 }
 
+std::optional<orpheus::AudioFileMetadata>
+AudioEngine::getCueBussMetadata(orpheus::ClipHandle cueBussHandle) const {
+  auto it = m_cueBussMetadata.find(cueBussHandle);
+  if (it != m_cueBussMetadata.end())
+    return it->second;
+  return std::nullopt;
+}
+
 //==============================================================================
 void AudioEngine::onClipStarted(orpheus::ClipHandle handle, orpheus::TransportPosition position) {
   // Post to UI thread
@@ -489,24 +514,10 @@ void AudioEngine::onBufferUnderrun(orpheus::TransportPosition position) {
 //==============================================================================
 void AudioEngine::processAudio(const float** input_buffers, float** output_buffers,
                                size_t num_channels, size_t num_frames) {
-  static int audioEngineCallCount = 0;
-  if (audioEngineCallCount < 3) {
-    // Write to file since stdout might not work
-    FILE* f = fopen("/tmp/audio_callback.txt", "a");
-    if (f) {
-      fprintf(f, "AudioEngine::processAudio() CALLED #%d: frames=%zu, transport=%p\n",
-              audioEngineCallCount, num_frames, (void*)m_transportController.get());
-      fclose(f);
-    }
-    audioEngineCallCount++;
-  }
+  // BROADCAST-SAFE: No allocations, no locks, no I/O in audio thread
+  // Removed debug file I/O for production safety (see OCC044 Sprint 1)
 
   if (!m_transportController) {
-    FILE* f = fopen("/tmp/audio_callback.txt", "a");
-    if (f) {
-      fprintf(f, "ERROR: No transport controller!\n");
-      fclose(f);
-    }
     // No transport - output silence
     for (size_t ch = 0; ch < num_channels; ++ch) {
       if (output_buffers[ch])
