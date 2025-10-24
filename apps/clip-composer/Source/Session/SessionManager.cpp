@@ -159,6 +159,10 @@ SessionManager::ClipData SessionManager::extractMetadata(const juce::String& fil
     data.sampleRate = static_cast<int>(reader->sampleRate);
     data.numChannels = static_cast<int>(reader->numChannels);
     data.durationSamples = reader->lengthInSamples;
+
+    // Initialize trim points to full duration
+    data.trimInSamples = 0;
+    data.trimOutSamples = data.durationSamples;
   } else {
     DBG("SessionManager: Failed to create reader for: " << filePath);
     data.filePath.clear(); // Mark as invalid

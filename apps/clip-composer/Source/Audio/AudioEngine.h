@@ -10,6 +10,7 @@
 #include <orpheus/audio_driver.h>
 #include <orpheus/audio_file_reader.h>
 #include <orpheus/transport_controller.h>
+#include <unordered_map>
 
 // Forward declare concrete class for extended API
 namespace orpheus {
@@ -138,6 +139,24 @@ public:
   uint32_t getSampleRate() const;
 
   //==============================================================================
+  // Audio Device Management (for Audio Settings Dialog)
+
+  /// Get list of available audio device names
+  /// @return Vector of device names (empty if driver doesn't support enumeration)
+  std::vector<std::string> getAvailableDevices() const;
+
+  /// Get current audio device name
+  /// @return Device name, or "Default Device" if not set
+  std::string getCurrentDeviceName() const;
+
+  /// Set audio device and restart audio with new settings
+  /// @param deviceName Device name (from getAvailableDevices()), or empty for default
+  /// @param sampleRate Sample rate in Hz (44100, 48000, 96000)
+  /// @param bufferSize Buffer size in samples (64, 128, 256, 512, 1024, 2048)
+  /// @return true on success, false if device initialization failed
+  bool setAudioDevice(const std::string& deviceName, uint32_t sampleRate, uint32_t bufferSize);
+
+  //==============================================================================
   // Cue Buss Management (for Edit Dialog preview)
   // ClipHandles 10001+ are Cue Busses (dynamically allocated)
 
@@ -177,6 +196,18 @@ public:
   /// @param cueBussHandle Cue Buss ClipHandle
   /// @return true if playing
   bool isCueBussPlaying(orpheus::ClipHandle cueBussHandle) const;
+
+  /// Get audio file metadata for a Cue Buss
+  /// @param cueBussHandle Cue Buss ClipHandle
+  /// @return Metadata if Cue Buss exists, empty optional otherwise
+  std::optional<orpheus::AudioFileMetadata>
+  getCueBussMetadata(orpheus::ClipHandle cueBussHandle) const;
+
+  /// Set loop mode for a Cue Buss
+  /// @param cueBussHandle Cue Buss ClipHandle
+  /// @param enabled true = loop indefinitely, false = play once
+  /// @return true if loop mode was set successfully
+  bool setCueBussLoop(orpheus::ClipHandle cueBussHandle, bool enabled);
 
   //==============================================================================
   // Callbacks from UI
@@ -220,11 +251,14 @@ private:
   // Cue Buss management (ClipHandles 10001+)
   std::vector<orpheus::ClipHandle> m_cueBussHandles; // Active Cue Busses
   orpheus::ClipHandle m_nextCueBussHandle = 10001;   // Next available Cue Buss handle
+  std::unordered_map<orpheus::ClipHandle, orpheus::AudioFileMetadata>
+      m_cueBussMetadata; // Cue Buss metadata cache
 
   // Engine state
   uint32_t m_sampleRate = 48000;
   uint32_t m_bufferSize = 512;
   bool m_initialized = false;
+  std::string m_currentDeviceName = "Default Device"; // Current audio device name
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioEngine)
 };

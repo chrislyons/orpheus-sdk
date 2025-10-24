@@ -24,6 +24,30 @@ add_test(
     COMMAND transport_controller_test
 )
 
+# Fade processing tests
+add_executable(fade_processing_test
+    fade_processing_test.cpp
+)
+
+target_link_libraries(fade_processing_test
+    PRIVATE
+        orpheus_transport
+        orpheus_session
+        GTest::gtest
+        GTest::gtest_main
+)
+
+target_include_directories(fade_processing_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src/core
+)
+
+add_test(
+    NAME fade_processing_test
+    COMMAND fade_processing_test
+)
+
 # Integration tests (requires orpheus_audio_io)
 if(TARGET orpheus_audio_io)
     # Find libsndfile (needed because orpheus_audio_io is static)

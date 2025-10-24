@@ -55,12 +55,14 @@ bool PreviewPlayer::loadFile(const juce::File& audioFile) {
   // Store file path
   m_loadedFilePath = audioFile.getFullPathName();
 
-  // Get metadata from AudioEngine (assuming AudioEngine reads metadata during allocation)
-  auto metadata = m_audioEngine->getClipMetadata(0); // TODO: Need API to get Cue Buss metadata
+  // Get metadata from AudioEngine for this Cue Buss
+  auto metadata = m_audioEngine->getCueBussMetadata(m_cueBussHandle);
   if (metadata.has_value()) {
     m_sampleRate = static_cast<int>(metadata->sample_rate);
     m_numChannels = static_cast<int>(metadata->num_channels);
     m_totalSamples = static_cast<int64_t>(metadata->duration_samples);
+  } else {
+    DBG("PreviewPlayer: WARNING - No metadata available for Cue Buss " << m_cueBussHandle);
   }
 
   // Initialize trim points to full file
@@ -100,19 +102,12 @@ void PreviewPlayer::setTrimPoints(int64_t trimInSamples, int64_t trimOutSamples)
 void PreviewPlayer::setLoopEnabled(bool shouldLoop) {
   m_loopEnabled = shouldLoop;
 
-  // TODO (SDK Sprint OCC041 Bug #6): Implement loop playback in Orpheus SDK
-  // Requires TransportController changes (see OCC041 lines 400-462):
-  //
-  // 1. Add loop_enabled, loop_in_samples, loop_out_samples to SDK ClipState
-  // 2. Implement loop restart logic in TransportController::processAudio()
-  // 3. Add AudioEngine::setCueBussLoop() API
-  // 4. Wire up PreviewPlayer to call AudioEngine when loop state changes
-  //
-  // For now, loop state is tracked in metadata and will be synced to clip
-  // buttons, but actual audio looping is not yet implemented.
+  // Update Cue Buss loop mode in AudioEngine
+  if (m_cueBussHandle != 0 && m_audioEngine) {
+    m_audioEngine->setCueBussLoop(m_cueBussHandle, shouldLoop);
+  }
 
-  DBG("PreviewPlayer: Loop " << (shouldLoop ? "enabled" : "disabled")
-                             << " (SDK implementation pending - see OCC041)");
+  DBG("PreviewPlayer: Loop " << (shouldLoop ? "enabled" : "disabled"));
 }
 
 void PreviewPlayer::setFades(float fadeInSeconds, float fadeOutSeconds,

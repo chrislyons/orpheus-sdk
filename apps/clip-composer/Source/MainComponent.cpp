@@ -59,9 +59,31 @@ MainComponent::MainComponent() {
 
   // Initialize audio engine with real SDK components
   m_audioEngine = std::make_unique<AudioEngine>();
-  if (!m_audioEngine->initialize(48000)) {
+
+  // Load saved audio settings (sample rate, buffer size, device)
+  juce::PropertiesFile::Options options;
+  options.applicationName = "OrpheusClipComposer";
+  options.filenameSuffix = ".settings";
+  options.osxLibrarySubFolder = "Application Support";
+  juce::PropertiesFile settings(options);
+
+  int savedSampleRate = settings.getIntValue("sampleRate", 48000);
+  int savedBufferSize = settings.getIntValue("bufferSize", 512);
+  juce::String savedDevice = settings.getValue("audioDevice", "Default Device");
+
+  DBG("MainComponent: Restoring saved audio settings - Device: "
+      << savedDevice << ", SR: " << savedSampleRate << " Hz, Buffer: " << savedBufferSize);
+
+  // Initialize with saved sample rate
+  if (!m_audioEngine->initialize(savedSampleRate)) {
     DBG("MainComponent: Failed to initialize audio engine!");
   } else {
+    // Apply saved settings (device and buffer size)
+    if (savedBufferSize != 512) {
+      // Buffer size differs from default, apply saved settings
+      m_audioEngine->setAudioDevice(savedDevice.toStdString(), savedSampleRate, savedBufferSize);
+    }
+
     if (m_audioEngine->start()) {
       DBG("MainComponent: Audio engine started successfully");
     } else {

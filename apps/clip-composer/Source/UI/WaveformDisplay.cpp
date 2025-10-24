@@ -30,6 +30,8 @@ void WaveformDisplay::setAudioFile(const juce::File& audioFile) {
 void WaveformDisplay::setTrimPoints(int64_t trimInSamples, int64_t trimOutSamples) {
   m_trimInSamples = trimInSamples;
   m_trimOutSamples = trimOutSamples;
+  DBG("WaveformDisplay: setTrimPoints called with [" << trimInSamples << ", " << trimOutSamples
+                                                     << "]");
   repaint();
 }
 
@@ -249,9 +251,15 @@ void WaveformDisplay::mouseDrag(const juce::MouseEvent& event) {
   if (m_draggedHandle == DragHandle::TrimIn) {
     // Don't allow dragging past OUT point
     m_trimInSamples = std::min(samplePosition, m_trimOutSamples);
+    DBG("WaveformDisplay: Dragging IN handle - samplePosition="
+        << samplePosition << ", m_trimOutSamples=" << m_trimOutSamples << ", result=["
+        << m_trimInSamples << ", " << m_trimOutSamples << "]");
   } else if (m_draggedHandle == DragHandle::TrimOut) {
     // Don't allow dragging before IN point
     m_trimOutSamples = std::max(samplePosition, m_trimInSamples);
+    DBG("WaveformDisplay: Dragging OUT handle - samplePosition="
+        << samplePosition << ", m_trimInSamples=" << m_trimInSamples << ", result=["
+        << m_trimInSamples << ", " << m_trimOutSamples << "]");
   }
 
   // Notify parent dialog

@@ -328,6 +328,89 @@ uint32_t AudioEngine::getSampleRate() const {
 }
 
 //==============================================================================
+// Audio Device Management (for Audio Settings Dialog)
+
+std::vector<std::string> AudioEngine::getAvailableDevices() const {
+  // Currently CoreAudio driver doesn't expose device enumeration in SDK
+  // Return a placeholder list for now
+  // TODO: Add device enumeration API to IAudioDriver interface
+  std::vector<std::string> devices;
+  devices.push_back("Default Device");
+  // In a full implementation, this would call m_audioDriver->enumerateDevices()
+  return devices;
+}
+
+std::string AudioEngine::getCurrentDeviceName() const {
+  return m_currentDeviceName;
+}
+
+bool AudioEngine::setAudioDevice(const std::string& deviceName, uint32_t sampleRate,
+                                 uint32_t bufferSize) {
+  DBG("AudioEngine: Changing audio settings - Device: "
+      << deviceName << ", Sample Rate: " << static_cast<int>(sampleRate)
+      << " Hz, Buffer Size: " << static_cast<int>(bufferSize));
+
+  // Stop current audio driver if running
+  bool wasRunning = isRunning();
+  if (wasRunning) {
+    stop();
+  }
+
+  // Update engine state
+  m_sampleRate = sampleRate;
+  m_bufferSize = bufferSize;
+  m_currentDeviceName = deviceName.empty() ? "Default Device" : deviceName;
+
+  // Recreate transport controller with new sample rate
+  m_transportController =
+      std::unique_ptr<orpheus::TransportController>(static_cast<orpheus::TransportController*>(
+          orpheus::createTransportController(nullptr, sampleRate).release()));
+  if (!m_transportController) {
+    DBG("AudioEngine: Failed to recreate transport controller");
+    return false;
+  }
+  m_transportController->setCallback(this);
+
+  // Recreate audio driver with new configuration
+  // Note: Device selection not yet supported in SDK, always uses default device
+  m_audioDriver = orpheus::createCoreAudioDriver();
+  if (!m_audioDriver) {
+    DBG("AudioEngine: Failed to create CoreAudio driver, falling back to dummy");
+    m_audioDriver = orpheus::createDummyAudioDriver();
+    if (!m_audioDriver) {
+      DBG("AudioEngine: Failed to create audio driver");
+      return false;
+    }
+  }
+
+  // Configure driver with new settings
+  orpheus::AudioDriverConfig config;
+  config.sample_rate = sampleRate;
+  config.buffer_size = bufferSize;
+  config.num_inputs = 0;  // No input for now
+  config.num_outputs = 2; // Stereo output
+
+  auto result = m_audioDriver->initialize(config);
+  if (result != orpheus::SessionGraphError::OK) {
+    DBG("AudioEngine: Failed to initialize audio driver with new settings");
+    return false;
+  }
+
+  DBG("AudioEngine: Audio driver reinitialized successfully");
+
+  // Restart audio if it was running before
+  if (wasRunning) {
+    if (!start()) {
+      DBG("AudioEngine: Failed to restart audio after settings change");
+      return false;
+    }
+  }
+
+  DBG("AudioEngine: Successfully changed audio settings");
+  return true;
+}
+
+//==============================================================================
 // Cue Buss Management (for Edit Dialog preview)
 
 orpheus::ClipHandle AudioEngine::allocateCueBuss(const juce::String& filePath) {
@@ -478,6 +561,21 @@ AudioEngine::getCueBussMetadata(orpheus::ClipHandle cueBussHandle) const {
   if (it != m_cueBussMetadata.end())
     return it->second;
   return std::nullopt;
+}
+
+bool AudioEngine::setCueBussLoop(orpheus::ClipHandle cueBussHandle, bool enabled) {
+  if (cueBussHandle < 10001 || !m_transportController)
+    return false;
+
+  auto result = m_transportController->setClipLoopMode(cueBussHandle, enabled);
+  if (result != orpheus::SessionGraphError::OK) {
+    DBG("AudioEngine: Failed to set loop mode for Cue Buss " << cueBussHandle);
+    return false;
+  }
+
+  DBG("AudioEngine: Set Cue Buss " << cueBussHandle << " loop mode to "
+                                   << (enabled ? "enabled" : "disabled"));
+  return true;
 }
 
 //==============================================================================
