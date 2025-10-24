@@ -83,7 +83,7 @@ void WaveformDisplay::paint(juce::Graphics& g) {
   // Loading state
   if (m_isLoading.load()) {
     g.setColour(juce::Colours::white.withAlpha(0.5f));
-    g.setFont(juce::Font("Inter", 12.0f, juce::Font::plain));
+    g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
     g.drawText("Loading waveform...", bounds, juce::Justification::centred);
     return;
   }
@@ -96,7 +96,7 @@ void WaveformDisplay::paint(juce::Graphics& g) {
       drawTrimMarkers(g, bounds);
     } else {
       g.setColour(juce::Colours::white.withAlpha(0.3f));
-      g.setFont(juce::Font("Inter", 12.0f, juce::Font::plain));
+      g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
       g.drawText("No waveform data", bounds, juce::Justification::centred);
     }
   }
@@ -367,7 +367,7 @@ void WaveformDisplay::drawWaveform(juce::Graphics& g, const juce::Rectangle<floa
 
   // Draw dB scale on left side (SpotOn-style)
   g.setColour(juce::Colours::white.withAlpha(0.7f));
-  g.setFont(juce::Font("Inter", 9.0f, juce::Font::plain));
+  g.setFont(juce::FontOptions("Inter", 9.0f, juce::Font::plain));
 
   // SpotOn shows: 0, -10, -20, -30, -40, -50 dB
   const float dbValues[] = {0.0f, -10.0f, -20.0f, -30.0f, -40.0f, -50.0f};

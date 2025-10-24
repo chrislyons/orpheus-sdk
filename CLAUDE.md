@@ -463,3 +463,4 @@ The Orpheus Clip Composer design package is comprehensive and implementation-rea
 
 - I'm expecting you to run all of ORP068 -- you don't need to check in with me so often.
 - DON'T USE OPEN TO RUN CLIP COMPOSER
+- And always run the launch script after a build like this.
