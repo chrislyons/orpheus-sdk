@@ -26,7 +26,7 @@ TransportControls::TransportControls() {
 
   // Create latency label
   m_latencyLabel = std::make_unique<juce::Label>("Latency", "Latency: -- ms");
-  m_latencyLabel->setFont(juce::Font(12.0f, juce::Font::plain));
+  m_latencyLabel->setFont(juce::FontOptions(12.0f, juce::Font::plain));
   m_latencyLabel->setColour(juce::Label::textColourId, juce::Colours::lightgrey);
   m_latencyLabel->setJustificationType(juce::Justification::centredLeft);
   addAndMakeVisible(m_latencyLabel.get());

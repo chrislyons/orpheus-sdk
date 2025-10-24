@@ -34,7 +34,13 @@ fi
 # Kill existing instances
 echo "🔄 Stopping existing instances..."
 killall OrpheusClipComposer 2>/dev/null || true
-sleep 0.5
+sleep 1
+
+# Clear macOS app cache to force reload
+echo "🧹 Clearing macOS app cache..."
+rm -rf "$APP_PATH/Contents/_CodeSignature" 2>/dev/null || true
+xattr -cr "$APP_PATH" 2>/dev/null || true
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -kill -r -domain local -domain system -domain user 2>/dev/null || true
 
 # Clear old log
 > "$LOG_FILE"
