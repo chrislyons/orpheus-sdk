@@ -15,6 +15,13 @@ class SessionGraph;
 
 using ClipHandle = uint64_t;
 
+/// Fade curve types for clip fades
+enum class FadeCurve : uint8_t {
+  Linear = 0,     ///< f(x) = x
+  EqualPower = 1, ///< f(x) = sin(x * π/2) - constant power crossfades
+  Exponential = 2 ///< f(x) = x² - dramatic effect
+};
+
 /// Error codes for session graph operations
 enum class SessionGraphError : uint8_t {
   OK = 0,
@@ -22,7 +29,10 @@ enum class SessionGraphError : uint8_t {
   InvalidParameter = 2,
   NotReady = 3,
   NotSupported = 4,
-  NotInitialized = 5, ///< Added for routing matrix
+  NotInitialized = 5,         ///< Added for routing matrix
+  InvalidClipTrimPoints = 18, ///< Trim IN >= trim OUT, or out of bounds
+  InvalidFadeDuration = 19,   ///< Fade duration > clip duration
+  ClipNotRegistered = 20,     ///< Clip handle not found
   InternalError = 255
 };
 
@@ -162,6 +172,95 @@ public:
   /// @note This function must be called from the UI thread only
   /// @note Callbacks are invoked on the UI thread, not the audio thread
   virtual void setCallback(ITransportCallback* callback) = 0;
+
+  /// Update trim points for a registered clip
+  ///
+  /// @param handle Clip handle (must be registered via registerClipAudio)
+  /// @param trimInSamples Trim IN point in samples (0 = start of file)
+  /// @param trimOutSamples Trim OUT point in samples (file duration = end of file)
+  /// @return SessionGraphError::OK on success, error code on failure
+  ///
+  /// Thread-safe: Can be called from UI thread
+  /// Takes effect: On next clip start (does not affect currently playing clips)
+  ///
+  /// Validation:
+  /// - trimInSamples must be >= 0 and < file duration
+  /// - trimOutSamples must be > trimInSamples and <= file duration
+  /// - If invalid, returns SessionGraphError::InvalidClipTrimPoints
+  virtual SessionGraphError updateClipTrimPoints(ClipHandle handle, int64_t trimInSamples,
+                                                 int64_t trimOutSamples) = 0;
+
+  /// Update fade settings for a registered clip
+  ///
+  /// @param handle Clip handle (must be registered via registerClipAudio)
+  /// @param fadeInSeconds Fade-in duration in seconds (0.0 = no fade)
+  /// @param fadeOutSeconds Fade-out duration in seconds (0.0 = no fade)
+  /// @param fadeInCurve Fade-in curve type (Linear, EqualPower, Exponential)
+  /// @param fadeOutCurve Fade-out curve type (Linear, EqualPower, Exponential)
+  /// @return SessionGraphError::OK on success, error code on failure
+  ///
+  /// Thread-safe: Can be called from UI thread
+  /// Takes effect: On next clip start (does not affect currently playing clips)
+  ///
+  /// Fade behavior:
+  /// - Fade-in: Applied from trimInSamples (0.0 → 1.0 gain over N seconds)
+  /// - Fade-out: Applied before trimOutSamples (1.0 → 0.0 gain over N seconds)
+  /// - Fade curves:
+  ///   - Linear: y = x
+  ///   - EqualPower: y = sin(x * π/2)  [smooth crossfades]
+  ///   - Exponential: y = x²  [dramatic effect]
+  ///
+  /// Validation:
+  /// - fadeInSeconds must be >= 0.0 and <= (trimOutSamples - trimInSamples) / sampleRate
+  /// - fadeOutSeconds must be >= 0.0 and <= (trimOutSamples - trimInSamples) / sampleRate
+  /// - If fades overlap, fade-out takes precedence
+  virtual SessionGraphError updateClipFades(ClipHandle handle, double fadeInSeconds,
+                                            double fadeOutSeconds, FadeCurve fadeInCurve,
+                                            FadeCurve fadeOutCurve) = 0;
+
+  /// Get current trim points for a clip (query only)
+  ///
+  /// @param handle Clip handle
+  /// @param[out] trimInSamples Current trim IN point
+  /// @param[out] trimOutSamples Current trim OUT point
+  /// @return SessionGraphError::OK on success, error code if clip not found
+  ///
+  /// Thread-safe: Can be called from any thread
+  virtual SessionGraphError getClipTrimPoints(ClipHandle handle, int64_t& trimInSamples,
+                                              int64_t& trimOutSamples) const = 0;
+
+  /// Update gain for a registered clip
+  ///
+  /// @param handle Clip handle (must be registered via registerClipAudio)
+  /// @param gainDb Gain in decibels (-∞ to +12 dB typical, 0 dB = unity gain)
+  /// @return SessionGraphError::OK on success, error code on failure
+  ///
+  /// Thread-safe: Can be called from UI thread
+  /// Takes effect: Immediately for active clips, on next start for stopped clips
+  ///
+  /// Gain conversion:
+  /// - Linear gain = 10^(gainDb / 20)
+  /// - Examples: -6 dB = 0.5, 0 dB = 1.0, +6 dB = 2.0
+  ///
+  /// Validation:
+  /// - gainDb must be finite (not NaN or Inf)
+  /// - Typical range: -60 dB to +12 dB
+  virtual SessionGraphError updateClipGain(ClipHandle handle, float gainDb) = 0;
+
+  /// Set loop mode for a registered clip
+  ///
+  /// @param handle Clip handle (must be registered via registerClipAudio)
+  /// @param shouldLoop true = loop indefinitely, false = play once
+  /// @return SessionGraphError::OK on success, error code on failure
+  ///
+  /// Thread-safe: Can be called from UI thread
+  /// Takes effect: On next clip start (does not affect currently playing clips)
+  ///
+  /// Loop behavior:
+  /// - When clip reaches trim OUT point, it seeks back to trim IN point
+  /// - Fade-out is NOT applied on loop (fades only apply at manual stop)
+  /// - Useful for music beds, ambience, and looping effects
+  virtual SessionGraphError setClipLoopMode(ClipHandle handle, bool shouldLoop) = 0;
 };
 
 /// Create a transport controller instance

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <juce_core/juce_core.h>
+#include <unordered_map>
 
 // Forward declare SDK types (will be included in .cpp)
 namespace orpheus {
@@ -11,6 +12,7 @@ class IAudioFileReader;
 class IAudioDriver;
 class ITransportCallback;
 class IAudioCallback;
+using ClipHandle = uint32_t; // Handle type for clips and Cue Busses
 } // namespace orpheus
 
 // Forward declare internal callback adapter
@@ -83,6 +85,70 @@ public:
   bool isRunning() const;
 
   //==============================================================================
+  // Cue Buss Management (Preview Audio Architecture)
+
+  /**
+   * Allocate a Cue Buss for preview playback
+   *
+   * @param filePath Absolute path to audio file
+   * @return Cue Buss handle (0 = allocation failed)
+   *
+   * Cue Busses are temporary preview streams that sum to main output.
+   */
+  orpheus::ClipHandle allocateCueBuss(const juce::String& filePath);
+
+  /**
+   * Release a Cue Buss and free resources
+   *
+   * @param handle Cue Buss handle to release
+   * @return true if released successfully
+   */
+  bool releaseCueBuss(orpheus::ClipHandle handle);
+
+  /**
+   * Start Cue Buss playback (idempotent)
+   *
+   * @param handle Cue Buss handle
+   * @return true if started (or already playing)
+   *
+   * IMPORTANT: This method is idempotent - calling multiple times
+   * should always start/restart playback, never toggle.
+   */
+  bool startCueBuss(orpheus::ClipHandle handle);
+
+  /**
+   * Stop Cue Buss playback
+   *
+   * @param handle Cue Buss handle
+   * @return true if stopped successfully
+   */
+  bool stopCueBuss(orpheus::ClipHandle handle);
+
+  /**
+   * Update Cue Buss metadata (trim points, fades)
+   *
+   * @param handle Cue Buss handle
+   * @param trimInSamples Trim IN point
+   * @param trimOutSamples Trim OUT point
+   * @param fadeInSeconds Fade-in duration
+   * @param fadeOutSeconds Fade-out duration
+   * @param fadeInCurve Fade-in curve type
+   * @param fadeOutCurve Fade-out curve type
+   * @return true if updated successfully
+   */
+  bool updateCueBussMetadata(orpheus::ClipHandle handle, int64_t trimInSamples,
+                             int64_t trimOutSamples, float fadeInSeconds, float fadeOutSeconds,
+                             const juce::String& fadeInCurve, const juce::String& fadeOutCurve);
+
+  /**
+   * Get clip metadata by button index
+   *
+   * @param buttonIndex Button index (0-959)
+   * @return Optional clip metadata
+   */
+  std::optional<ClipMetadata> getClipMetadata(int buttonIndex) const;
+
+  //==============================================================================
   // Clip Management (to be implemented in Week 7-8)
 
   /**
@@ -122,6 +188,25 @@ public:
    * @return true if command was queued successfully
    */
   bool stopAllClips();
+
+  /**
+   * Update clip metadata (trim points, fades, etc.)
+   *
+   * @param buttonIndex Button index (0-959) of clip to update
+   * @param trimInSamples Trim IN point in samples
+   * @param trimOutSamples Trim OUT point in samples
+   * @param fadeInSeconds Fade-in duration in seconds
+   * @param fadeOutSeconds Fade-out duration in seconds
+   * @param fadeInCurve Fade-in curve type ("Linear", "EqualPower", "Exponential")
+   * @param fadeOutCurve Fade-out curve type ("Linear", "EqualPower", "Exponential")
+   * @return true if metadata was updated successfully
+   *
+   * Updates trim/fade settings for an already-loaded clip.
+   * Call after clip is loaded with loadClip().
+   */
+  bool updateClipMetadata(int buttonIndex, int64_t trimInSamples, int64_t trimOutSamples,
+                          double fadeInSeconds, double fadeOutSeconds,
+                          const juce::String& fadeInCurve, const juce::String& fadeOutCurve);
 
   //==============================================================================
   // Status Queries
@@ -168,8 +253,17 @@ private:
   uint16_t m_bufferSize = 0;
   bool m_initialized = false;
 
-  // Clip metadata storage (buttonIndex → ClipHandle mapping)
-  // std::unordered_map<int, ClipMetadata> m_clips;  // To be implemented
+  // Clip metadata storage (buttonIndex → ClipMetadata mapping)
+  struct ClipMetadata {
+    juce::String filePath;
+    int64_t trimInSamples = 0;
+    int64_t trimOutSamples = 0;
+    double fadeInSeconds = 0.0;
+    double fadeOutSeconds = 0.0;
+    juce::String fadeInCurve = "Linear";
+    juce::String fadeOutCurve = "Linear";
+  };
+  std::unordered_map<int, ClipMetadata> m_clipMetadata;
 
   //==============================================================================
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioEngine)

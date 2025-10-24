@@ -231,8 +231,16 @@ void TransportController::processAudio(float** outputBuffers, size_t numChannels
       continue;
     }
 
+    // Load trim and fade settings (atomic read for thread safety)
+    int64_t trimIn = clip.trimInSamples.load(std::memory_order_acquire);
+    int64_t trimOut = clip.trimOutSamples.load(std::memory_order_acquire);
+    int64_t fadeInSampleCount = clip.fadeInSamples.load(std::memory_order_acquire);
+    int64_t fadeOutSampleCount = clip.fadeOutSamples.load(std::memory_order_acquire);
+    FadeCurve fadeInCurveType = clip.fadeInCurve.load(std::memory_order_acquire);
+    FadeCurve fadeOutCurveType = clip.fadeOutCurve.load(std::memory_order_acquire);
+
     // Calculate how many frames to read (respecting trim OUT point)
-    int64_t framesUntilEnd = clip.trimOutSamples - clip.currentSample;
+    int64_t framesUntilEnd = trimOut - clip.currentSample;
     if (framesUntilEnd <= 0) {
       continue; // Already past end
     }
@@ -304,14 +312,39 @@ void TransportController::processAudio(float** outputBuffers, size_t numChannels
     // Output to this clip's channel buffer (mono sum for routing)
     float* clipChannelBuffer = m_clipChannelBuffers[i].data();
 
+    // Load clip gain (atomic read for thread safety)
+    float clipGainDb = clip.gainDb.load(std::memory_order_acquire);
+    float clipGainLinear = std::pow(10.0f, clipGainDb / 20.0f); // Convert dB to linear
+
     for (size_t frame = 0; frame < framesRead; ++frame) {
-      // Calculate fade-out gain for this frame
-      float gain = clip.fadeOutGain;
+      // Calculate base gain (starts at 1.0)
+      float gain = 1.0f;
+
+      // Apply clip gain (from gainDb setting)
+      gain *= clipGainLinear;
+
+      // Apply stop fade-out if stopping
       if (clip.isStopping) {
-        // Linear fade-out
+        float stopFadeGain = clip.fadeOutGain;
         float fadeStep = 1.0f / static_cast<float>(m_fadeOutSamples);
-        gain = clip.fadeOutGain - (fadeStep * static_cast<float>(frame));
-        gain = std::max(0.0f, gain); // Clamp to 0
+        stopFadeGain -= (fadeStep * static_cast<float>(frame));
+        gain *= std::max(0.0f, stopFadeGain); // Clamp to 0
+      }
+
+      // Apply clip fade-in (first N samples from trim IN)
+      int64_t relativePos = clip.currentSample + static_cast<int64_t>(frame) - trimIn;
+      if (fadeInSampleCount > 0 && relativePos >= 0 && relativePos < fadeInSampleCount) {
+        float fadeInPos = static_cast<float>(relativePos) / static_cast<float>(fadeInSampleCount);
+        gain *= calculateFadeGain(fadeInPos, fadeInCurveType);
+      }
+
+      // Apply clip fade-out (last N samples before trim OUT)
+      int64_t trimmedDuration = trimOut - trimIn;
+      if (fadeOutSampleCount > 0 && relativePos >= (trimmedDuration - fadeOutSampleCount)) {
+        int64_t fadeOutRelativePos = relativePos - (trimmedDuration - fadeOutSampleCount);
+        float fadeOutPos =
+            static_cast<float>(fadeOutRelativePos) / static_cast<float>(fadeOutSampleCount);
+        gain *= (1.0f - calculateFadeGain(fadeOutPos, fadeOutCurveType));
       }
 
       // Mix all file channels to mono for routing
@@ -388,20 +421,40 @@ void TransportController::processAudio(float** outputBuffers, size_t numChannels
     }
 
     // Check if clip reached trim OUT point
-    if (clip.currentSample >= clip.trimOutSamples) {
-      // TODO: Check if clip should loop
-      // For now, just stop the clip
-      postCallback([this, handle = clip.handle, pos = getCurrentPosition()]() {
-        if (m_callback) {
-          m_callback->onClipStopped(handle, pos);
-        }
-      });
+    int64_t clipTrimOut = clip.trimOutSamples.load(std::memory_order_acquire);
+    if (clip.currentSample >= clipTrimOut) {
+      // Check if clip should loop
+      bool shouldLoop = clip.loopEnabled.load(std::memory_order_acquire);
 
-      removeActiveClip(clip.handle);
-      continue; // Don't increment i
+      if (shouldLoop && clip.audioReader) {
+        // Loop: seek back to trim IN point
+        int64_t trimIn = clip.trimInSamples.load(std::memory_order_acquire);
+        clip.audioReader->seek(trimIn);
+        clip.currentSample = trimIn;
+
+        // Post loop callback
+        postCallback([this, handle = clip.handle, pos = getCurrentPosition()]() {
+          if (m_callback) {
+            m_callback->onClipLooped(handle, pos);
+          }
+        });
+
+        // Continue playback (don't remove clip, don't increment i)
+        ++i;
+      } else {
+        // Stop the clip
+        postCallback([this, handle = clip.handle, pos = getCurrentPosition()]() {
+          if (m_callback) {
+            m_callback->onClipStopped(handle, pos);
+          }
+        });
+
+        removeActiveClip(clip.handle);
+        continue; // Don't increment i (clip was removed)
+      }
+    } else {
+      ++i;
     }
-
-    ++i;
   }
 
   // Update transport position
@@ -475,6 +528,16 @@ void TransportController::addActiveClip(ClipHandle handle) {
   uint16_t numChannels = 2;         // Default stereo
   int64_t totalFrames = 48000 * 10; // Default 10 seconds
 
+  // Persistent metadata from storage
+  int64_t trimInSamples = 0;
+  int64_t trimOutSamples = 0;
+  double fadeInSeconds = 0.0;
+  double fadeOutSeconds = 0.0;
+  FadeCurve fadeInCurve = FadeCurve::Linear;
+  FadeCurve fadeOutCurve = FadeCurve::Linear;
+  float gainDb = 0.0f;
+  bool loopEnabled = false;
+
   {
     std::lock_guard<std::mutex> lock(m_audioFilesMutex);
     auto it = m_audioFiles.find(handle);
@@ -482,6 +545,21 @@ void TransportController::addActiveClip(ClipHandle handle) {
       reader = it->second.reader.get();
       numChannels = it->second.metadata.num_channels;
       totalFrames = it->second.metadata.duration_samples;
+
+      // Load persistent metadata from storage
+      trimInSamples = it->second.trimInSamples;
+      trimOutSamples = it->second.trimOutSamples;
+      fadeInSeconds = it->second.fadeInSeconds;
+      fadeOutSeconds = it->second.fadeOutSeconds;
+      fadeInCurve = it->second.fadeInCurve;
+      fadeOutCurve = it->second.fadeOutCurve;
+      gainDb = it->second.gainDb;
+      loopEnabled = it->second.loopEnabled;
+
+      // If trim OUT is not set (0), use file duration
+      if (trimOutSamples == 0) {
+        trimOutSamples = totalFrames;
+      }
     }
   }
 
@@ -496,14 +574,36 @@ void TransportController::addActiveClip(ClipHandle handle) {
 
   // If no audio file registered, we'll play silence (reader will be nullptr)
 
-  // TODO: Get clip metadata from SessionGraph (trim points, etc.)
-  // For now, use placeholder values or query from audio file
+  // Initialize clip with persistent metadata from storage
   ActiveClip& clip = m_activeClips[m_activeClipCount++];
   clip.handle = handle;
   clip.startSample = m_currentSample.load(std::memory_order_relaxed);
   clip.currentSample = 0;
-  clip.trimInSamples = 0;
-  clip.trimOutSamples = totalFrames;
+
+  // Initialize trim points from persistent storage
+  clip.trimInSamples.store(trimInSamples, std::memory_order_release);
+  clip.trimOutSamples.store(trimOutSamples, std::memory_order_release);
+
+  // Initialize fade settings from persistent storage
+  clip.fadeInSeconds.store(fadeInSeconds, std::memory_order_release);
+  clip.fadeOutSeconds.store(fadeOutSeconds, std::memory_order_release);
+  clip.fadeInCurve.store(fadeInCurve, std::memory_order_release);
+  clip.fadeOutCurve.store(fadeOutCurve, std::memory_order_release);
+
+  // Calculate and store fade sample counts
+  int64_t fadeInSampleCount =
+      static_cast<int64_t>(fadeInSeconds * static_cast<double>(m_sampleRate));
+  int64_t fadeOutSampleCount =
+      static_cast<int64_t>(fadeOutSeconds * static_cast<double>(m_sampleRate));
+  clip.fadeInSamples.store(fadeInSampleCount, std::memory_order_release);
+  clip.fadeOutSamples.store(fadeOutSampleCount, std::memory_order_release);
+
+  // Initialize gain from persistent storage
+  clip.gainDb.store(gainDb, std::memory_order_release);
+
+  // Initialize loop mode from persistent storage
+  clip.loopEnabled.store(loopEnabled, std::memory_order_release);
+
   clip.audioReader = reader;
   clip.numChannels = numChannels;
   clip.fadeOutGain = 1.0f;
@@ -511,16 +611,46 @@ void TransportController::addActiveClip(ClipHandle handle) {
 
   // Seek to trim IN point once when starting (ALWAYS seek, even if trim is 0!)
   if (reader) {
-    reader->seek(clip.trimInSamples);
+    int64_t trimIn = clip.trimInSamples.load(std::memory_order_acquire);
+    reader->seek(trimIn);
   }
 }
 
 void TransportController::removeActiveClip(ClipHandle handle) {
   for (size_t i = 0; i < m_activeClipCount; ++i) {
     if (m_activeClips[i].handle == handle) {
-      // Remove by moving last clip into this slot
+      // Remove by moving last clip into this slot (manual field-by-field copy since atomic fields
+      // can't be copied)
       if (i < m_activeClipCount - 1) {
-        m_activeClips[i] = m_activeClips[m_activeClipCount - 1];
+        ActiveClip& dest = m_activeClips[i];
+        ActiveClip& src = m_activeClips[m_activeClipCount - 1];
+
+        dest.handle = src.handle;
+        dest.startSample = src.startSample;
+        dest.currentSample = src.currentSample;
+        dest.trimInSamples.store(src.trimInSamples.load(std::memory_order_relaxed),
+                                 std::memory_order_relaxed);
+        dest.trimOutSamples.store(src.trimOutSamples.load(std::memory_order_relaxed),
+                                  std::memory_order_relaxed);
+        dest.fadeInSeconds.store(src.fadeInSeconds.load(std::memory_order_relaxed),
+                                 std::memory_order_relaxed);
+        dest.fadeOutSeconds.store(src.fadeOutSeconds.load(std::memory_order_relaxed),
+                                  std::memory_order_relaxed);
+        dest.fadeInCurve.store(src.fadeInCurve.load(std::memory_order_relaxed),
+                               std::memory_order_relaxed);
+        dest.fadeOutCurve.store(src.fadeOutCurve.load(std::memory_order_relaxed),
+                                std::memory_order_relaxed);
+        dest.fadeInSamples.store(src.fadeInSamples.load(std::memory_order_relaxed),
+                                 std::memory_order_relaxed);
+        dest.fadeOutSamples.store(src.fadeOutSamples.load(std::memory_order_relaxed),
+                                  std::memory_order_relaxed);
+        dest.gainDb.store(src.gainDb.load(std::memory_order_relaxed), std::memory_order_relaxed);
+        dest.loopEnabled.store(src.loopEnabled.load(std::memory_order_relaxed),
+                               std::memory_order_relaxed);
+        dest.fadeOutGain = src.fadeOutGain;
+        dest.isStopping = src.isStopping;
+        dest.audioReader = src.audioReader;
+        dest.numChannels = src.numChannels;
       }
       --m_activeClipCount;
       return;
@@ -569,6 +699,247 @@ SessionGraphError TransportController::registerClipAudio(ClipHandle handle,
   m_audioFiles[handle] = std::move(entry);
 
   return SessionGraphError::OK;
+}
+
+SessionGraphError TransportController::updateClipTrimPoints(ClipHandle handle,
+                                                            int64_t trimInSamples,
+                                                            int64_t trimOutSamples) {
+  if (handle == 0) {
+    return SessionGraphError::InvalidHandle;
+  }
+
+  // Find clip in registered audio files (need to check file duration)
+  int64_t fileDurationSamples = 0;
+  {
+    std::lock_guard<std::mutex> lock(m_audioFilesMutex);
+    auto it = m_audioFiles.find(handle);
+    if (it == m_audioFiles.end()) {
+      return SessionGraphError::ClipNotRegistered;
+    }
+    fileDurationSamples = it->second.metadata.duration_samples;
+  }
+
+  // Validate trim points
+  if (trimInSamples < 0 || trimInSamples >= fileDurationSamples) {
+    return SessionGraphError::InvalidClipTrimPoints;
+  }
+
+  if (trimOutSamples <= trimInSamples || trimOutSamples > fileDurationSamples) {
+    return SessionGraphError::InvalidClipTrimPoints;
+  }
+
+  // Store trim points persistently in AudioFileEntry
+  {
+    std::lock_guard<std::mutex> lock(m_audioFilesMutex);
+    auto it = m_audioFiles.find(handle);
+    if (it != m_audioFiles.end()) {
+      it->second.trimInSamples = trimInSamples;
+      it->second.trimOutSamples = trimOutSamples;
+    }
+  }
+
+  // Update trim points for any active clips with this handle
+  // NOTE: We update active clips directly (no command queue needed for metadata updates)
+  for (size_t i = 0; i < m_activeClipCount; ++i) {
+    if (m_activeClips[i].handle == handle) {
+      m_activeClips[i].trimInSamples.store(trimInSamples, std::memory_order_release);
+      m_activeClips[i].trimOutSamples.store(trimOutSamples, std::memory_order_release);
+    }
+  }
+
+  return SessionGraphError::OK;
+}
+
+SessionGraphError TransportController::updateClipFades(ClipHandle handle, double fadeInSeconds,
+                                                       double fadeOutSeconds, FadeCurve fadeInCurve,
+                                                       FadeCurve fadeOutCurve) {
+  if (handle == 0) {
+    return SessionGraphError::InvalidHandle;
+  }
+
+  // Find clip in registered audio files
+  int64_t fileDurationSamples = 0;
+  int64_t currentTrimIn = 0;
+  int64_t currentTrimOut = 0;
+  {
+    std::lock_guard<std::mutex> lock(m_audioFilesMutex);
+    auto it = m_audioFiles.find(handle);
+    if (it == m_audioFiles.end()) {
+      return SessionGraphError::ClipNotRegistered;
+    }
+    fileDurationSamples = it->second.metadata.duration_samples;
+  }
+
+  // Get current trim points (or use defaults)
+  // Try to get from active clip first, otherwise use file duration
+  bool foundActiveClip = false;
+  for (size_t i = 0; i < m_activeClipCount; ++i) {
+    if (m_activeClips[i].handle == handle) {
+      currentTrimIn = m_activeClips[i].trimInSamples.load(std::memory_order_acquire);
+      currentTrimOut = m_activeClips[i].trimOutSamples.load(std::memory_order_acquire);
+      foundActiveClip = true;
+      break;
+    }
+  }
+
+  if (!foundActiveClip) {
+    currentTrimIn = 0;
+    currentTrimOut = fileDurationSamples;
+  }
+
+  // Validate fade durations
+  int64_t clipDuration = currentTrimOut - currentTrimIn;
+  double clipDurationSeconds =
+      static_cast<double>(clipDuration) / static_cast<double>(m_sampleRate);
+
+  if (fadeInSeconds < 0.0 || fadeInSeconds > clipDurationSeconds) {
+    return SessionGraphError::InvalidFadeDuration;
+  }
+
+  if (fadeOutSeconds < 0.0 || fadeOutSeconds > clipDurationSeconds) {
+    return SessionGraphError::InvalidFadeDuration;
+  }
+
+  // Calculate fade sample counts
+  int64_t fadeInSampleCount =
+      static_cast<int64_t>(fadeInSeconds * static_cast<double>(m_sampleRate));
+  int64_t fadeOutSampleCount =
+      static_cast<int64_t>(fadeOutSeconds * static_cast<double>(m_sampleRate));
+
+  // Store fade settings persistently in AudioFileEntry
+  {
+    std::lock_guard<std::mutex> lock(m_audioFilesMutex);
+    auto it = m_audioFiles.find(handle);
+    if (it != m_audioFiles.end()) {
+      it->second.fadeInSeconds = fadeInSeconds;
+      it->second.fadeOutSeconds = fadeOutSeconds;
+      it->second.fadeInCurve = fadeInCurve;
+      it->second.fadeOutCurve = fadeOutCurve;
+    }
+  }
+
+  // Update fade settings for any active clips with this handle
+  for (size_t i = 0; i < m_activeClipCount; ++i) {
+    if (m_activeClips[i].handle == handle) {
+      m_activeClips[i].fadeInSeconds.store(fadeInSeconds, std::memory_order_release);
+      m_activeClips[i].fadeOutSeconds.store(fadeOutSeconds, std::memory_order_release);
+      m_activeClips[i].fadeInCurve.store(fadeInCurve, std::memory_order_release);
+      m_activeClips[i].fadeOutCurve.store(fadeOutCurve, std::memory_order_release);
+      m_activeClips[i].fadeInSamples.store(fadeInSampleCount, std::memory_order_release);
+      m_activeClips[i].fadeOutSamples.store(fadeOutSampleCount, std::memory_order_release);
+    }
+  }
+
+  return SessionGraphError::OK;
+}
+
+SessionGraphError TransportController::getClipTrimPoints(ClipHandle handle, int64_t& trimInSamples,
+                                                         int64_t& trimOutSamples) const {
+  if (handle == 0) {
+    return SessionGraphError::InvalidHandle;
+  }
+
+  // Try to get from active clip first (most recent values)
+  for (size_t i = 0; i < m_activeClipCount; ++i) {
+    if (m_activeClips[i].handle == handle) {
+      trimInSamples = m_activeClips[i].trimInSamples.load(std::memory_order_acquire);
+      trimOutSamples = m_activeClips[i].trimOutSamples.load(std::memory_order_acquire);
+      return SessionGraphError::OK;
+    }
+  }
+
+  // If not active, check persistent storage
+  // NOTE: const_cast needed because this is a query method (read-only, but mutex requires
+  // non-const)
+  {
+    std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(m_audioFilesMutex));
+    auto it = m_audioFiles.find(handle);
+    if (it == m_audioFiles.end()) {
+      return SessionGraphError::ClipNotRegistered;
+    }
+
+    // Return persistent metadata (or defaults if not set)
+    trimInSamples = it->second.trimInSamples;
+    trimOutSamples = it->second.trimOutSamples;
+
+    // If trim OUT is not set (0), use file duration
+    if (trimOutSamples == 0) {
+      trimOutSamples = it->second.metadata.duration_samples;
+    }
+  }
+
+  return SessionGraphError::OK;
+}
+
+SessionGraphError TransportController::updateClipGain(ClipHandle handle, float gainDb) {
+  if (handle == 0) {
+    return SessionGraphError::InvalidHandle;
+  }
+
+  // Validate gain (must be finite)
+  if (!std::isfinite(gainDb)) {
+    return SessionGraphError::InvalidParameter;
+  }
+
+  // Store gain persistently in AudioFileEntry
+  {
+    std::lock_guard<std::mutex> lock(m_audioFilesMutex);
+    auto it = m_audioFiles.find(handle);
+    if (it == m_audioFiles.end()) {
+      return SessionGraphError::ClipNotRegistered;
+    }
+    it->second.gainDb = gainDb;
+  }
+
+  // Update gain for any active clips with this handle (takes effect immediately)
+  for (size_t i = 0; i < m_activeClipCount; ++i) {
+    if (m_activeClips[i].handle == handle) {
+      m_activeClips[i].gainDb.store(gainDb, std::memory_order_release);
+    }
+  }
+
+  return SessionGraphError::OK;
+}
+
+SessionGraphError TransportController::setClipLoopMode(ClipHandle handle, bool shouldLoop) {
+  if (handle == 0) {
+    return SessionGraphError::InvalidHandle;
+  }
+
+  // Store loop mode persistently in AudioFileEntry
+  {
+    std::lock_guard<std::mutex> lock(m_audioFilesMutex);
+    auto it = m_audioFiles.find(handle);
+    if (it == m_audioFiles.end()) {
+      return SessionGraphError::ClipNotRegistered;
+    }
+    it->second.loopEnabled = shouldLoop;
+  }
+
+  // Update loop mode for any active clips with this handle
+  for (size_t i = 0; i < m_activeClipCount; ++i) {
+    if (m_activeClips[i].handle == handle) {
+      m_activeClips[i].loopEnabled.store(shouldLoop, std::memory_order_release);
+    }
+  }
+
+  return SessionGraphError::OK;
+}
+
+float TransportController::calculateFadeGain(float normalizedPosition, FadeCurve curve) const {
+  switch (curve) {
+  case FadeCurve::Linear:
+    return normalizedPosition; // y = x
+
+  case FadeCurve::EqualPower:
+    return std::sin(normalizedPosition * static_cast<float>(M_PI_2)); // y = sin(x * π/2)
+
+  case FadeCurve::Exponential:
+    return normalizedPosition * normalizedPosition; // y = x²
+
+  default:
+    return normalizedPosition; // Fallback to linear
+  }
 }
 
 // Factory function

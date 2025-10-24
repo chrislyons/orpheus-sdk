@@ -462,3 +462,4 @@ The Orpheus Clip Composer design package is comprehensive and implementation-rea
 **Remember:** Orpheus SDK is infrastructure for a sovereign audio ecosystem. We're building tools that professionals can rely on for decades, not chasing trends. When in doubt, favor simplicity, determinism, and user autonomy.
 
 - I'm expecting you to run all of ORP068 -- you don't need to check in with me so often.
+- DON'T USE OPEN TO RUN CLIP COMPOSER

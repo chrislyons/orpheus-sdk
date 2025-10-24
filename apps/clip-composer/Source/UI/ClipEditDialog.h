@@ -38,6 +38,9 @@ public:
     int64_t trimInSamples = 0;
     int64_t trimOutSamples = 0;
 
+    // Loop state (synced between Edit Dialog and Clip Button)
+    bool loopEnabled = false;
+
     // Phase 3: Fade times (seconds)
     double fadeInSeconds = 0.0;
     double fadeOutSeconds = 0.0;
@@ -128,11 +131,18 @@ private:
   std::unique_ptr<juce::TextEditor> m_trimInTimeEditor;
   std::unique_ptr<juce::TextButton> m_trimInDecButton;
   std::unique_ptr<juce::TextButton> m_trimInIncButton;
+  std::unique_ptr<juce::TextButton> m_trimInHoldButton;
+  std::unique_ptr<juce::TextButton> m_trimInClearButton;
   std::unique_ptr<juce::Label> m_trimOutLabel;
   std::unique_ptr<juce::TextEditor> m_trimOutTimeEditor;
   std::unique_ptr<juce::TextButton> m_trimOutDecButton;
   std::unique_ptr<juce::TextButton> m_trimOutIncButton;
+  std::unique_ptr<juce::TextButton> m_trimOutHoldButton;
+  std::unique_ptr<juce::TextButton> m_trimOutClearButton;
   std::unique_ptr<juce::Label> m_trimInfoLabel;
+
+  // File info panel
+  std::unique_ptr<juce::Label> m_fileInfoPanel;
 
   // Phase 3: Fade time controls
   std::unique_ptr<juce::Label> m_fadeInLabel;

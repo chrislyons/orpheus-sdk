@@ -76,15 +76,12 @@ bool PreviewPlayer::loadFile(const juce::File& audioFile) {
 
 void PreviewPlayer::setTrimPoints(int64_t trimInSamples, int64_t trimOutSamples) {
   // Only clamp to file boundaries if metadata is loaded (m_totalSamples > 0)
-  // Otherwise preserve the values passed from ClipEditDialog
+  // DO NOT automatically reset OUT point - preserve user's OUT point always
   if (m_totalSamples > 0) {
     trimInSamples = std::clamp(trimInSamples, int64_t(0), m_totalSamples);
     trimOutSamples = std::clamp(trimOutSamples, int64_t(0), m_totalSamples);
 
-    // Ensure IN < OUT
-    if (trimInSamples >= trimOutSamples) {
-      trimOutSamples = m_totalSamples;
-    }
+    // No automatic OUT reset! ClipEditDialog validates IN < OUT before calling this.
   }
 
   m_trimInSamples = trimInSamples;
@@ -102,9 +99,20 @@ void PreviewPlayer::setTrimPoints(int64_t trimInSamples, int64_t trimOutSamples)
 
 void PreviewPlayer::setLoopEnabled(bool shouldLoop) {
   m_loopEnabled = shouldLoop;
-  // TODO: Implement loop mode in AudioEngine Cue Buss (future enhancement)
+
+  // TODO (SDK Sprint OCC041 Bug #6): Implement loop playback in Orpheus SDK
+  // Requires TransportController changes (see OCC041 lines 400-462):
+  //
+  // 1. Add loop_enabled, loop_in_samples, loop_out_samples to SDK ClipState
+  // 2. Implement loop restart logic in TransportController::processAudio()
+  // 3. Add AudioEngine::setCueBussLoop() API
+  // 4. Wire up PreviewPlayer to call AudioEngine when loop state changes
+  //
+  // For now, loop state is tracked in metadata and will be synced to clip
+  // buttons, but actual audio looping is not yet implemented.
+
   DBG("PreviewPlayer: Loop " << (shouldLoop ? "enabled" : "disabled")
-                             << " (not yet implemented in Cue Buss)");
+                             << " (SDK implementation pending - see OCC041)");
 }
 
 void PreviewPlayer::setFades(float fadeInSeconds, float fadeOutSeconds,

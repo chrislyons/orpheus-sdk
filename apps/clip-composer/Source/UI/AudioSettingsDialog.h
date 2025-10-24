@@ -2,7 +2,7 @@
 #pragma once
 
 #include "../Audio/AudioEngine.h"
-#include <JuceHeader.h>
+#include <juce_gui_extra/juce_gui_extra.h>
 
 /// Audio I/O Settings Dialog
 /// Allows user to configure sample rate, buffer size, and audio device
@@ -37,13 +37,24 @@ public:
     m_applyButton.setButtonText("Apply Settings");
     m_applyButton.onClick = [this] { applySettings(); };
 
+    // Close button
+    addAndMakeVisible(m_closeButton);
+    m_closeButton.setButtonText("Close");
+    m_closeButton.onClick = [this] {
+      if (onCloseClicked) {
+        onCloseClicked();
+      }
+    };
+
     // Status label
     addAndMakeVisible(m_statusLabel);
     m_statusLabel.setText("Current: 48000 Hz, 1024 samples", juce::dontSendNotification);
     m_statusLabel.setJustificationType(juce::Justification::centred);
 
-    setSize(400, 200);
+    setSize(400, 220);
   }
+
+  std::function<void()> onCloseClicked;
 
   void paint(juce::Graphics& g) override {
     g.fillAll(juce::Colour(0xff252525));
@@ -77,9 +88,11 @@ public:
 
     bounds.removeFromTop(spacing * 2);
 
-    // Apply button
+    // Apply and Close buttons side-by-side
     auto buttonRow = bounds.removeFromTop(rowHeight);
-    m_applyButton.setBounds(buttonRow.withSizeKeepingCentre(150, rowHeight));
+    m_applyButton.setBounds(buttonRow.removeFromLeft(150));
+    buttonRow.removeFromLeft(10); // Spacing
+    m_closeButton.setBounds(buttonRow.removeFromLeft(100));
 
     bounds.removeFromTop(spacing);
 
@@ -148,5 +161,6 @@ private:
   juce::ComboBox m_bufferSizeCombo;
 
   juce::TextButton m_applyButton;
+  juce::TextButton m_closeButton;
   juce::Label m_statusLabel;
 };

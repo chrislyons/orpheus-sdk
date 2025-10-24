@@ -96,9 +96,17 @@ void ClipButton::setEffectsEnabled(bool enabled) {
 //==============================================================================
 juce::String ClipButton::formatDuration(double seconds) const {
   int totalSeconds = static_cast<int>(seconds);
-  int minutes = totalSeconds / 60;
+  int hours = totalSeconds / 3600;
+  int minutes = (totalSeconds % 3600) / 60;
   int secs = totalSeconds % 60;
-  return juce::String::formatted("%d:%02d", minutes, secs);
+
+  // Hide HH: if duration < 60 minutes
+  // Never show .FF field (too busy/CPU intensive)
+  if (hours > 0) {
+    return juce::String::formatted("%d:%02d:%02d", hours, minutes, secs);
+  } else {
+    return juce::String::formatted("%d:%02d", minutes, secs);
+  }
 }
 
 void ClipButton::paint(juce::Graphics& g) {
@@ -141,12 +149,12 @@ void ClipButton::paint(juce::Graphics& g) {
   if (m_state == State::Empty) {
     // Button index (larger, more prominent) - 20% increase: 18 -> 21.6
     g.setColour(juce::Colours::white.withAlpha(0.5f));
-    g.setFont(juce::FontOptions("Inter", 21.6f, juce::Font::bold));
+    g.setFont(juce::Font("Inter", 21.6f, juce::Font::bold));
     g.drawText(juce::String(m_buttonIndex + 1), bounds, juce::Justification::centred, false);
 
     // "Empty" label (smaller, subtle) - 20% increase: 9 -> 10.8
     g.setColour(juce::Colours::white.withAlpha(0.25f));
-    g.setFont(juce::FontOptions("Inter", 10.8f, juce::Font::plain));
+    g.setFont(juce::Font("Inter", 10.8f, juce::Font::plain));
     auto emptyLabel = bounds.reduced(PADDING).removeFromBottom(14);
     g.drawText("empty", emptyLabel, juce::Justification::centred, false);
   } else {
@@ -165,39 +173,40 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
 
     // Button index (left, subtle) - 20% increase: 10 -> 12
     g.setColour(juce::Colours::white.withAlpha(0.5f));
-    g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
+    g.setFont(juce::Font("Inter", 12.0f, juce::Font::plain));
     g.drawText(juce::String(m_buttonIndex + 1), topRow, juce::Justification::topLeft, false);
 
     // Keyboard shortcut (right, prominent) - 20% increase: 11 -> 13.2
     if (m_keyboardShortcut.isNotEmpty()) {
       g.setColour(juce::Colours::white.withAlpha(0.9f));
-      g.setFont(juce::FontOptions("Inter", 13.2f, juce::Font::bold));
+      g.setFont(juce::Font("Inter", 13.2f, juce::Font::bold));
       g.drawText(m_keyboardShortcut, topRow, juce::Justification::topRight, false);
     }
 
     currentY = topRow.getBottom() + 2.0f;
   }
 
-  // === MIDDLE: Clip Name + Duration (primary focus) ===
+  // === MIDDLE: Clip Name (PRIMARY) + Duration (secondary) ===
   {
-    float nameHeight = contentArea.getHeight() * 0.5f;
+    // Give most space to clip name
+    float nameHeight = contentArea.getHeight() * 0.65f;
     auto nameArea =
         juce::Rectangle<float>(contentArea.getX(), currentY, contentArea.getWidth(), nameHeight);
 
-    // Clip Name (larger, bold)
+    // Clip Name (PRIMARY - MUCH larger, bold, 3 lines)
     g.setColour(juce::Colours::white);
-    g.setFont(juce::FontOptions("Inter", 14.4f, juce::Font::bold));
+    g.setFont(juce::Font("Inter", 18.0f, juce::Font::bold));
 
-    // Reserve space for duration display below name
-    auto nameOnlyArea = nameArea.withTrimmedBottom(20.0f);
+    // Reserve minimal space for duration
+    auto nameOnlyArea = nameArea.withTrimmedBottom(12.0f);
     g.drawFittedText(m_clipName, nameOnlyArea.toNearestInt(), juce::Justification::centred,
-                     2, // Allow up to 2 lines for name
-                     0.9f);
+                     3, // Allow up to 3 lines for name
+                     0.85f);
 
-    // Duration / Time Remaining (most important metric!)
-    auto durationArea = nameArea.removeFromBottom(18.0f);
+    // Duration (secondary - MUCH smaller and subtle)
+    auto durationArea = nameArea.removeFromBottom(11.0f);
     if (m_durationSeconds > 0.0) {
-      g.setFont(juce::FontOptions("Inter", 15.0f, juce::Font::bold));
+      g.setFont(juce::Font("Inter", 9.0f, juce::Font::plain));
 
       if (m_state == State::Playing && m_playbackProgress > 0.0f) {
         // Show elapsed / remaining during playback
@@ -205,11 +214,11 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
         double remaining = m_durationSeconds - elapsed;
         juce::String timeDisplay =
             "▶ " + formatDuration(elapsed) + " / -" + formatDuration(remaining);
-        g.setColour(juce::Colour(0xff00ff00)); // Bright green during playback
+        g.setColour(juce::Colour(0xff00ff00).withAlpha(0.8f));
         g.drawText(timeDisplay, durationArea, juce::Justification::centred, false);
       } else {
         // Show total duration when stopped
-        g.setColour(juce::Colours::white.withAlpha(0.9f));
+        g.setColour(juce::Colours::white.withAlpha(0.5f)); // Very subtle
         g.drawText(formatDuration(m_durationSeconds), durationArea, juce::Justification::centred,
                    false);
       }
@@ -226,7 +235,7 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
     // Beat offset (left, if present) - e.g., "//3+"
     if (m_beatOffset.isNotEmpty()) {
       g.setColour(juce::Colour(0xffffaa00)); // Orange for timing info
-      g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
+      g.setFont(juce::Font("Inter", 12.0f, juce::Font::bold));
       g.drawText("//" + m_beatOffset, bottomArea.withTrimmedRight(bottomArea.getWidth() * 0.7f),
                  juce::Justification::centredLeft, false);
     }
@@ -248,7 +257,7 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
 
       // Draw group number
       g.setColour(juce::Colours::white);
-      g.setFont(juce::FontOptions("Inter", 10.8f, juce::Font::bold));
+      g.setFont(juce::Font("Inter", 10.8f, juce::Font::bold));
       g.drawText("G" + juce::String(m_clipGroup + 1), groupBadge, juce::Justification::centred,
                  false);
     }

@@ -132,7 +132,9 @@ void MainComponent::timerCallback() {
     uint32_t sampleRate = m_audioEngine->getSampleRate();
     uint32_t bufferSize = m_audioEngine->getBufferSize();
 
-    double latencyMs = (latencySamples / static_cast<double>(sampleRate)) * 1000.0;
+    // Driver reports round-trip latency (input + output), but we want click-to-hear (output only)
+    // So divide by 2 to get one-way latency
+    double latencyMs = ((latencySamples / 2.0) / static_cast<double>(sampleRate)) * 1000.0;
 
     m_transportControls->setLatencyInfo(latencyMs, bufferSize, sampleRate);
   }
@@ -593,6 +595,13 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
       button->setClipName(edited.displayName);
       button->setClipColor(edited.color);
       button->setClipGroup(edited.clipGroup);
+
+      // Update duration with trimmed values
+      if (edited.sampleRate > 0) {
+        int64_t trimmedSamples = edited.trimOutSamples - edited.trimInSamples;
+        double durationSeconds = static_cast<double>(trimmedSamples) / edited.sampleRate;
+        button->setClipDuration(durationSeconds);
+      }
     }
 
     DBG("MainComponent: Updated clip metadata for button "
@@ -717,9 +726,10 @@ void MainComponent::updateButtonFromClip(int buttonIndex) {
     button->setClipName(juce::String(clipData.displayName));
     button->setClipColor(clipData.color);
 
-    // Calculate duration in seconds
+    // Calculate TRIMMED duration in seconds (playable time)
     if (clipData.sampleRate > 0) {
-      double durationSeconds = static_cast<double>(clipData.durationSamples) / clipData.sampleRate;
+      int64_t trimmedSamples = clipData.trimOutSamples - clipData.trimInSamples;
+      double durationSeconds = static_cast<double>(trimmedSamples) / clipData.sampleRate;
       button->setClipDuration(durationSeconds);
     }
 
