@@ -70,6 +70,21 @@ void ClipEditDialog::setClipMetadata(const ClipMetadata& metadata) {
   // Update trim info label
   updateTrimInfoLabel();
 
+  // Update file info panel (SpotOn-style)
+  if (m_fileInfoPanel) {
+    double durationSeconds =
+        static_cast<double>(m_metadata.durationSamples) / m_metadata.sampleRate;
+    juce::String formatName =
+        m_metadata.filePath.fromLastOccurrenceOf(".", false, true).toUpperCase();
+    if (formatName.isEmpty())
+      formatName = "Unknown";
+
+    juce::String infoText = juce::String::formatted(
+        "  Channels: %d  |  Sample Rate: %d Hz  |  Duration: %.2fs  |  Format: %s",
+        m_metadata.numChannels, m_metadata.sampleRate, durationSeconds, formatName.toRawUTF8());
+    m_fileInfoPanel->setText(infoText, juce::dontSendNotification);
+  }
+
   // Load waveform display and preview player
   if (m_waveformDisplay && m_metadata.filePath.isNotEmpty()) {
     juce::File audioFile(m_metadata.filePath);
@@ -164,25 +179,46 @@ juce::String ClipEditDialog::samplesToTimeString(int64_t samples, int sampleRate
   int minutes = static_cast<int>((totalSeconds - hours * 3600) / 60);
   int seconds = static_cast<int>(totalSeconds) % 60;
 
-  // Ticks: 75 per second (matching SpotOn)
+  // Frames: 75fps (SpotOn standard)
   double fractionalSeconds = totalSeconds - static_cast<int>(totalSeconds);
-  int ticks = static_cast<int>(fractionalSeconds * 75.0);
+  int frames = static_cast<int>(fractionalSeconds * 75.0);
 
-  return juce::String::formatted("%02d:%02d:%02d.%02d", hours, minutes, seconds, ticks);
+  // Format as HH:MM:SS.FF
+  return juce::String::formatted("%02d:%02d:%02d.%02d", hours, minutes, seconds, frames);
 }
 
 int64_t ClipEditDialog::timeStringToSamples(const juce::String& timeStr, int sampleRate) {
-  // Parse hh:mm:ss.tt format
-  auto parts = juce::StringArray::fromTokens(timeStr, ":.", "");
-  if (parts.size() < 3)
+  // Parse HH:MM:SS.FF format (75fps)
+  // Split by ':' first
+  auto parts = juce::StringArray::fromTokens(timeStr, ":", "");
+  if (parts.size() < 2)
     return 0;
 
-  int hours = parts[0].getIntValue();
-  int minutes = parts[1].getIntValue();
-  int seconds = parts[2].getIntValue();
-  int ticks = parts.size() >= 4 ? parts[3].getIntValue() : 0;
+  int hours = 0;
+  int minutes = 0;
+  int seconds = 0;
+  int frames = 0;
 
-  double totalSeconds = hours * 3600.0 + minutes * 60.0 + seconds + (ticks / 75.0);
+  if (parts.size() == 3) {
+    // HH:MM:SS.FF
+    hours = parts[0].getIntValue();
+    minutes = parts[1].getIntValue();
+    // Split seconds and frames by '.'
+    auto secParts = juce::StringArray::fromTokens(parts[2], ".", "");
+    seconds = secParts[0].getIntValue();
+    if (secParts.size() > 1)
+      frames = secParts[1].getIntValue();
+  } else if (parts.size() == 2) {
+    // MM:SS.FF (no hours)
+    minutes = parts[0].getIntValue();
+    auto secParts = juce::StringArray::fromTokens(parts[1], ".", "");
+    seconds = secParts[0].getIntValue();
+    if (secParts.size() > 1)
+      frames = secParts[1].getIntValue();
+  }
+
+  // Convert to total seconds (75fps)
+  double totalSeconds = hours * 3600.0 + minutes * 60.0 + seconds + (frames / 75.0);
   return static_cast<int64_t>(totalSeconds * sampleRate);
 }
 
@@ -198,13 +234,9 @@ void ClipEditDialog::updateTrimInfoLabel() {
   }
 
   if (m_metadata.sampleRate > 0) {
-    double durationSeconds = static_cast<double>(trimmedSamples) / m_metadata.sampleRate;
-    int totalSeconds = static_cast<int>(durationSeconds);
-    int minutes = totalSeconds / 60;
-    int seconds = totalSeconds % 60;
-
+    // Use HH:MM:SS.FF format for duration display (SpotOn standard)
     juce::String durationText =
-        juce::String::formatted("Trimmed Duration: %d:%02d", minutes, seconds);
+        "Duration: " + samplesToTimeString(trimmedSamples, m_metadata.sampleRate);
     m_trimInfoLabel->setText(durationText, juce::dontSendNotification);
   }
 
@@ -330,8 +362,10 @@ void ClipEditDialog::buildPhase2UI() {
   m_playButton->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2ecc71)); // Green
   m_playButton->onClick = [this]() {
     if (m_previewPlayer) {
+      // Always restart playback from IN point (SpotOn behavior)
+      m_previewPlayer->stop();
       m_previewPlayer->play();
-      DBG("ClipEditDialog: Preview playback started");
+      DBG("ClipEditDialog: Preview playback restarted");
     }
   };
   addAndMakeVisible(m_playButton.get());
@@ -357,7 +391,7 @@ void ClipEditDialog::buildPhase2UI() {
   };
   addAndMakeVisible(m_loopButton.get());
 
-  m_transportPositionLabel = std::make_unique<juce::Label>("posLabel", "00:00:00.00");
+  m_transportPositionLabel = std::make_unique<juce::Label>("posLabel", "00:00:00");
   m_transportPositionLabel->setFont(juce::Font("Inter", 14.0f, juce::Font::plain));
   m_transportPositionLabel->setJustificationType(juce::Justification::centred);
   addAndMakeVisible(m_transportPositionLabel.get());
@@ -489,10 +523,10 @@ void ClipEditDialog::buildPhase2UI() {
   m_trimInLabel->setFont(juce::Font("Inter", 14.0f, juce::Font::bold));
   addAndMakeVisible(m_trimInLabel.get());
 
-  // Time editor (hh:mm:ss.tt)
+  // Time editor (MM:SS:FF - SpotOn format, 75fps)
   m_trimInTimeEditor = std::make_unique<juce::TextEditor>();
   m_trimInTimeEditor->setFont(juce::Font("Inter", 12.0f, juce::Font::plain));
-  m_trimInTimeEditor->setText("00:00:00.00", false);
+  m_trimInTimeEditor->setText("00:00:00", false);
   m_trimInTimeEditor->onReturnKey = [this]() {
     int64_t newInPoint = timeStringToSamples(m_trimInTimeEditor->getText(), m_metadata.sampleRate);
 
@@ -533,7 +567,8 @@ void ClipEditDialog::buildPhase2UI() {
     // Restart preview for instant audition
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-      m_previewPlayer->play();
+      m_previewPlayer->stop(); // Stop first to force restart
+      m_previewPlayer->play(); // Restart from new IN point
     }
   };
   addAndMakeVisible(m_trimInDecButton.get());
@@ -554,20 +589,69 @@ void ClipEditDialog::buildPhase2UI() {
     // Restart preview for instant audition
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-      m_previewPlayer->play();
+      m_previewPlayer->stop(); // Stop first to force restart
+      m_previewPlayer->play(); // Restart from new IN point
     }
   };
   addAndMakeVisible(m_trimInIncButton.get());
+
+  // HOLD button for IN point (capture current playback position - SpotOn-inspired)
+  m_trimInHoldButton = std::make_unique<juce::TextButton>("HOLD");
+  m_trimInHoldButton->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff3498db)); // Blue
+  m_trimInHoldButton->onClick = [this]() {
+    if (m_previewPlayer) {
+      int64_t currentPos = m_previewPlayer->getCurrentPosition();
+
+      // Validate: IN must be < OUT
+      if (currentPos >= m_metadata.trimOutSamples) {
+        currentPos = std::max(int64_t(0), m_metadata.trimOutSamples - (m_metadata.sampleRate / 75));
+      }
+
+      m_metadata.trimInSamples = currentPos;
+      updateTrimInfoLabel();
+
+      if (m_waveformDisplay) {
+        m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+      }
+
+      // Update preview player and restart
+      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+      m_previewPlayer->play();
+
+      DBG("ClipEditDialog: HOLD - Set IN point to current position " << currentPos);
+    }
+  };
+  addAndMakeVisible(m_trimInHoldButton.get());
+
+  // CLEAR button for IN point (reset to 0)
+  m_trimInClearButton = std::make_unique<juce::TextButton>("CLR");
+  m_trimInClearButton->onClick = [this]() {
+    m_metadata.trimInSamples = 0;
+
+    updateTrimInfoLabel();
+
+    if (m_waveformDisplay) {
+      m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+    }
+
+    // Update preview player
+    if (m_previewPlayer) {
+      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+    }
+
+    DBG("ClipEditDialog: IN point cleared to 0");
+  };
+  addAndMakeVisible(m_trimInClearButton.get());
 
   // Trim Out Point
   m_trimOutLabel = std::make_unique<juce::Label>("trimOutLabel", "Trim Out:");
   m_trimOutLabel->setFont(juce::Font("Inter", 14.0f, juce::Font::bold));
   addAndMakeVisible(m_trimOutLabel.get());
 
-  // Time editor (hh:mm:ss.tt)
+  // Time editor (MM:SS:FF - SpotOn format, 75fps)
   m_trimOutTimeEditor = std::make_unique<juce::TextEditor>();
   m_trimOutTimeEditor->setFont(juce::Font("Inter", 12.0f, juce::Font::plain));
-  m_trimOutTimeEditor->setText("00:00:00.00", false);
+  m_trimOutTimeEditor->setText("00:00:00", false);
   m_trimOutTimeEditor->onReturnKey = [this]() {
     int64_t newOutPoint =
         timeStringToSamples(m_trimOutTimeEditor->getText(), m_metadata.sampleRate);
@@ -595,7 +679,7 @@ void ClipEditDialog::buildPhase2UI() {
   // Nudge buttons
   m_trimOutDecButton = std::make_unique<juce::TextButton>("<");
   m_trimOutDecButton->onClick = [this]() {
-    // Decrement by 1 tick (1/75 second)
+    // Decrement by 1 tick (1/75 second) - NO restart (SpotOn behavior)
     int64_t decrement = m_metadata.sampleRate / 75;
     m_metadata.trimOutSamples = std::max(m_metadata.trimInSamples + (m_metadata.sampleRate / 75),
                                          m_metadata.trimOutSamples - decrement);
@@ -606,7 +690,7 @@ void ClipEditDialog::buildPhase2UI() {
       m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
     }
 
-    // Update preview player
+    // Update preview player trim points WITHOUT restarting playback
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
     }
@@ -615,10 +699,57 @@ void ClipEditDialog::buildPhase2UI() {
 
   m_trimOutIncButton = std::make_unique<juce::TextButton>(">");
   m_trimOutIncButton->onClick = [this]() {
-    // Increment by 1 tick (1/75 second)
+    // Increment by 1 tick (1/75 second) - NO restart (SpotOn behavior)
     int64_t increment = m_metadata.sampleRate / 75;
     m_metadata.trimOutSamples =
         std::min(m_metadata.durationSamples, m_metadata.trimOutSamples + increment);
+
+    updateTrimInfoLabel();
+
+    if (m_waveformDisplay) {
+      m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+    }
+
+    // Update preview player trim points WITHOUT restarting playback
+    if (m_previewPlayer) {
+      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+    }
+  };
+  addAndMakeVisible(m_trimOutIncButton.get());
+
+  // HOLD button for OUT point (capture current playback position - SpotOn-inspired)
+  m_trimOutHoldButton = std::make_unique<juce::TextButton>("HOLD");
+  m_trimOutHoldButton->setColour(juce::TextButton::buttonColourId,
+                                 juce::Colour(0xff3498db)); // Blue
+  m_trimOutHoldButton->onClick = [this]() {
+    if (m_previewPlayer) {
+      int64_t currentPos = m_previewPlayer->getCurrentPosition();
+
+      // Validate: OUT must be > IN
+      if (currentPos <= m_metadata.trimInSamples) {
+        currentPos = std::min(m_metadata.durationSamples,
+                              m_metadata.trimInSamples + (m_metadata.sampleRate / 75));
+      }
+
+      m_metadata.trimOutSamples = currentPos;
+      updateTrimInfoLabel();
+
+      if (m_waveformDisplay) {
+        m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+      }
+
+      // Update preview player (no restart needed for OUT point)
+      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+
+      DBG("ClipEditDialog: HOLD - Set OUT point to current position " << currentPos);
+    }
+  };
+  addAndMakeVisible(m_trimOutHoldButton.get());
+
+  // CLEAR button for OUT point (reset to max duration)
+  m_trimOutClearButton = std::make_unique<juce::TextButton>("CLR");
+  m_trimOutClearButton->onClick = [this]() {
+    m_metadata.trimOutSamples = m_metadata.durationSamples;
 
     updateTrimInfoLabel();
 
@@ -630,14 +761,25 @@ void ClipEditDialog::buildPhase2UI() {
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
     }
+
+    DBG("ClipEditDialog: OUT point cleared to max duration (" << m_metadata.durationSamples
+                                                              << " samples)");
   };
-  addAndMakeVisible(m_trimOutIncButton.get());
+  addAndMakeVisible(m_trimOutClearButton.get());
 
   // Trim Info Label (shows duration in seconds)
   m_trimInfoLabel = std::make_unique<juce::Label>("trimInfoLabel", "Duration: --:--");
   m_trimInfoLabel->setFont(juce::Font("Inter", 12.0f, juce::Font::plain));
   m_trimInfoLabel->setColour(juce::Label::textColourId, juce::Colours::lightgrey);
   addAndMakeVisible(m_trimInfoLabel.get());
+
+  // File Info Panel (SpotOn-style yellow background)
+  m_fileInfoPanel = std::make_unique<juce::Label>("fileInfoPanel", "");
+  m_fileInfoPanel->setFont(juce::Font("Inter", 11.0f, juce::Font::plain));
+  m_fileInfoPanel->setJustificationType(juce::Justification::centredLeft);
+  m_fileInfoPanel->setColour(juce::Label::backgroundColourId, juce::Colour(0xfffff4cc)); // Yellow
+  m_fileInfoPanel->setColour(juce::Label::textColourId, juce::Colours::black);
+  addAndMakeVisible(m_fileInfoPanel.get());
 }
 
 void ClipEditDialog::buildPhase3UI() {
@@ -816,132 +958,157 @@ void ClipEditDialog::paint(juce::Graphics& g) {
 }
 
 void ClipEditDialog::resized() {
+  // SpotOn-inspired professional grid layout
+  const int GRID = 10; // 10px grid unit
   auto bounds = getLocalBounds();
 
   // Title bar (50px)
   bounds.removeFromTop(50);
 
   // Content area with padding
-  auto contentArea = bounds.reduced(20);
+  auto contentArea = bounds.reduced(GRID * 2);
 
-  // === PHASE 1: Basic Metadata ===
-  // Clip Name
-  auto nameRow = contentArea.removeFromTop(60);
-  m_nameLabel->setBounds(nameRow.removeFromTop(20));
-  m_nameEditor->setBounds(nameRow.removeFromTop(30));
-  contentArea.removeFromTop(10); // Spacing
+  // File Info Panel at very top (yellow background, SpotOn-style)
+  if (m_fileInfoPanel) {
+    m_fileInfoPanel->setBounds(contentArea.removeFromTop(GRID * 3));
+  }
+  contentArea.removeFromTop(GRID); // Spacing
 
-  // File Path
-  auto filePathRow = contentArea.removeFromTop(60);
-  m_filePathLabel->setBounds(filePathRow.removeFromTop(20));
-  m_filePathEditor->setBounds(filePathRow.removeFromTop(30));
-  contentArea.removeFromTop(10); // Spacing
-
-  // Color and Clip Group (inline, compact)
-  auto metadataRow = contentArea.removeFromTop(35);
-  m_colorLabel->setBounds(metadataRow.removeFromLeft(60));
-  m_colorComboBox->setBounds(metadataRow.removeFromLeft(140));
-  metadataRow.removeFromLeft(20); // Spacing
-  m_groupLabel->setBounds(metadataRow.removeFromLeft(90));
-  m_groupComboBox->setBounds(metadataRow.removeFromLeft(140));
-  contentArea.removeFromTop(15); // Spacing before Phase 2
-
-  // === PHASE 2: In/Out Points ===
-  // Waveform Display
+  // === WAVEFORM SECTION (Prominent, SpotOn-style) ===
   if (m_waveformDisplay) {
-    auto waveformArea = contentArea.removeFromTop(100);
-    m_waveformDisplay->setBounds(waveformArea);
+    m_waveformDisplay->setBounds(contentArea.removeFromTop(GRID * 15)); // Larger waveform
   }
-  contentArea.removeFromTop(5);
+  contentArea.removeFromTop(GRID);
 
-  // Transport controls (Play, Stop, Loop, Position) below waveform
+  // === TRANSPORT BAR (Prominent, centered like SpotOn) ===
   if (m_playButton && m_stopButton && m_loopButton && m_transportPositionLabel) {
-    auto transportRow = contentArea.removeFromTop(30);
-    m_playButton->setBounds(transportRow.removeFromLeft(60));
-    transportRow.removeFromLeft(5);
-    m_stopButton->setBounds(transportRow.removeFromLeft(60));
-    transportRow.removeFromLeft(10);
-    m_loopButton->setBounds(transportRow.removeFromLeft(60));
-    transportRow.removeFromLeft(10);
-    m_transportPositionLabel->setBounds(transportRow.removeFromLeft(120));
+    auto transportRow = contentArea.removeFromTop(GRID * 4);
+    auto transportCenter = transportRow.withSizeKeepingCentre(GRID * 40, GRID * 4);
+
+    // Rewind button placeholder (left)
+    auto rewindArea = transportCenter.removeFromLeft(GRID * 5);
+
+    // Loop button
+    m_loopButton->setBounds(transportCenter.removeFromLeft(GRID * 6));
+    transportCenter.removeFromLeft(GRID);
+
+    // Play button (larger, prominent)
+    m_playButton->setBounds(transportCenter.removeFromLeft(GRID * 7));
+    transportCenter.removeFromLeft(GRID);
+
+    // Stop button
+    m_stopButton->setBounds(transportCenter.removeFromLeft(GRID * 7));
+    transportCenter.removeFromLeft(GRID);
+
+    // Fast forward placeholder (right)
+    auto ffArea = transportCenter.removeFromLeft(GRID * 5);
+
+    // Transport position label (centered below)
+    m_transportPositionLabel->setBounds(transportRow.withSizeKeepingCentre(GRID * 15, GRID * 3));
   }
-  contentArea.removeFromTop(5);
+  contentArea.removeFromTop(GRID);
 
-  // Zoom buttons (inline below transport)
-  if (m_zoom1xButton && m_zoom2xButton && m_zoom4xButton && m_zoom8xButton) {
-    auto zoomRow = contentArea.removeFromTop(25);
-    m_zoom1xButton->setBounds(zoomRow.removeFromLeft(50));
-    zoomRow.removeFromLeft(5); // Spacing
-    m_zoom2xButton->setBounds(zoomRow.removeFromLeft(50));
-    zoomRow.removeFromLeft(5); // Spacing
-    m_zoom4xButton->setBounds(zoomRow.removeFromLeft(50));
-    zoomRow.removeFromLeft(5); // Spacing
-    m_zoom8xButton->setBounds(zoomRow.removeFromLeft(50));
+  // === TRIM SECTION (Grid-based, SpotOn-style) ===
+  auto trimSection = contentArea.removeFromTop(GRID * 12);
+
+  // Trim IN (left column)
+  auto trimInCol = trimSection.removeFromLeft(trimSection.getWidth() / 2 - GRID);
+  if (m_trimInLabel && m_trimInTimeEditor && m_trimInDecButton && m_trimInIncButton &&
+      m_trimInHoldButton && m_trimInClearButton) {
+    m_trimInLabel->setBounds(trimInCol.removeFromTop(GRID * 2));
+    trimInCol.removeFromTop(GRID / 2);
+
+    auto trimInRow = trimInCol.removeFromTop(GRID * 3);
+    m_trimInTimeEditor->setBounds(trimInRow.removeFromLeft(GRID * 10));
+    trimInRow.removeFromLeft(GRID);
+    m_trimInDecButton->setBounds(trimInRow.removeFromLeft(GRID * 3));
+    m_trimInIncButton->setBounds(trimInRow.removeFromLeft(GRID * 3));
+
+    trimInCol.removeFromTop(GRID / 2);
+    auto trimInButtonRow = trimInCol.removeFromTop(GRID * 3);
+    m_trimInClearButton->setBounds(trimInButtonRow.removeFromLeft(GRID * 5));
+    trimInButtonRow.removeFromLeft(GRID);
+    m_trimInHoldButton->setBounds(trimInButtonRow.removeFromLeft(GRID * 5));
   }
-  contentArea.removeFromTop(10);
 
-  // Trim In
-  if (m_trimInLabel && m_trimInTimeEditor && m_trimInDecButton && m_trimInIncButton) {
-    auto trimInRow = contentArea.removeFromTop(60);
-    m_trimInLabel->setBounds(trimInRow.removeFromTop(20));
+  trimSection.removeFromLeft(GRID * 2); // Column spacing
 
-    auto trimInControlRow = trimInRow.removeFromTop(30);
-    m_trimInTimeEditor->setBounds(trimInControlRow.removeFromLeft(130));
-    trimInControlRow.removeFromLeft(5);
-    m_trimInDecButton->setBounds(trimInControlRow.removeFromLeft(30));
-    m_trimInIncButton->setBounds(trimInControlRow.removeFromLeft(30));
+  // Trim OUT (right column)
+  auto trimOutCol = trimSection;
+  if (m_trimOutLabel && m_trimOutTimeEditor && m_trimOutDecButton && m_trimOutIncButton &&
+      m_trimOutHoldButton && m_trimOutClearButton) {
+    m_trimOutLabel->setBounds(trimOutCol.removeFromTop(GRID * 2));
+    trimOutCol.removeFromTop(GRID / 2);
+
+    auto trimOutRow = trimOutCol.removeFromTop(GRID * 3);
+    m_trimOutTimeEditor->setBounds(trimOutRow.removeFromLeft(GRID * 10));
+    trimOutRow.removeFromLeft(GRID);
+    m_trimOutDecButton->setBounds(trimOutRow.removeFromLeft(GRID * 3));
+    m_trimOutIncButton->setBounds(trimOutRow.removeFromLeft(GRID * 3));
+
+    trimOutCol.removeFromTop(GRID / 2);
+    auto trimOutButtonRow = trimOutCol.removeFromTop(GRID * 3);
+    m_trimOutClearButton->setBounds(trimOutButtonRow.removeFromLeft(GRID * 5));
+    trimOutButtonRow.removeFromLeft(GRID);
+    m_trimOutHoldButton->setBounds(trimOutButtonRow.removeFromLeft(GRID * 5));
   }
-  contentArea.removeFromTop(5);
 
-  // Trim Out
-  if (m_trimOutLabel && m_trimOutTimeEditor && m_trimOutDecButton && m_trimOutIncButton) {
-    auto trimOutRow = contentArea.removeFromTop(60);
-    m_trimOutLabel->setBounds(trimOutRow.removeFromTop(20));
+  contentArea.removeFromTop(GRID);
 
-    auto trimOutControlRow = trimOutRow.removeFromTop(30);
-    m_trimOutTimeEditor->setBounds(trimOutControlRow.removeFromLeft(130));
-    trimOutControlRow.removeFromLeft(5);
-    m_trimOutDecButton->setBounds(trimOutControlRow.removeFromLeft(30));
-    m_trimOutIncButton->setBounds(trimOutControlRow.removeFromLeft(30));
-  }
-  contentArea.removeFromTop(5);
-
-  // Trim Info Label
+  // Duration label (centered)
   if (m_trimInfoLabel) {
-    auto trimInfoRow = contentArea.removeFromTop(25);
-    m_trimInfoLabel->setBounds(trimInfoRow);
+    m_trimInfoLabel->setBounds(contentArea.removeFromTop(GRID * 2));
   }
-  contentArea.removeFromTop(20); // Extra spacing before Phase 3
+  contentArea.removeFromTop(GRID * 2);
 
-  // === PHASE 3: Fade Times ===
-  // Fade In
+  // === METADATA SECTION ===
+  // Clip Name
+  auto nameRow = contentArea.removeFromTop(GRID * 6);
+  m_nameLabel->setBounds(nameRow.removeFromTop(GRID * 2));
+  m_nameEditor->setBounds(nameRow.removeFromTop(GRID * 3));
+  contentArea.removeFromTop(GRID);
+
+  // Color and Group (inline)
+  auto metadataRow = contentArea.removeFromTop(GRID * 3);
+  m_colorLabel->setBounds(metadataRow.removeFromLeft(GRID * 6));
+  m_colorComboBox->setBounds(metadataRow.removeFromLeft(GRID * 12));
+  metadataRow.removeFromLeft(GRID * 2);
+  m_groupLabel->setBounds(metadataRow.removeFromLeft(GRID * 9));
+  m_groupComboBox->setBounds(metadataRow.removeFromLeft(GRID * 13));
+  contentArea.removeFromTop(GRID * 2);
+
+  // === FADE SECTION ===
+  auto fadeSection = contentArea.removeFromTop(GRID * 8);
+
+  // Fade IN (left column)
+  auto fadeInCol = fadeSection.removeFromLeft(fadeSection.getWidth() / 2 - GRID);
   if (m_fadeInLabel && m_fadeInCombo && m_fadeInCurveCombo) {
-    auto fadeInRow = contentArea.removeFromTop(50);
-    m_fadeInLabel->setBounds(fadeInRow.removeFromTop(20));
-
-    auto fadeInControlRow = fadeInRow.removeFromTop(25);
-    m_fadeInCombo->setBounds(fadeInControlRow.removeFromLeft(120));
-    fadeInControlRow.removeFromLeft(10); // Spacing
-    m_fadeInCurveCombo->setBounds(fadeInControlRow.removeFromLeft(150));
+    m_fadeInLabel->setBounds(fadeInCol.removeFromTop(GRID * 2));
+    fadeInCol.removeFromTop(GRID / 2);
+    auto fadeInRow = fadeInCol.removeFromTop(GRID * 3);
+    m_fadeInCombo->setBounds(fadeInRow.removeFromLeft(GRID * 10));
+    fadeInRow.removeFromLeft(GRID);
+    m_fadeInCurveCombo->setBounds(fadeInRow);
   }
-  contentArea.removeFromTop(10);
 
-  // Fade Out
+  fadeSection.removeFromLeft(GRID * 2);
+
+  // Fade OUT (right column)
+  auto fadeOutCol = fadeSection;
   if (m_fadeOutLabel && m_fadeOutCombo && m_fadeOutCurveCombo) {
-    auto fadeOutRow = contentArea.removeFromTop(50);
-    m_fadeOutLabel->setBounds(fadeOutRow.removeFromTop(20));
-
-    auto fadeOutControlRow = fadeOutRow.removeFromTop(25);
-    m_fadeOutCombo->setBounds(fadeOutControlRow.removeFromLeft(120));
-    fadeOutControlRow.removeFromLeft(10); // Spacing
-    m_fadeOutCurveCombo->setBounds(fadeOutControlRow.removeFromLeft(150));
+    m_fadeOutLabel->setBounds(fadeOutCol.removeFromTop(GRID * 2));
+    fadeOutCol.removeFromTop(GRID / 2);
+    auto fadeOutRow = fadeOutCol.removeFromTop(GRID * 3);
+    m_fadeOutCombo->setBounds(fadeOutRow.removeFromLeft(GRID * 10));
+    fadeOutRow.removeFromLeft(GRID);
+    m_fadeOutCurveCombo->setBounds(fadeOutRow);
   }
 
   // Dialog buttons at bottom
-  auto buttonArea = contentArea.removeFromBottom(40);
-  m_cancelButton->setBounds(buttonArea.removeFromRight(100));
-  buttonArea.removeFromRight(10); // Spacing
-  m_okButton->setBounds(buttonArea.removeFromRight(100));
+  auto buttonArea = contentArea.removeFromBottom(GRID * 4);
+  m_cancelButton->setBounds(buttonArea.removeFromRight(GRID * 10));
+  buttonArea.removeFromRight(GRID);
+  m_okButton->setBounds(buttonArea.removeFromRight(GRID * 10));
 }
 
 //==============================================================================
