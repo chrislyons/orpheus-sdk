@@ -188,6 +188,18 @@ void TransportController::processAudio(float** outputBuffers, size_t numChannels
   // Process pending commands from UI thread
   processCommands();
 
+  // DIAGNOSTIC: Write active clip count to file
+  static int callbackCount = 0;
+  if (callbackCount < 5) {
+    FILE* f = fopen("/tmp/audio_callback.txt", "a");
+    if (f) {
+      fprintf(f, "processAudio() #%d: numFrames=%zu, activeClips=%zu\n", callbackCount, numFrames,
+              m_activeClipCount);
+      fclose(f);
+    }
+    callbackCount++;
+  }
+
   // Routing matrix controls output channel count
   (void)numChannels;
 
@@ -203,8 +215,25 @@ void TransportController::processAudio(float** outputBuffers, size_t numChannels
   for (size_t i = 0; i < m_activeClipCount; ++i) {
     ActiveClip& clip = m_activeClips[i];
 
+    // DIAGNOSTIC: Write clip state to file
+    static int clipCheckCount = 0;
+    if (clipCheckCount < 3) {
+      FILE* f = fopen("/tmp/audio_callback.txt", "a");
+      if (f) {
+        fprintf(f, "Processing clip %zu: reader=%p, isOpen=%d\n", i, (void*)clip.reader.get(),
+                clip.reader ? clip.reader->isOpen() : 0);
+        fclose(f);
+      }
+      clipCheckCount++;
+    }
+
     // Skip if no audio file registered
     if (!clip.reader || !clip.reader->isOpen()) {
+      FILE* f = fopen("/tmp/audio_callback.txt", "a");
+      if (f) {
+        fprintf(f, "SKIPPING clip %zu (no reader or not open)\n", i);
+        fclose(f);
+      }
       continue;
     }
 
@@ -270,11 +299,46 @@ void TransportController::processAudio(float** outputBuffers, size_t numChannels
     // Use captured shared_ptr reader (thread-safe, no map lookup needed)
     auto readResult = clip.reader->readSamples(clipReadBuffer, framesToRead);
 
+    // DIAGNOSTIC: Write to file
+    static int callCount = 0;
+    if (callCount < 3) {
+      FILE* f = fopen("/tmp/audio_callback.txt", "a");
+      if (f) {
+        fprintf(f, "TransportController: framesToRead=%zu, readResult.isOk=%d\n", framesToRead,
+                readResult.isOk());
+        fclose(f);
+      }
+      callCount++;
+    }
+
     if (!readResult.isOk()) {
+      FILE* f = fopen("/tmp/audio_callback.txt", "a");
+      if (f) {
+        fprintf(f, "ERROR: Read failed! Error code: %d\n", static_cast<int>(readResult.error));
+        fclose(f);
+      }
       continue;
     }
 
     size_t framesRead = readResult.value;
+
+    // DIAGNOSTIC: Print samples from multiple buffers to see when audio starts
+    static int sampleBufferCount = 0;
+    if (sampleBufferCount < 50 && framesRead > 0) { // Log first 50 buffers
+      FILE* f = fopen("/tmp/audio_callback.txt", "a");
+      if (f) {
+        fprintf(f, "BUFFER #%d: Read %zu frames, first 8 samples: ", sampleBufferCount, framesRead);
+        for (size_t s = 0; s < std::min(size_t(8), framesRead * numFileChannels); ++s) {
+          fprintf(f, "%.4f ", clipReadBuffer[s]);
+        }
+        fprintf(f, "\n");
+        fclose(f);
+      }
+      sampleBufferCount++;
+    }
+
+    // Advance clip position by actual frames read (not buffer size!)
+    clip.currentSample += static_cast<int64_t>(framesRead);
 
     // Output to this clip's channel buffer (mono sum for routing)
     float* clipChannelBuffer = m_clipChannelBuffers[i].data();
@@ -341,11 +405,39 @@ void TransportController::processAudio(float** outputBuffers, size_t numChannels
       clipChannelBuffer[frame] = monoSample * gain;
     }
 
-    // Advance clip position by actual frames read (not buffer size!)
-    // CRITICAL (Copilot feedback): This must happen AFTER fade processing, not before
-    // Previously this was at line 341 (before fade loop), causing fade timing to be off by one
-    // buffer
-    clip.currentSample += static_cast<int64_t>(framesRead);
+    // DIAGNOSTIC: Log clipChannelBuffer samples for first active clip
+    static int clipOutCount = 0;
+    if (clipOutCount < 10 && i == 0 && framesRead > 0) {
+      FILE* f = fopen("/tmp/audio_callback.txt", "a");
+      if (f) {
+        fprintf(f, "CLIP OUT #%d: First 8 samples from clipChannelBuffer[0]: ", clipOutCount);
+        for (size_t s = 0; s < std::min(size_t(8), framesRead); ++s) {
+          fprintf(f, "%.4f ", clipChannelBuffer[s]);
+        }
+        fprintf(f, "\n");
+        fclose(f);
+      }
+      clipOutCount++;
+    }
+  }
+
+  // DIAGNOSTIC: Log before routing
+  static int beforeRoutingCount = 0;
+  if (beforeRoutingCount < 3) {
+    FILE* f = fopen("/tmp/audio_callback.txt", "a");
+    if (f) {
+      fprintf(f, "BEFORE ROUTING: activeClips=%zu, clipChannelPointers=%p, outputBuffers=%p\n",
+              m_activeClipCount, (void*)m_clipChannelPointers.data(), (void*)outputBuffers);
+      if (m_activeClipCount > 0) {
+        fprintf(f, "  Clip 0 buffer first 8 samples: ");
+        for (size_t s = 0; s < 8; ++s) {
+          fprintf(f, "%.4f ", m_clipChannelBuffers[0][s]);
+        }
+        fprintf(f, "\n");
+      }
+      fclose(f);
+    }
+    beforeRoutingCount++;
   }
 
   // Process routing matrix: clips → groups → master output
@@ -579,6 +671,15 @@ void TransportController::addActiveClip(ClipHandle handle) {
         m_activeClips[i].fadeOutStartPos = m_activeClips[i].currentSample;
       }
     }
+  }
+
+  // DIAGNOSTIC: Write to file
+  FILE* f = fopen("/tmp/audio_callback.txt", "a");
+  if (f) {
+    fprintf(f, "addActiveClip(handle=%llu): reader=%p, isOpen=%d, channels=%d, frames=%lld\n",
+            (unsigned long long)handle, (void*)reader.get(), reader ? reader->isOpen() : 0,
+            numChannels, (long long)totalFrames);
+    fclose(f);
   }
 
   // If no audio file registered, we'll play silence (reader will be nullptr)
