@@ -8,6 +8,7 @@ add_executable(transport_controller_test
 target_link_libraries(transport_controller_test
     PRIVATE
         orpheus_transport
+        orpheus_audio_io
         orpheus_session
         GTest::gtest
         GTest::gtest_main
@@ -32,6 +33,7 @@ add_executable(fade_processing_test
 target_link_libraries(fade_processing_test
     PRIVATE
         orpheus_transport
+        orpheus_audio_io
         orpheus_session
         GTest::gtest
         GTest::gtest_main
