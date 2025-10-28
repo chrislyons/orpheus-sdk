@@ -307,11 +307,10 @@ void TransportController::processAudio(float** outputBuffers, size_t numChannels
       }
 
       // Apply stop fade-out if stopping
+      // NOTE: fadeOutGain is pre-computed in post-render loop (lines 361-386)
+      // based on total fade progress, NOT per-frame index
       if (clip.isStopping) {
-        float stopFadeGain = clip.fadeOutGain;
-        float fadeStep = 1.0f / static_cast<float>(m_fadeOutSamples);
-        stopFadeGain -= (fadeStep * static_cast<float>(frame));
-        gain *= std::max(0.0f, stopFadeGain); // Clamp to 0
+        gain *= std::max(0.0f, clip.fadeOutGain); // Use pre-computed fade gain
       }
 
       // Apply clip fade-in (first N samples from trim IN)

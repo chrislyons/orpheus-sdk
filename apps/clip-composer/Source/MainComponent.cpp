@@ -755,6 +755,24 @@ void MainComponent::onClipDraggedToButton(int sourceButtonIndex, int targetButto
   DBG("MainComponent: Dragging clip from button " << sourceButtonIndex << " to button "
                                                   << targetButtonIndex);
 
+  // CRITICAL: Check if either clip is currently playing BEFORE swapping
+  // Playback state is tied to button index in AudioEngine, so we must stop playback first
+  auto sourceButton = m_clipGrid->getButton(sourceButtonIndex);
+  auto targetButton = m_clipGrid->getButton(targetButtonIndex);
+
+  bool sourceWasPlaying = (sourceButton && sourceButton->getState() == ClipButton::State::Playing);
+  bool targetWasPlaying = (targetButton && targetButton->getState() == ClipButton::State::Playing);
+
+  // Stop both clips if playing (prevents orphaned playback state)
+  if (sourceWasPlaying && m_audioEngine) {
+    m_audioEngine->stopClip(sourceButtonIndex);
+    DBG("MainComponent: Stopped source clip (button " << sourceButtonIndex << ") before swap");
+  }
+  if (targetWasPlaying && m_audioEngine) {
+    m_audioEngine->stopClip(targetButtonIndex);
+    DBG("MainComponent: Stopped target clip (button " << targetButtonIndex << ") before swap");
+  }
+
   // Swap clips in SessionManager
   m_sessionManager.swapClips(sourceButtonIndex, targetButtonIndex);
 
@@ -764,9 +782,27 @@ void MainComponent::onClipDraggedToButton(int sourceButtonIndex, int targetButto
   // Swap loop mode flags
   std::swap(m_loopEnabled[sourceButtonIndex], m_loopEnabled[targetButtonIndex]);
 
-  // Update both buttons visually
+  // Update both buttons visually (this reloads clips into AudioEngine at new positions)
   updateButtonFromClip(sourceButtonIndex);
   updateButtonFromClip(targetButtonIndex);
+
+  // Restart clips at their NEW positions if they were playing
+  if (sourceWasPlaying && m_audioEngine && m_sessionManager.hasClip(targetButtonIndex)) {
+    m_audioEngine->startClip(targetButtonIndex);
+    if (targetButton) {
+      targetButton->setState(ClipButton::State::Playing);
+    }
+    DBG("MainComponent: Restarted source clip at new position (button " << targetButtonIndex
+                                                                        << ")");
+  }
+  if (targetWasPlaying && m_audioEngine && m_sessionManager.hasClip(sourceButtonIndex)) {
+    m_audioEngine->startClip(sourceButtonIndex);
+    if (sourceButton) {
+      sourceButton->setState(ClipButton::State::Playing);
+    }
+    DBG("MainComponent: Restarted target clip at new position (button " << sourceButtonIndex
+                                                                        << ")");
+  }
 }
 
 void MainComponent::updateButtonFromClip(int buttonIndex) {

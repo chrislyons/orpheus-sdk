@@ -347,6 +347,13 @@ void ClipEditDialog::buildPhase1UI() {
   m_nameEditor->setFont(juce::FontOptions("Inter", 14.0f, juce::Font::plain));
   m_nameEditor->setJustification(juce::Justification::centredLeft); // Vertically center text
   m_nameEditor->onTextChange = [this]() { m_metadata.displayName = m_nameEditor->getText(); };
+  m_nameEditor->setReturnKeyStartsNewLine(false); // Enter should NOT insert newline
+  m_nameEditor->onReturnKey = [this]() {
+    // Enter key = Save & Close (trigger OK button)
+    if (m_okButton) {
+      m_okButton->triggerClick();
+    }
+  };
   addAndMakeVisible(m_nameEditor.get());
 
   // File Path (read-only)
@@ -1508,9 +1515,47 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
     return true;
   }
 
-  // ENTER key: Submit dialog (OK)
+  // TAB key: Custom focus order (Name → Trim IN → Trim OUT only)
+  if (key == juce::KeyPress::tabKey) {
+    // Determine current focus
+    auto* focused = juce::Component::getCurrentlyFocusedComponent();
+
+    if (focused == m_nameEditor.get()) {
+      // Name → Trim IN
+      if (m_trimInTimeEditor) {
+        m_trimInTimeEditor->grabKeyboardFocus();
+      }
+    } else if (focused == m_trimInTimeEditor.get()) {
+      // Trim IN → Trim OUT
+      if (m_trimOutTimeEditor) {
+        m_trimOutTimeEditor->grabKeyboardFocus();
+      }
+    } else if (focused == m_trimOutTimeEditor.get()) {
+      // Trim OUT → Name (cycle back)
+      if (m_nameEditor) {
+        m_nameEditor->grabKeyboardFocus();
+      }
+    } else {
+      // Nothing focused or other control focused → start at Name
+      if (m_nameEditor) {
+        m_nameEditor->grabKeyboardFocus();
+      }
+    }
+    return true; // Consume Tab key
+  }
+
+  // ENTER key: Submit dialog (OK) - only if not in text editor
   if (key == juce::KeyPress::returnKey ||
       key == juce::KeyPress(juce::KeyPress::returnKey, juce::ModifierKeys(), 0)) {
+    // Check if we're in a text editor (they handle Enter themselves)
+    auto* focused = juce::Component::getCurrentlyFocusedComponent();
+    if (focused == m_nameEditor.get() || focused == m_trimInTimeEditor.get() ||
+        focused == m_trimOutTimeEditor.get()) {
+      // Let text editor handle Enter (will trigger OK via onReturnKey callback)
+      return false;
+    }
+
+    // Otherwise, trigger OK button directly
     if (onOkClicked)
       onOkClicked(m_metadata);
     return true;
