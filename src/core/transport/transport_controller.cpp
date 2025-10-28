@@ -27,7 +27,8 @@ TransportController::TransportController(core::SessionGraph* sessionGraph, uint3
   routingConfig.num_outputs = 2;                 // Stereo output
   routingConfig.solo_mode = SoloMode::SIP;
   routingConfig.metering_mode = MeteringMode::Peak;
-  routingConfig.gain_smoothing_ms = 10.0f;
+  routingConfig.gain_smoothing_ms =
+      0.0f; // DISABLED: Fades handled at clip level, smoothing causes zigzag artifacts
   routingConfig.enable_metering = true;
   routingConfig.enable_clipping_protection =
       false; // DISABLED: Causes distortion with overlapping fades (professional users manage gain
