@@ -775,8 +775,8 @@ void ClipEditDialog::buildPhase2UI() {
   };
   addAndMakeVisible(m_trimInTimeEditor.get());
 
-  // Nudge buttons (< and > for rapid audition)
-  m_trimInDecButton = std::make_unique<juce::TextButton>("<");
+  // Nudge buttons (< and > for rapid audition) - Issue #7: NudgeButton with hold-to-repeat
+  m_trimInDecButton = std::make_unique<NudgeButton>("<");
   m_trimInDecButton->onClick = [this]() {
     // Decrement by 1 tick (1/75 second) - restarts playback from new IN (SpotOn behavior)
     int64_t decrement = m_metadata.sampleRate / 75;
@@ -805,7 +805,7 @@ void ClipEditDialog::buildPhase2UI() {
   };
   addAndMakeVisible(m_trimInDecButton.get());
 
-  m_trimInIncButton = std::make_unique<juce::TextButton>(">");
+  m_trimInIncButton = std::make_unique<NudgeButton>(">");
   m_trimInIncButton->onClick = [this]() {
     // Increment by 1 tick (1/75 second) - restarts playback from new IN (SpotOn behavior)
     int64_t increment = m_metadata.sampleRate / 75;
@@ -923,8 +923,8 @@ void ClipEditDialog::buildPhase2UI() {
   };
   addAndMakeVisible(m_trimOutTimeEditor.get());
 
-  // Nudge buttons
-  m_trimOutDecButton = std::make_unique<juce::TextButton>("<");
+  // Nudge buttons - Issue #7: NudgeButton with hold-to-repeat
+  m_trimOutDecButton = std::make_unique<NudgeButton>("<");
   m_trimOutDecButton->onClick = [this]() {
     // Decrement by 1 tick (1/75 second) - NO restart (SpotOn behavior)
     int64_t decrement = m_metadata.sampleRate / 75;
@@ -957,7 +957,7 @@ void ClipEditDialog::buildPhase2UI() {
   };
   addAndMakeVisible(m_trimOutDecButton.get());
 
-  m_trimOutIncButton = std::make_unique<juce::TextButton>(">");
+  m_trimOutIncButton = std::make_unique<NudgeButton>(">");
   m_trimOutIncButton->onClick = [this]() {
     // Increment by 1 tick (1/75 second) - NO restart (SpotOn behavior)
     int64_t increment = m_metadata.sampleRate / 75;
@@ -1454,7 +1454,7 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
     return true;
   }
 
-  // Keyboard shortcuts (SpotOn-inspired accessibility)
+  // Keyboard shortcuts (Issue #7: Latchable IN/OUT navigation)
   //
   // TRIM POINTS:
   //   I = Set IN point (at current transport position)
@@ -1462,10 +1462,12 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
   //   J = Jump transport (not yet implemented)
   //   [ = Nudge IN point left (-1 tick)
   //   ] = Nudge IN point right (+1 tick)
-  //   Shift+[ = Nudge OUT point left (-1 tick)
-  //   Shift+] = Nudge OUT point right (+1 tick)
-  //   Option+[ / Shift+Option+[ = Jump by 1 second (IN or OUT)
-  //   Option+] / Shift+Option+] = Jump by 1 second (IN or OUT)
+  //   Shift+[ = Nudge IN point left (-15 ticks)
+  //   Shift+] = Nudge IN point right (+15 ticks)
+  //   ; = Nudge OUT point left (-1 tick)
+  //   ' = Nudge OUT point right (+1 tick)
+  //   Shift+; = Nudge OUT point left (-15 ticks)
+  //   Shift+' = Nudge OUT point right (+15 ticks)
   //
   // WAVEFORM ZOOM:
   //   Cmd/Ctrl + Plus = Zoom in (1x → 2x → 4x → 8x)
@@ -1641,116 +1643,125 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
     }
   }
 
-  // [ key: Nudge IN or OUT point left
-  // Option modifier: jump by 1 SECOND instead of 1 tick
-  // Shift modifier: control OUT point instead of IN point
+  // [ key: Nudge IN point left (Issue #7)
+  // Shift modifier: 15-tick jump instead of 1-tick
   if (key == juce::KeyPress('[') || key == juce::KeyPress('{')) {
     bool isShift = key.getModifiers().isShiftDown() || key == juce::KeyPress('{');
-    bool isOption = key.getModifiers().isAltDown();
-    int64_t jumpAmount = isOption ? oneSecondInSamples : tickInSamples;
+    int64_t jumpAmount = isShift ? (15 * tickInSamples) : tickInSamples;
 
-    if (isShift) {
-      // Control OUT point (Shift+[)
-      m_metadata.trimOutSamples = std::max(m_metadata.trimInSamples + tickInSamples,
-                                           m_metadata.trimOutSamples - jumpAmount);
-      updateTrimInfoLabel();
-      if (m_waveformDisplay) {
-        m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-      }
-      if (m_previewPlayer) {
-        m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-
-        // CRITICAL: If playhead is now past new OUT point, clamp it back to OUT
-        if (m_previewPlayer->isPlaying()) {
-          int64_t currentPos = m_previewPlayer->getCurrentPosition();
-          if (currentPos > m_metadata.trimOutSamples) {
-            m_previewPlayer->jumpTo(m_metadata.trimOutSamples);
-            DBG("ClipEditDialog: Playhead was past new OUT point - clamped to "
-                << m_metadata.trimOutSamples);
-          }
-        }
-      }
-      DBG("ClipEditDialog: Shift+[ - Nudged OUT point left by "
-          << (isOption ? "1 second" : "1 tick") << " to sample " << m_metadata.trimOutSamples);
-    } else {
-      // Control IN point ([)
-      m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimInSamples - jumpAmount);
-      // Enforce edit law: IN < OUT
-      if (m_metadata.trimInSamples >= m_metadata.trimOutSamples) {
-        m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimOutSamples - tickInSamples);
-      }
-      updateTrimInfoLabel();
-      if (m_waveformDisplay) {
-        m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-      }
-      // IN point changes restart playback from new IN
-      if (m_previewPlayer) {
-        m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-
-        // NOTE: Decrementing IN extends range to the left, playhead cannot be before new IN
-        // No need to clamp
-      }
-      DBG("ClipEditDialog: [ - Nudged IN point left by "
-          << (isOption ? "1 second" : "1 tick") << " to sample " << m_metadata.trimInSamples);
+    // Control IN point
+    m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimInSamples - jumpAmount);
+    // Enforce edit law: IN < OUT
+    if (m_metadata.trimInSamples >= m_metadata.trimOutSamples) {
+      m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimOutSamples - tickInSamples);
     }
+    updateTrimInfoLabel();
+    if (m_waveformDisplay) {
+      m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+    }
+    // IN point changes restart playback from new IN
+    if (m_previewPlayer) {
+      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+    }
+    DBG("ClipEditDialog: " << (isShift ? "Shift+[" : "[") << " - Nudged IN point left by "
+                           << (isShift ? "15 ticks" : "1 tick") << " to sample "
+                           << m_metadata.trimInSamples);
     return true;
   }
 
-  // ] key: Nudge IN or OUT point right
-  // Option modifier: jump by 1 SECOND instead of 1 tick
-  // Shift modifier: control OUT point instead of IN point
+  // ] key: Nudge IN point right (Issue #7)
+  // Shift modifier: 15-tick jump instead of 1-tick
   if (key == juce::KeyPress(']') || key == juce::KeyPress('}')) {
     bool isShift = key.getModifiers().isShiftDown() || key == juce::KeyPress('}');
-    bool isOption = key.getModifiers().isAltDown();
-    int64_t jumpAmount = isOption ? oneSecondInSamples : tickInSamples;
+    int64_t jumpAmount = isShift ? (15 * tickInSamples) : tickInSamples;
 
-    if (isShift) {
-      // Control OUT point (Shift+])
-      m_metadata.trimOutSamples =
-          std::min(m_metadata.durationSamples, m_metadata.trimOutSamples + jumpAmount);
-      // Enforce edit law: OUT > IN
-      if (m_metadata.trimOutSamples <= m_metadata.trimInSamples) {
-        m_metadata.trimOutSamples =
-            std::min(m_metadata.durationSamples, m_metadata.trimInSamples + tickInSamples);
-      }
-      updateTrimInfoLabel();
-      if (m_waveformDisplay) {
-        m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-      }
-      if (m_previewPlayer) {
-        m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-      }
-      DBG("ClipEditDialog: Shift+] - Nudged OUT point right by "
-          << (isOption ? "1 second" : "1 tick") << " to sample " << m_metadata.trimOutSamples);
-    } else {
-      // Control IN point (])
-      m_metadata.trimInSamples = std::min(m_metadata.trimOutSamples - tickInSamples,
-                                          m_metadata.trimInSamples + jumpAmount);
-      // Enforce edit law: IN < OUT
-      if (m_metadata.trimInSamples >= m_metadata.trimOutSamples) {
-        m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimOutSamples - tickInSamples);
-      }
-      updateTrimInfoLabel();
-      if (m_waveformDisplay) {
-        m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-      }
-      // IN point changes restart playback from new IN
-      if (m_previewPlayer) {
-        m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+    // Control IN point
+    m_metadata.trimInSamples =
+        std::min(m_metadata.trimOutSamples - tickInSamples, m_metadata.trimInSamples + jumpAmount);
+    // Enforce edit law: IN < OUT
+    if (m_metadata.trimInSamples >= m_metadata.trimOutSamples) {
+      m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimOutSamples - tickInSamples);
+    }
+    updateTrimInfoLabel();
+    if (m_waveformDisplay) {
+      m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+    }
+    // IN point changes restart playback from new IN
+    if (m_previewPlayer) {
+      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
-        // CRITICAL: If playhead is now before new IN point, clamp it forward to IN
-        if (m_previewPlayer->isPlaying()) {
-          int64_t currentPos = m_previewPlayer->getCurrentPosition();
-          if (currentPos < m_metadata.trimInSamples) {
-            m_previewPlayer->jumpTo(m_metadata.trimInSamples);
-            DBG("ClipEditDialog: Playhead was before new IN point - clamped to "
-                << m_metadata.trimInSamples);
-          }
+      // CRITICAL: If playhead is now before new IN point, clamp it forward to IN
+      if (m_previewPlayer->isPlaying()) {
+        int64_t currentPos = m_previewPlayer->getCurrentPosition();
+        if (currentPos < m_metadata.trimInSamples) {
+          m_previewPlayer->jumpTo(m_metadata.trimInSamples);
+          DBG("ClipEditDialog: Playhead was before new IN point - clamped to "
+              << m_metadata.trimInSamples);
         }
       }
-      DBG("ClipEditDialog: ] - Nudged IN point right by "
-          << (isOption ? "1 second" : "1 tick") << " to sample " << m_metadata.trimInSamples);
     }
+    DBG("ClipEditDialog: " << (isShift ? "Shift+]" : "]") << " - Nudged IN point right by "
+                           << (isShift ? "15 ticks" : "1 tick") << " to sample "
+                           << m_metadata.trimInSamples);
+    return true;
+  }
+
+  // ; key: Nudge OUT point left (Issue #7)
+  // Shift modifier: 15-tick jump instead of 1-tick
+  if (key == juce::KeyPress(';') || key == juce::KeyPress(':')) {
+    bool isShift = key.getModifiers().isShiftDown() || key == juce::KeyPress(':');
+    int64_t jumpAmount = isShift ? (15 * tickInSamples) : tickInSamples;
+
+    // Control OUT point
+    m_metadata.trimOutSamples =
+        std::max(m_metadata.trimInSamples + tickInSamples, m_metadata.trimOutSamples - jumpAmount);
+    updateTrimInfoLabel();
+    if (m_waveformDisplay) {
+      m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+    }
+    if (m_previewPlayer) {
+      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+
+      // CRITICAL: If playhead is now past new OUT point, clamp it back to OUT
+      if (m_previewPlayer->isPlaying()) {
+        int64_t currentPos = m_previewPlayer->getCurrentPosition();
+        if (currentPos > m_metadata.trimOutSamples) {
+          m_previewPlayer->jumpTo(m_metadata.trimOutSamples);
+          DBG("ClipEditDialog: Playhead was past new OUT point - clamped to "
+              << m_metadata.trimOutSamples);
+        }
+      }
+    }
+    DBG("ClipEditDialog: " << (isShift ? "Shift+;" : ";") << " - Nudged OUT point left by "
+                           << (isShift ? "15 ticks" : "1 tick") << " to sample "
+                           << m_metadata.trimOutSamples);
+    return true;
+  }
+
+  // ' key: Nudge OUT point right (Issue #7)
+  // Shift modifier: 15-tick jump instead of 1-tick
+  if (key == juce::KeyPress('\'') || key == juce::KeyPress('"')) {
+    bool isShift = key.getModifiers().isShiftDown() || key == juce::KeyPress('"');
+    int64_t jumpAmount = isShift ? (15 * tickInSamples) : tickInSamples;
+
+    // Control OUT point
+    m_metadata.trimOutSamples =
+        std::min(m_metadata.durationSamples, m_metadata.trimOutSamples + jumpAmount);
+    // Enforce edit law: OUT > IN
+    if (m_metadata.trimOutSamples <= m_metadata.trimInSamples) {
+      m_metadata.trimOutSamples =
+          std::min(m_metadata.durationSamples, m_metadata.trimInSamples + tickInSamples);
+    }
+    updateTrimInfoLabel();
+    if (m_waveformDisplay) {
+      m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+    }
+    if (m_previewPlayer) {
+      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+    }
+    DBG("ClipEditDialog: " << (isShift ? "Shift+'" : "'") << " - Nudged OUT point right by "
+                           << (isShift ? "15 ticks" : "1 tick") << " to sample "
+                           << m_metadata.trimOutSamples);
     return true;
   }
 

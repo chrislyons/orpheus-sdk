@@ -12,6 +12,53 @@ class AudioEngine;
 
 //==============================================================================
 /**
+ * NudgeButton - Button with hold-to-repeat and acceleration
+ *
+ * Issue #7: Latchable IN/OUT navigation
+ * - Single click: Triggers action once
+ * - Hold: Repeats action with acceleration (500ms → 250ms → 100ms)
+ * - Compatible with Shift modifier for 15-tick jumps
+ */
+class NudgeButton : public juce::TextButton, private juce::Timer {
+public:
+  NudgeButton(const juce::String& buttonText) : juce::TextButton(buttonText) {}
+
+  void mouseDown(const juce::MouseEvent& e) override {
+    juce::TextButton::mouseDown(e);
+    startLatchTimer();
+  }
+
+  void mouseUp(const juce::MouseEvent& e) override {
+    juce::TextButton::mouseUp(e);
+    stopLatchTimer();
+  }
+
+private:
+  void startLatchTimer() {
+    m_latchInterval = 500; // Initial delay
+    startTimer(m_latchInterval);
+  }
+
+  void stopLatchTimer() {
+    stopTimer();
+    m_latchInterval = 500; // Reset for next time
+  }
+
+  void timerCallback() override {
+    triggerClick(); // Repeat click
+
+    // Accelerate: 500ms → 250ms → 100ms (minimum)
+    if (m_latchInterval > 100) {
+      m_latchInterval = std::max(100, m_latchInterval - 50);
+      startTimer(m_latchInterval);
+    }
+  }
+
+  int m_latchInterval = 500;
+};
+
+//==============================================================================
+/**
  * ClipEditDialog - Modal dialog for editing clip metadata
  *
  * ARCHITECTURE CHANGE (v0.2.0):
@@ -139,14 +186,14 @@ private:
   std::unique_ptr<PreviewPlayer> m_previewPlayer;
   std::unique_ptr<juce::Label> m_trimInLabel;
   std::unique_ptr<juce::TextEditor> m_trimInTimeEditor;
-  std::unique_ptr<juce::TextButton> m_trimInDecButton;
-  std::unique_ptr<juce::TextButton> m_trimInIncButton;
+  std::unique_ptr<NudgeButton> m_trimInDecButton; // Issue #7: Hold-to-repeat with acceleration
+  std::unique_ptr<NudgeButton> m_trimInIncButton; // Issue #7: Hold-to-repeat with acceleration
   std::unique_ptr<juce::TextButton> m_trimInHoldButton;
   std::unique_ptr<juce::TextButton> m_trimInClearButton;
   std::unique_ptr<juce::Label> m_trimOutLabel;
   std::unique_ptr<juce::TextEditor> m_trimOutTimeEditor;
-  std::unique_ptr<juce::TextButton> m_trimOutDecButton;
-  std::unique_ptr<juce::TextButton> m_trimOutIncButton;
+  std::unique_ptr<NudgeButton> m_trimOutDecButton; // Issue #7: Hold-to-repeat with acceleration
+  std::unique_ptr<NudgeButton> m_trimOutIncButton; // Issue #7: Hold-to-repeat with acceleration
   std::unique_ptr<juce::TextButton> m_trimOutHoldButton;
   std::unique_ptr<juce::TextButton> m_trimOutClearButton;
   std::unique_ptr<juce::Label> m_trimInfoLabel;
