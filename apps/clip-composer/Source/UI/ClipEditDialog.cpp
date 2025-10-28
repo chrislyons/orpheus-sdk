@@ -442,9 +442,16 @@ void ClipEditDialog::buildPhase2UI() {
                                  juce::Colour(0xff4a4a4a));
   m_skipToStartButton->onClick = [this]() {
     if (m_previewPlayer) {
-      m_previewPlayer->stop();
-      // Jump to IN point (start of trimmed region)
-      DBG("ClipEditDialog: Skip to start (IN point)");
+      // Issue #9: Jump to IN point (keep play/pause state)
+      bool wasPlaying = m_previewPlayer->isPlaying();
+      m_previewPlayer->jumpTo(m_metadata.trimInSamples);
+
+      // If was playing, resume playing; if paused, stay paused
+      if (wasPlaying && !m_previewPlayer->isPlaying()) {
+        m_previewPlayer->play();
+      }
+
+      DBG("ClipEditDialog: Skip to start (IN point) - " << (wasPlaying ? "resumed" : "paused"));
     }
   };
   addAndMakeVisible(m_skipToStartButton.get());
@@ -521,9 +528,22 @@ void ClipEditDialog::buildPhase2UI() {
                                juce::Colour(0xff4a4a4a));
   m_skipToEndButton->onClick = [this]() {
     if (m_previewPlayer) {
-      m_previewPlayer->stop();
-      // Jump to OUT point (end of trimmed region)
-      DBG("ClipEditDialog: Skip to end (OUT point)");
+      // Issue #9: Jump to 5 seconds before OUT point (keep play/pause state)
+      bool wasPlaying = m_previewPlayer->isPlaying();
+
+      // Calculate target: 5 seconds before OUT, or IN if clip < 5s
+      int64_t fiveSecondsInSamples = 5 * m_metadata.sampleRate;
+      int64_t targetPosition =
+          std::max(m_metadata.trimInSamples, m_metadata.trimOutSamples - fiveSecondsInSamples);
+
+      m_previewPlayer->jumpTo(targetPosition);
+
+      // If was playing, resume playing; if paused, stay paused
+      if (wasPlaying && !m_previewPlayer->isPlaying()) {
+        m_previewPlayer->play();
+      }
+
+      DBG("ClipEditDialog: Skip to end (5s before OUT) - " << (wasPlaying ? "resumed" : "paused"));
     }
   };
   addAndMakeVisible(m_skipToEndButton.get());
@@ -1386,6 +1406,20 @@ void ClipEditDialog::resized() {
 
 //==============================================================================
 bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
+  // SPACE key: Toggle Play/Pause (Issue #4)
+  if (key == juce::KeyPress::spaceKey) {
+    if (m_previewPlayer) {
+      if (m_previewPlayer->isPlaying()) {
+        m_previewPlayer->stop();
+        DBG("ClipEditDialog: SPACE - Stopped playback");
+      } else {
+        m_previewPlayer->play();
+        DBG("ClipEditDialog: SPACE - Started playback");
+      }
+    }
+    return true;
+  }
+
   // ENTER key: Submit dialog (OK)
   if (key == juce::KeyPress::returnKey ||
       key == juce::KeyPress(juce::KeyPress::returnKey, juce::ModifierKeys(), 0)) {
@@ -1398,6 +1432,21 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
   if (key == juce::KeyPress::escapeKey) {
     if (onCancelClicked)
       onCancelClicked();
+    return true;
+  }
+
+  // ? key (Shift+/): Toggle Loop (Issue #4)
+  if (key == juce::KeyPress('?') ||
+      (key == juce::KeyPress('/') && key.getModifiers().isShiftDown())) {
+    if (m_loopButton) {
+      bool newState = !m_loopButton->getToggleState();
+      m_loopButton->setToggleState(newState, juce::sendNotification);
+      m_metadata.loopEnabled = newState;
+      if (m_previewPlayer) {
+        m_previewPlayer->setLoopEnabled(newState);
+      }
+      DBG("ClipEditDialog: ? key - Loop " << (newState ? "enabled" : "disabled"));
+    }
     return true;
   }
 
