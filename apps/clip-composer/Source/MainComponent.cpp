@@ -38,6 +38,14 @@ MainComponent::MainComponent() {
     onClipDraggedToButton(sourceIndex, targetIndex);
   };
 
+  // Wire up 75fps playback state sync
+  m_clipGrid->isClipPlaying = [this](int buttonIndex) -> bool {
+    if (m_audioEngine) {
+      return m_audioEngine->isClipPlaying(buttonIndex);
+    }
+    return false;
+  };
+
   // Make this component capture keyboard focus
   setWantsKeyboardFocus(true);
 

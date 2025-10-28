@@ -43,6 +43,9 @@ public:
   std::function<void(int sourceButtonIndex, int targetButtonIndex)>
       onButtonDraggedToButton; // Drag clip to different button
 
+  // Callback to check if clip is playing (for 75fps visual sync)
+  std::function<bool(int)> isClipPlaying;
+
   //==============================================================================
   void paint(juce::Graphics& g) override;
   void resized() override;

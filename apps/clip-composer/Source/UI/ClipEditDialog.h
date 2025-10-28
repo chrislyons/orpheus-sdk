@@ -35,26 +35,27 @@ public:
 
 private:
   void startLatchTimer() {
-    m_latchInterval = 500; // Initial delay
+    m_latchInterval = 300; // Initial delay (faster than before)
     startTimer(m_latchInterval);
   }
 
   void stopLatchTimer() {
     stopTimer();
-    m_latchInterval = 500; // Reset for next time
+    m_latchInterval = 300; // Reset for next time
   }
 
   void timerCallback() override {
     triggerClick(); // Repeat click
 
-    // Accelerate: 500ms → 250ms → 100ms (minimum)
-    if (m_latchInterval > 100) {
-      m_latchInterval = std::max(100, m_latchInterval - 50);
+    // Accelerate FASTER: 300ms → 150ms → 75ms → 40ms (minimum)
+    // User requested: "should accelerate faster"
+    if (m_latchInterval > 40) {
+      m_latchInterval = std::max(40, m_latchInterval - 75);
       startTimer(m_latchInterval);
     }
   }
 
-  int m_latchInterval = 500;
+  int m_latchInterval = 300;
 };
 
 //==============================================================================

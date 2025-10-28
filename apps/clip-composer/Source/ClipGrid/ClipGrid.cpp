@@ -147,11 +147,30 @@ void ClipGrid::filesDropped(const juce::StringArray& files, int x, int y) {
 
 //==============================================================================
 void ClipGrid::timerCallback() {
-  // Repaint all buttons at 75fps (broadcast standard timing)
-  // This ensures visual indicators (play state, loop, fade, etc.) update smoothly
-  for (auto& button : m_buttons) {
-    if (button) {
-      button->repaint();
+  // Sync button states from AudioEngine at 75fps (broadcast standard timing)
+  // This ensures visual indicators (play state, loop, fade, etc.) chase at 75fps
+  for (int i = 0; i < BUTTON_COUNT; ++i) {
+    auto button = getButton(i);
+    if (!button)
+      continue;
+
+    // Query AudioEngine for playback state (if callback is set)
+    if (isClipPlaying) {
+      bool playing = isClipPlaying(i);
+      auto currentState = button->getState();
+
+      // Update button state if it doesn't match AudioEngine state
+      if (playing && currentState != ClipButton::State::Playing) {
+        button->setState(ClipButton::State::Playing);
+      } else if (!playing && currentState == ClipButton::State::Playing) {
+        // Clip stopped (fade complete) - reset to Loaded
+        if (currentState != ClipButton::State::Empty) {
+          button->setState(ClipButton::State::Loaded);
+        }
+      }
     }
+
+    // Repaint button to update visual indicators
+    button->repaint();
   }
 }
