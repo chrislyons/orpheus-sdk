@@ -46,6 +46,26 @@ MainComponent::MainComponent() {
     return false;
   };
 
+  // Wire up 75fps clip existence check (prevents orphaned states)
+  m_clipGrid->hasClip = [this](int buttonIndex) -> bool {
+    return m_sessionManager.hasClip(buttonIndex);
+  };
+
+  // Wire up 75fps clip state tracking (ensures fade, loop, stop-others persist)
+  m_clipGrid->getClipStates = [this](int buttonIndex, bool& loopEnabled, bool& fadeInEnabled,
+                                     bool& fadeOutEnabled, bool& stopOthersEnabled) {
+    if (!m_sessionManager.hasClip(buttonIndex))
+      return;
+
+    auto clipData = m_sessionManager.getClip(buttonIndex);
+
+    // Query clip metadata (these are CLIP properties, not button properties)
+    loopEnabled = m_loopEnabled[buttonIndex];
+    fadeInEnabled = (clipData.fadeInSeconds > 0.0);
+    fadeOutEnabled = (clipData.fadeOutSeconds > 0.0);
+    stopOthersEnabled = m_stopOthersOnPlay[buttonIndex];
+  };
+
   // Make this component capture keyboard focus
   setWantsKeyboardFocus(true);
 
