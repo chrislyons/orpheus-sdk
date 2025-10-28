@@ -155,3 +155,5 @@ pnpm --filter www dev  # localhost:4000
 ---
 
 **DON'T USE OPEN TO RUN CLIP COMPOSER** - Always run launch script after build.
+
+- Application rebuilds should be performed manually by the user always.
