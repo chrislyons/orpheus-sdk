@@ -1386,9 +1386,12 @@ void ClipEditDialog::resized() {
     // Skip to End button (►►)
     m_skipToEndButton->setBounds(transportCenter.removeFromLeft(GRID * 4));
 
+    // Add vertical margin between transport buttons and time counter
+    transportRow.removeFromTop(GRID);
+
     // Transport position label (centered below buttons) - Issue #11: Enlarged to 50px height
     auto labelRow =
-        transportRow.removeFromTop(GRID * 5); // Was GRID * 2 (20px), now 50px for larger font
+        transportRow.removeFromTop(GRID * 5); // Was GRID * 2 (20px), now 50px for larger text
     m_transportPositionLabel->setBounds(
         labelRow.withSizeKeepingCentre(GRID * 20, GRID * 5)); // Wider for larger text
   }
