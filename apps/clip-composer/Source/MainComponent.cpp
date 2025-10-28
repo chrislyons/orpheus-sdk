@@ -164,8 +164,10 @@ void MainComponent::timerCallback() {
 
 //==============================================================================
 bool MainComponent::keyPressed(const juce::KeyPress& key) {
-  // Tab switching: Cmd+1 through Cmd+8 (Mac) or Ctrl+1 through Ctrl+8 (Windows/Linux)
-  if (key.getModifiers().isCommandDown()) {
+  // Issue #10: Tab switching: Cmd+Shift+1 through Cmd+Shift+8
+  // (Edit Dialog overrides Cmd+Shift+[1-9,0] for fade times when it has focus)
+  if ((key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown()) &&
+      key.getModifiers().isShiftDown()) {
     int keyCode = key.getKeyCode();
     if (keyCode >= '1' && keyCode <= '8') {
       int tabIndex = keyCode - '1'; // Convert '1'-'8' to 0-7
@@ -904,6 +906,8 @@ juce::PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex,
     menu.addSeparator();
     menu.addItem(11, "Stop All Clips");
     menu.addItem(12, "PANIC");
+    menu.addSeparator();
+    menu.addItem(13, "Keyboard Shortcuts...");
   } else if (topLevelMenuIndex == 2) // Audio menu
   {
     menu.addItem(20, "Audio I/O Settings...");
@@ -1028,6 +1032,49 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
   case 12: // PANIC
     onPanic();
     break;
+
+  case 13: // Keyboard Shortcuts
+  {
+    juce::String shortcuts = "=== ORPHEUS CLIP COMPOSER - KEYBOARD SHORTCUTS ===\n\n";
+    shortcuts += "GLOBAL SHORTCUTS:\n";
+    shortcuts += "  Space ........... Stop All Clips (with fade)\n";
+    shortcuts += "  Esc ............. PANIC (immediate mute)\n";
+    shortcuts += "  Cmd/Ctrl+Shift+[1-8] ... Switch to Tab 1-8\n";
+    shortcuts += "  Q W E R T Y ..... Trigger clips (Row 0)\n";
+    shortcuts += "  A S D F G H ..... Trigger clips (Row 1)\n";
+    shortcuts += "  Z X C V B N ..... Trigger clips (Row 2)\n";
+    shortcuts += "  1-6, 7-0, -=, [];\\',.  Trigger clips (Rows 3-5)\n";
+    shortcuts += "  F1-F12 .......... Trigger clips (Rows 6-7)\n\n";
+    shortcuts += "EDIT DIALOG SHORTCUTS:\n";
+    shortcuts += "  Space ........... Toggle Play/Pause\n";
+    shortcuts += "  Enter ........... Save & Close (OK)\n";
+    shortcuts += "  Esc ............. Cancel & Close\n";
+    shortcuts += "  ? ............... Toggle Loop\n\n";
+    shortcuts += "TRIM POINTS:\n";
+    shortcuts += "  I ............... Set IN point (at playhead)\n";
+    shortcuts += "  O ............... Set OUT point (at playhead)\n";
+    shortcuts += "  [ ............... Nudge IN point left (-1 tick)\n";
+    shortcuts += "  ] ............... Nudge IN point right (+1 tick)\n";
+    shortcuts += "  Shift+[ ......... Nudge IN point left (-15 ticks)\n";
+    shortcuts += "  Shift+] ......... Nudge IN point right (+15 ticks)\n";
+    shortcuts += "  ; ............... Nudge OUT point left (-1 tick)\n";
+    shortcuts += "  ' ............... Nudge OUT point right (+1 tick)\n";
+    shortcuts += "  Shift+; ......... Nudge OUT point left (-15 ticks)\n";
+    shortcuts += "  Shift+' ......... Nudge OUT point right (+15 ticks)\n\n";
+    shortcuts += "WAVEFORM ZOOM:\n";
+    shortcuts += "  Cmd/Ctrl + Plus .. Zoom in (1x → 16x)\n";
+    shortcuts += "  Cmd/Ctrl + Minus . Zoom out (16x → 1x)\n\n";
+    shortcuts += "FADE TIMES (Edit Dialog only):\n";
+    shortcuts += "  Cmd/Ctrl+Shift+[1-9] ... Set OUT fade (0.1s-0.9s)\n";
+    shortcuts += "  Cmd/Ctrl+Shift+0 ....... Set OUT fade (1.0s)\n";
+    shortcuts += "  Cmd/Ctrl+Opt+Shift+[1-9]  Set IN fade (0.1s-0.9s)\n";
+    shortcuts += "  Cmd/Ctrl+Opt+Shift+0 .... Set IN fade (1.0s)\n\n";
+    shortcuts += "NOTE: Hold < > buttons in Edit Dialog for auto-repeat";
+
+    juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Keyboard Shortcuts",
+                                           shortcuts, "OK");
+    break;
+  }
 
   case 20: // Audio I/O Settings
   {

@@ -141,46 +141,74 @@ void ClipEditDialog::setClipMetadata(const ClipMetadata& metadata) {
 
   // Phase 3: Initialize fade combos
   if (m_fadeInCombo) {
-    // Map fade time to combo ID
+    // Map fade time to combo ID (0.0s, 0.1s-1.0s in 0.1s increments, 1.2s, 1.6s, 2.0s, 2.4s, 3.0s)
     if (m_metadata.fadeInSeconds <= 0.05)
-      m_fadeInCombo->setSelectedId(1);
+      m_fadeInCombo->setSelectedId(1); // 0.0s
     else if (m_metadata.fadeInSeconds <= 0.15)
-      m_fadeInCombo->setSelectedId(2);
+      m_fadeInCombo->setSelectedId(2); // 0.1s
     else if (m_metadata.fadeInSeconds <= 0.25)
-      m_fadeInCombo->setSelectedId(3);
-    else if (m_metadata.fadeInSeconds <= 0.4)
-      m_fadeInCombo->setSelectedId(4);
+      m_fadeInCombo->setSelectedId(3); // 0.2s
+    else if (m_metadata.fadeInSeconds <= 0.35)
+      m_fadeInCombo->setSelectedId(4); // 0.3s
+    else if (m_metadata.fadeInSeconds <= 0.45)
+      m_fadeInCombo->setSelectedId(5); // 0.4s
+    else if (m_metadata.fadeInSeconds <= 0.55)
+      m_fadeInCombo->setSelectedId(6); // 0.5s
+    else if (m_metadata.fadeInSeconds <= 0.65)
+      m_fadeInCombo->setSelectedId(7); // 0.6s
     else if (m_metadata.fadeInSeconds <= 0.75)
-      m_fadeInCombo->setSelectedId(5);
-    else if (m_metadata.fadeInSeconds <= 1.25)
-      m_fadeInCombo->setSelectedId(6);
-    else if (m_metadata.fadeInSeconds <= 1.75)
-      m_fadeInCombo->setSelectedId(7);
-    else if (m_metadata.fadeInSeconds <= 2.5)
-      m_fadeInCombo->setSelectedId(8);
+      m_fadeInCombo->setSelectedId(8); // 0.7s
+    else if (m_metadata.fadeInSeconds <= 0.85)
+      m_fadeInCombo->setSelectedId(9); // 0.8s
+    else if (m_metadata.fadeInSeconds <= 0.95)
+      m_fadeInCombo->setSelectedId(10); // 0.9s
+    else if (m_metadata.fadeInSeconds <= 1.1)
+      m_fadeInCombo->setSelectedId(11); // 1.0s
+    else if (m_metadata.fadeInSeconds <= 1.4)
+      m_fadeInCombo->setSelectedId(12); // 1.2s
+    else if (m_metadata.fadeInSeconds <= 1.8)
+      m_fadeInCombo->setSelectedId(13); // 1.6s
+    else if (m_metadata.fadeInSeconds <= 2.2)
+      m_fadeInCombo->setSelectedId(14); // 2.0s
+    else if (m_metadata.fadeInSeconds <= 2.7)
+      m_fadeInCombo->setSelectedId(15); // 2.4s
     else
-      m_fadeInCombo->setSelectedId(9);
+      m_fadeInCombo->setSelectedId(16); // 3.0s
   }
   if (m_fadeOutCombo) {
-    // Map fade time to combo ID
+    // Map fade time to combo ID (0.0s, 0.1s-1.0s in 0.1s increments, 1.2s, 1.6s, 2.0s, 2.4s, 3.0s)
     if (m_metadata.fadeOutSeconds <= 0.05)
-      m_fadeOutCombo->setSelectedId(1);
+      m_fadeOutCombo->setSelectedId(1); // 0.0s
     else if (m_metadata.fadeOutSeconds <= 0.15)
-      m_fadeOutCombo->setSelectedId(2);
+      m_fadeOutCombo->setSelectedId(2); // 0.1s
     else if (m_metadata.fadeOutSeconds <= 0.25)
-      m_fadeOutCombo->setSelectedId(3);
-    else if (m_metadata.fadeOutSeconds <= 0.4)
-      m_fadeOutCombo->setSelectedId(4);
+      m_fadeOutCombo->setSelectedId(3); // 0.2s
+    else if (m_metadata.fadeOutSeconds <= 0.35)
+      m_fadeOutCombo->setSelectedId(4); // 0.3s
+    else if (m_metadata.fadeOutSeconds <= 0.45)
+      m_fadeOutCombo->setSelectedId(5); // 0.4s
+    else if (m_metadata.fadeOutSeconds <= 0.55)
+      m_fadeOutCombo->setSelectedId(6); // 0.5s
+    else if (m_metadata.fadeOutSeconds <= 0.65)
+      m_fadeOutCombo->setSelectedId(7); // 0.6s
     else if (m_metadata.fadeOutSeconds <= 0.75)
-      m_fadeOutCombo->setSelectedId(5);
-    else if (m_metadata.fadeOutSeconds <= 1.25)
-      m_fadeOutCombo->setSelectedId(6);
-    else if (m_metadata.fadeOutSeconds <= 1.75)
-      m_fadeOutCombo->setSelectedId(7);
-    else if (m_metadata.fadeOutSeconds <= 2.5)
-      m_fadeOutCombo->setSelectedId(8);
+      m_fadeOutCombo->setSelectedId(8); // 0.7s
+    else if (m_metadata.fadeOutSeconds <= 0.85)
+      m_fadeOutCombo->setSelectedId(9); // 0.8s
+    else if (m_metadata.fadeOutSeconds <= 0.95)
+      m_fadeOutCombo->setSelectedId(10); // 0.9s
+    else if (m_metadata.fadeOutSeconds <= 1.1)
+      m_fadeOutCombo->setSelectedId(11); // 1.0s
+    else if (m_metadata.fadeOutSeconds <= 1.4)
+      m_fadeOutCombo->setSelectedId(12); // 1.2s
+    else if (m_metadata.fadeOutSeconds <= 1.8)
+      m_fadeOutCombo->setSelectedId(13); // 1.6s
+    else if (m_metadata.fadeOutSeconds <= 2.2)
+      m_fadeOutCombo->setSelectedId(14); // 2.0s
+    else if (m_metadata.fadeOutSeconds <= 2.7)
+      m_fadeOutCombo->setSelectedId(15); // 2.4s
     else
-      m_fadeOutCombo->setSelectedId(9);
+      m_fadeOutCombo->setSelectedId(16); // 3.0s
   }
 
   // Set fade curve combos
@@ -1058,11 +1086,18 @@ void ClipEditDialog::buildPhase3UI() {
   m_fadeInCombo->addItem("0.1 s", 2);
   m_fadeInCombo->addItem("0.2 s", 3);
   m_fadeInCombo->addItem("0.3 s", 4);
-  m_fadeInCombo->addItem("0.5 s", 5);
-  m_fadeInCombo->addItem("1.0 s", 6);
-  m_fadeInCombo->addItem("1.5 s", 7);
-  m_fadeInCombo->addItem("2.0 s", 8);
-  m_fadeInCombo->addItem("3.0 s", 9);
+  m_fadeInCombo->addItem("0.4 s", 5);
+  m_fadeInCombo->addItem("0.5 s", 6);
+  m_fadeInCombo->addItem("0.6 s", 7);
+  m_fadeInCombo->addItem("0.7 s", 8);
+  m_fadeInCombo->addItem("0.8 s", 9);
+  m_fadeInCombo->addItem("0.9 s", 10);
+  m_fadeInCombo->addItem("1.0 s", 11);
+  m_fadeInCombo->addItem("1.2 s", 12);
+  m_fadeInCombo->addItem("1.6 s", 13);
+  m_fadeInCombo->addItem("2.0 s", 14);
+  m_fadeInCombo->addItem("2.4 s", 15);
+  m_fadeInCombo->addItem("3.0 s", 16);
   m_fadeInCombo->setSelectedId(1, juce::dontSendNotification);
   m_fadeInCombo->onChange = [this]() {
     switch (m_fadeInCombo->getSelectedId()) {
@@ -1079,18 +1114,39 @@ void ClipEditDialog::buildPhase3UI() {
       m_metadata.fadeInSeconds = 0.3;
       break;
     case 5:
-      m_metadata.fadeInSeconds = 0.5;
+      m_metadata.fadeInSeconds = 0.4;
       break;
     case 6:
-      m_metadata.fadeInSeconds = 1.0;
+      m_metadata.fadeInSeconds = 0.5;
       break;
     case 7:
-      m_metadata.fadeInSeconds = 1.5;
+      m_metadata.fadeInSeconds = 0.6;
       break;
     case 8:
-      m_metadata.fadeInSeconds = 2.0;
+      m_metadata.fadeInSeconds = 0.7;
       break;
     case 9:
+      m_metadata.fadeInSeconds = 0.8;
+      break;
+    case 10:
+      m_metadata.fadeInSeconds = 0.9;
+      break;
+    case 11:
+      m_metadata.fadeInSeconds = 1.0;
+      break;
+    case 12:
+      m_metadata.fadeInSeconds = 1.2;
+      break;
+    case 13:
+      m_metadata.fadeInSeconds = 1.6;
+      break;
+    case 14:
+      m_metadata.fadeInSeconds = 2.0;
+      break;
+    case 15:
+      m_metadata.fadeInSeconds = 2.4;
+      break;
+    case 16:
       m_metadata.fadeInSeconds = 3.0;
       break;
     }
@@ -1137,11 +1193,18 @@ void ClipEditDialog::buildPhase3UI() {
   m_fadeOutCombo->addItem("0.1 s", 2);
   m_fadeOutCombo->addItem("0.2 s", 3);
   m_fadeOutCombo->addItem("0.3 s", 4);
-  m_fadeOutCombo->addItem("0.5 s", 5);
-  m_fadeOutCombo->addItem("1.0 s", 6);
-  m_fadeOutCombo->addItem("1.5 s", 7);
-  m_fadeOutCombo->addItem("2.0 s", 8);
-  m_fadeOutCombo->addItem("3.0 s", 9);
+  m_fadeOutCombo->addItem("0.4 s", 5);
+  m_fadeOutCombo->addItem("0.5 s", 6);
+  m_fadeOutCombo->addItem("0.6 s", 7);
+  m_fadeOutCombo->addItem("0.7 s", 8);
+  m_fadeOutCombo->addItem("0.8 s", 9);
+  m_fadeOutCombo->addItem("0.9 s", 10);
+  m_fadeOutCombo->addItem("1.0 s", 11);
+  m_fadeOutCombo->addItem("1.2 s", 12);
+  m_fadeOutCombo->addItem("1.6 s", 13);
+  m_fadeOutCombo->addItem("2.0 s", 14);
+  m_fadeOutCombo->addItem("2.4 s", 15);
+  m_fadeOutCombo->addItem("3.0 s", 16);
   m_fadeOutCombo->setSelectedId(1, juce::dontSendNotification);
   m_fadeOutCombo->onChange = [this]() {
     switch (m_fadeOutCombo->getSelectedId()) {
@@ -1158,18 +1221,39 @@ void ClipEditDialog::buildPhase3UI() {
       m_metadata.fadeOutSeconds = 0.3;
       break;
     case 5:
-      m_metadata.fadeOutSeconds = 0.5;
+      m_metadata.fadeOutSeconds = 0.4;
       break;
     case 6:
-      m_metadata.fadeOutSeconds = 1.0;
+      m_metadata.fadeOutSeconds = 0.5;
       break;
     case 7:
-      m_metadata.fadeOutSeconds = 1.5;
+      m_metadata.fadeOutSeconds = 0.6;
       break;
     case 8:
-      m_metadata.fadeOutSeconds = 2.0;
+      m_metadata.fadeOutSeconds = 0.7;
       break;
     case 9:
+      m_metadata.fadeOutSeconds = 0.8;
+      break;
+    case 10:
+      m_metadata.fadeOutSeconds = 0.9;
+      break;
+    case 11:
+      m_metadata.fadeOutSeconds = 1.0;
+      break;
+    case 12:
+      m_metadata.fadeOutSeconds = 1.2;
+      break;
+    case 13:
+      m_metadata.fadeOutSeconds = 1.6;
+      break;
+    case 14:
+      m_metadata.fadeOutSeconds = 2.0;
+      break;
+    case 15:
+      m_metadata.fadeOutSeconds = 2.4;
+      break;
+    case 16:
       m_metadata.fadeOutSeconds = 3.0;
       break;
     }
@@ -1454,7 +1538,7 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
     return true;
   }
 
-  // Keyboard shortcuts (Issue #7: Latchable IN/OUT navigation)
+  // Keyboard shortcuts (Issue #7 + Issue #10)
   //
   // TRIM POINTS:
   //   I = Set IN point (at current transport position)
@@ -1470,12 +1554,14 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
   //   Shift+' = Nudge OUT point right (+15 ticks)
   //
   // WAVEFORM ZOOM:
-  //   Cmd/Ctrl + Plus = Zoom in (1x → 2x → 4x → 8x)
-  //   Cmd/Ctrl + Minus = Zoom out (8x → 4x → 2x → 1x)
+  //   Cmd/Ctrl + Plus = Zoom in (1x → 2x → 4x → 8x → 16x)
+  //   Cmd/Ctrl + Minus = Zoom out (16x → 8x → 4x → 2x → 1x)
   //
-  // FADE TIMES:
-  //   Cmd/Ctrl + 1-5 = Set OUT fade time (0.1s, 0.2s, 0.3s, 0.5s, 1.0s)
-  //   Opt+Cmd/Ctrl + 1-5 = Set IN fade time (0.1s, 0.2s, 0.3s, 0.5s, 1.0s)
+  // FADE TIMES (Issue #10):
+  //   Cmd/Ctrl+Shift+[1-9] = Set OUT fade time (0.1s-0.9s)
+  //   Cmd/Ctrl+Shift+0 = Set OUT fade time (1.0s)
+  //   Cmd/Ctrl+Opt+Shift+[1-9] = Set IN fade time (0.1s-0.9s)
+  //   Cmd/Ctrl+Opt+Shift+0 = Set IN fade time (1.0s)
 
   int64_t tickInSamples = m_metadata.sampleRate / 75;
   int64_t oneSecondInSamples = m_metadata.sampleRate;
@@ -1559,87 +1645,50 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
     return true;
   }
 
-  // Number keys with Cmd/Ctrl: Set OUT fade time (0.1-1.0s)
-  // Number keys with Opt+Cmd/Ctrl: Set IN fade time (0.1-1.0s)
-  // Mapping: 1=0.1s, 2=0.2s, 3=0.3s, 4=0.5s, 5=1.0s
-  if (key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown()) {
+  // Issue #10: Fade time keyboard shortcuts (Edit Dialog overrides global tab shortcuts)
+  // Cmd+Shift+[1-9,0] = Set OUT fade time (0.1s-0.9s, 1.0s)
+  // Cmd+Opt+Shift+[1-9,0] = Set IN fade time (0.1s-0.9s, 1.0s)
+  if ((key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown()) &&
+      key.getModifiers().isShiftDown()) {
     char keyChar = key.getTextCharacter();
     bool isAlt = key.getModifiers().isAltDown();
     double fadeTime = -1.0;
+    int comboId = -1;
 
-    // Map number keys to fade times
-    if (keyChar >= '1' && keyChar <= '5') {
-      switch (keyChar) {
-      case '1':
-        fadeTime = 0.1;
-        break;
-      case '2':
-        fadeTime = 0.2;
-        break;
-      case '3':
-        fadeTime = 0.3;
-        break;
-      case '4':
-        fadeTime = 0.5;
-        break;
-      case '5':
-        fadeTime = 1.0;
-        break;
-      }
+    // Map digit keys to fade times: 1=0.1s, 2=0.2s, ..., 9=0.9s, 0=1.0s
+    if (keyChar >= '1' && keyChar <= '9') {
+      fadeTime = (keyChar - '0') * 0.1; // 1→0.1s, 2→0.2s, ..., 9→0.9s
+      comboId = (keyChar - '0') + 1;    // 1→ID 2, 2→ID 3, ..., 9→ID 10
+    } else if (keyChar == '0') {
+      fadeTime = 1.0; // 0→1.0s
+      comboId = 11;   // ID 11 = 1.0s
+    }
 
-      if (fadeTime >= 0.0) {
-        if (isAlt) {
-          // Opt+Cmd/Ctrl+N: Set IN fade time
-          m_metadata.fadeInSeconds = fadeTime;
-          // Update UI combo box
-          if (m_fadeInCombo) {
-            if (fadeTime <= 0.05)
-              m_fadeInCombo->setSelectedId(1, juce::dontSendNotification);
-            else if (fadeTime <= 0.15)
-              m_fadeInCombo->setSelectedId(2, juce::dontSendNotification);
-            else if (fadeTime <= 0.25)
-              m_fadeInCombo->setSelectedId(3, juce::dontSendNotification);
-            else if (fadeTime <= 0.4)
-              m_fadeInCombo->setSelectedId(4, juce::dontSendNotification);
-            else if (fadeTime <= 0.75)
-              m_fadeInCombo->setSelectedId(5, juce::dontSendNotification);
-            else if (fadeTime <= 1.25)
-              m_fadeInCombo->setSelectedId(6, juce::dontSendNotification);
-          }
-          // Update preview player
-          if (m_previewPlayer) {
-            m_previewPlayer->setFades(m_metadata.fadeInSeconds, m_metadata.fadeOutSeconds,
-                                      m_metadata.fadeInCurve, m_metadata.fadeOutCurve);
-          }
-          DBG("ClipEditDialog: Opt+Cmd/Ctrl+" << keyChar << " - Set IN fade to " << fadeTime
-                                              << "s");
-        } else {
-          // Cmd/Ctrl+N: Set OUT fade time
-          m_metadata.fadeOutSeconds = fadeTime;
-          // Update UI combo box
-          if (m_fadeOutCombo) {
-            if (fadeTime <= 0.05)
-              m_fadeOutCombo->setSelectedId(1, juce::dontSendNotification);
-            else if (fadeTime <= 0.15)
-              m_fadeOutCombo->setSelectedId(2, juce::dontSendNotification);
-            else if (fadeTime <= 0.25)
-              m_fadeOutCombo->setSelectedId(3, juce::dontSendNotification);
-            else if (fadeTime <= 0.4)
-              m_fadeOutCombo->setSelectedId(4, juce::dontSendNotification);
-            else if (fadeTime <= 0.75)
-              m_fadeOutCombo->setSelectedId(5, juce::dontSendNotification);
-            else if (fadeTime <= 1.25)
-              m_fadeOutCombo->setSelectedId(6, juce::dontSendNotification);
-          }
-          // Update preview player
-          if (m_previewPlayer) {
-            m_previewPlayer->setFades(m_metadata.fadeInSeconds, m_metadata.fadeOutSeconds,
-                                      m_metadata.fadeInCurve, m_metadata.fadeOutCurve);
-          }
-          DBG("ClipEditDialog: Cmd/Ctrl+" << keyChar << " - Set OUT fade to " << fadeTime << "s");
+    if (fadeTime >= 0.0 && comboId > 0) {
+      if (isAlt) {
+        // Cmd+Opt+Shift+[1-9,0]: Set IN fade time
+        m_metadata.fadeInSeconds = fadeTime;
+        if (m_fadeInCombo) {
+          m_fadeInCombo->setSelectedId(comboId, juce::dontSendNotification);
         }
-        return true;
+        if (m_previewPlayer) {
+          m_previewPlayer->setFades(m_metadata.fadeInSeconds, m_metadata.fadeOutSeconds,
+                                    m_metadata.fadeInCurve, m_metadata.fadeOutCurve);
+        }
+        DBG("ClipEditDialog: Cmd+Opt+Shift+" << keyChar << " - Set IN fade to " << fadeTime << "s");
+      } else {
+        // Cmd+Shift+[1-9,0]: Set OUT fade time
+        m_metadata.fadeOutSeconds = fadeTime;
+        if (m_fadeOutCombo) {
+          m_fadeOutCombo->setSelectedId(comboId, juce::dontSendNotification);
+        }
+        if (m_previewPlayer) {
+          m_previewPlayer->setFades(m_metadata.fadeInSeconds, m_metadata.fadeOutSeconds,
+                                    m_metadata.fadeInCurve, m_metadata.fadeOutCurve);
+        }
+        DBG("ClipEditDialog: Cmd+Shift+" << keyChar << " - Set OUT fade to " << fadeTime << "s");
       }
+      return true; // Edit Dialog overrides global tab shortcuts
     }
   }
 
