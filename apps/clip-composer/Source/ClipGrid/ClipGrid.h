@@ -18,8 +18,9 @@
  * - 6 columns × 8 rows
  * - Responsive sizing
  * - 2px gaps between buttons
+ * - Visual updates at 75fps (broadcast standard timing)
  */
-class ClipGrid : public juce::Component, public juce::FileDragAndDropTarget {
+class ClipGrid : public juce::Component, public juce::FileDragAndDropTarget, private juce::Timer {
 public:
   //==============================================================================
   ClipGrid();
@@ -55,6 +56,9 @@ private:
   void createButtons();
   void handleButtonLeftClick(int buttonIndex);
   void handleButtonRightClick(int buttonIndex);
+
+  // Timer callback for 75fps visual updates (broadcast standard)
+  void timerCallback() override;
 
   //==============================================================================
   static constexpr int COLUMNS = 6;

@@ -5,6 +5,10 @@
 //==============================================================================
 ClipGrid::ClipGrid() {
   createButtons();
+
+  // Start 75fps timer for visual updates (broadcast standard timing)
+  // 75fps = 13.33ms per frame (1000ms / 75 = 13.33ms)
+  startTimer(13); // ~75fps (13ms is close enough to 13.33ms)
 }
 
 //==============================================================================
@@ -138,5 +142,16 @@ void ClipGrid::filesDropped(const juce::StringArray& files, int x, int y) {
   // Forward to MainComponent via callback
   if (onFilesDropped) {
     onFilesDropped(audioFiles, targetButtonIndex);
+  }
+}
+
+//==============================================================================
+void ClipGrid::timerCallback() {
+  // Repaint all buttons at 75fps (broadcast standard timing)
+  // This ensures visual indicators (play state, loop, fade, etc.) update smoothly
+  for (auto& button : m_buttons) {
+    if (button) {
+      button->repaint();
+    }
   }
 }

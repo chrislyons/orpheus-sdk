@@ -62,6 +62,7 @@ void ClipButton::clearClip() {
   m_fadeInEnabled = false;
   m_fadeOutEnabled = false;
   m_effectsEnabled = false;
+  m_stopOthersEnabled = false;
   repaint();
 }
 
@@ -90,6 +91,11 @@ void ClipButton::setFadeOutEnabled(bool enabled) {
 
 void ClipButton::setEffectsEnabled(bool enabled) {
   m_effectsEnabled = enabled;
+  repaint();
+}
+
+void ClipButton::setStopOthersEnabled(bool enabled) {
+  m_stopOthersEnabled = enabled;
   repaint();
 }
 
@@ -152,11 +158,7 @@ void ClipButton::paint(juce::Graphics& g) {
     g.setFont(juce::FontOptions("Inter", 21.6f, juce::Font::bold));
     g.drawText(juce::String(m_buttonIndex + 1), bounds, juce::Justification::centred, false);
 
-    // "Empty" label (smaller, subtle) - 20% increase: 9 -> 10.8
-    g.setColour(juce::Colours::white.withAlpha(0.25f));
-    g.setFont(juce::FontOptions("Inter", 10.8f, juce::Font::plain));
-    auto emptyLabel = bounds.reduced(PADDING).removeFromBottom(14);
-    g.drawText("empty", emptyLabel, juce::Justification::centred, false);
+    // No "Empty" text - just the button number on grey background is sufficient
   } else {
     // Modern HUD layout for loaded clips
     drawClipHUD(g, bounds);
@@ -308,7 +310,8 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
 
   // === STATUS ICONS ===
   // Draw status icons in the middle-left area if any are enabled
-  if (m_loopEnabled || m_fadeInEnabled || m_fadeOutEnabled || m_effectsEnabled) {
+  if (m_loopEnabled || m_fadeInEnabled || m_fadeOutEnabled || m_effectsEnabled ||
+      m_stopOthersEnabled) {
     auto iconArea = juce::Rectangle<float>(contentArea.getX(), contentArea.getCentreY() - 8.0f,
                                            contentArea.getWidth() * 0.3f, 16.0f);
     drawStatusIcons(g, iconArea);
@@ -388,6 +391,31 @@ void ClipButton::drawStatusIcons(juce::Graphics& g, juce::Rectangle<float> bound
 
     currentX += iconSize + iconSpacing;
   }
+
+  // Stop Others icon (octagonal stop sign)
+  if (m_stopOthersEnabled) {
+    auto iconBounds = juce::Rectangle<float>(currentX, bounds.getY(), iconSize, iconSize);
+
+    g.setColour(juce::Colour(0xffff4444)); // Red
+
+    // Draw octagon (simplified as circle for now)
+    g.fillEllipse(iconBounds.reduced(1.0f));
+
+    // Draw "X" in white
+    g.setColour(juce::Colours::white);
+    float cx = iconBounds.getCentreX();
+    float cy = iconBounds.getCentreY();
+    float size = 4.0f;
+
+    juce::Path xMark;
+    xMark.startNewSubPath(cx - size, cy - size);
+    xMark.lineTo(cx + size, cy + size);
+    xMark.startNewSubPath(cx + size, cy - size);
+    xMark.lineTo(cx - size, cy + size);
+    g.strokePath(xMark, juce::PathStrokeType(1.5f));
+
+    currentX += iconSize + iconSpacing;
+  }
 }
 
 void ClipButton::resized() {
@@ -396,10 +424,17 @@ void ClipButton::resized() {
 
 void ClipButton::mouseDown(const juce::MouseEvent& e) {
   if (e.mods.isLeftButtonDown()) {
-    // Record mouse down time and position for drag detection
-    m_mouseDownTime = juce::Time::getCurrentTime();
+    // Record mouse down position for potential Cmd+Drag rearrangement
     m_mouseDownPosition = e.getPosition();
     m_isDragging = false;
+
+    // Fire click immediately (don't wait for mouseUp to avoid double-click delay)
+    // This makes rapid clicking feel responsive
+    if (!e.mods.isCommandDown() && m_state != State::Empty) {
+      // Only fire if not holding Cmd (which would be drag-to-rearrange)
+      if (onClick)
+        onClick(m_buttonIndex);
+    }
   } else if (e.mods.isRightButtonDown()) {
     // Right click - context menu
     if (onRightClick)
@@ -408,12 +443,8 @@ void ClipButton::mouseDown(const juce::MouseEvent& e) {
 }
 
 void ClipButton::mouseDrag(const juce::MouseEvent& e) {
-  if (!e.mods.isLeftButtonDown() || m_state == State::Empty)
-    return;
-
-  // Check if we've held long enough to start dragging
-  auto holdTime = juce::Time::getCurrentTime() - m_mouseDownTime;
-  if (holdTime.inMilliseconds() < DRAG_HOLD_TIME_MS)
+  // Only allow drag if Cmd/Ctrl key is held and clip is loaded
+  if (!e.mods.isLeftButtonDown() || !e.mods.isCommandDown() || m_state == State::Empty)
     return;
 
   // Check if we've moved enough to consider it a drag
@@ -455,19 +486,14 @@ void ClipButton::mouseUp(const juce::MouseEvent& e) {
     }
     m_isDragging = false;
   } else {
-    // Short click - check for double-click
-    auto holdTime = juce::Time::getCurrentTime() - m_mouseDownTime;
-    if (holdTime.inMilliseconds() < DRAG_HOLD_TIME_MS) {
-      // Check if this is a double-click
-      if (e.getNumberOfClicks() >= 2 && m_state != State::Empty) {
-        // Double-click on loaded clip - open edit dialog
-        if (onDoubleClick)
-          onDoubleClick(m_buttonIndex);
-      } else {
-        // Single click - trigger clip
-        if (onClick)
-          onClick(m_buttonIndex);
-      }
+    // Not dragging
+    // Check if this is a double-click (click already fired in mouseDown, so just handle
+    // double-click here)
+    if (e.getNumberOfClicks() >= 2 && m_state != State::Empty) {
+      // Double-click on loaded clip - open edit dialog
+      if (onDoubleClick)
+        onDoubleClick(m_buttonIndex);
     }
+    // Single click already handled in mouseDown() for immediate response
   }
 }

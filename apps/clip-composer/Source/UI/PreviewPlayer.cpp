@@ -3,12 +3,35 @@
 #include "PreviewPlayer.h"
 
 //==============================================================================
-PreviewPlayer::PreviewPlayer(AudioEngine* audioEngine) : m_audioEngine(audioEngine) {
+PreviewPlayer::PreviewPlayer(AudioEngine* audioEngine, int buttonIndex)
+    : m_audioEngine(audioEngine), m_buttonIndex(buttonIndex) {
   if (!m_audioEngine) {
     DBG("PreviewPlayer: WARNING - AudioEngine is nullptr!");
-  } else {
-    DBG("PreviewPlayer: Initialized successfully (using Cue Buss architecture)");
+    return;
   }
+
+  if (m_buttonIndex < 0 || m_buttonIndex >= 48) {
+    DBG("PreviewPlayer: WARNING - Invalid button index: " << m_buttonIndex);
+    return;
+  }
+
+  // Read file metadata from main grid clip (already loaded by MainComponent)
+  auto metadata = m_audioEngine->getClipMetadata(m_buttonIndex);
+  if (metadata.has_value()) {
+    m_sampleRate = static_cast<int>(metadata->sample_rate);
+    m_numChannels = static_cast<int>(metadata->num_channels);
+    m_totalSamples = static_cast<int64_t>(metadata->duration_samples);
+
+    DBG("PreviewPlayer: Initialized for button " << m_buttonIndex << " (" << m_sampleRate << " Hz, "
+                                                 << m_numChannels << " ch, " << m_totalSamples
+                                                 << " samples)");
+  } else {
+    DBG("PreviewPlayer: WARNING - No metadata available for button " << m_buttonIndex);
+  }
+
+  // Initialize trim points to full file
+  m_trimInSamples = 0;
+  m_trimOutSamples = m_totalSamples;
 }
 
 PreviewPlayer::~PreviewPlayer() {
@@ -16,84 +39,38 @@ PreviewPlayer::~PreviewPlayer() {
   onPlaybackStopped = nullptr;
   onPositionChanged = nullptr;
 
-  // Release Cue Buss if allocated
-  if (m_cueBussHandle != 0 && m_audioEngine) {
-    m_audioEngine->stopCueBuss(m_cueBussHandle);
-    m_audioEngine->releaseCueBuss(m_cueBussHandle);
-  }
+  // Stop position timer
+  stopPositionTimer();
 
-  DBG("PreviewPlayer: Destroyed (released Cue Buss " << m_cueBussHandle << ")");
+  DBG("PreviewPlayer: Destroyed (button " << m_buttonIndex << ")");
 }
 
 //==============================================================================
-bool PreviewPlayer::loadFile(const juce::File& audioFile) {
-  if (!audioFile.existsAsFile()) {
-    DBG("PreviewPlayer: File does not exist: " << audioFile.getFullPathName());
-    return false;
-  }
-
-  if (!m_audioEngine) {
-    DBG("PreviewPlayer: Cannot load file - AudioEngine is nullptr");
-    return false;
-  }
-
-  stop(); // Stop any current playback
-
-  // Release previous Cue Buss if allocated
-  if (m_cueBussHandle != 0) {
-    m_audioEngine->releaseCueBuss(m_cueBussHandle);
-    m_cueBussHandle = 0;
-  }
-
-  // Allocate Cue Buss from AudioEngine
-  m_cueBussHandle = m_audioEngine->allocateCueBuss(audioFile.getFullPathName());
-  if (m_cueBussHandle == 0) {
-    DBG("PreviewPlayer: Failed to allocate Cue Buss for: " << audioFile.getFullPathName());
-    return false;
-  }
-
-  // Store file path
-  m_loadedFilePath = audioFile.getFullPathName();
-
-  // Get metadata from AudioEngine for this Cue Buss
-  auto metadata = m_audioEngine->getCueBussMetadata(m_cueBussHandle);
-  if (metadata.has_value()) {
-    m_sampleRate = static_cast<int>(metadata->sample_rate);
-    m_numChannels = static_cast<int>(metadata->num_channels);
-    m_totalSamples = static_cast<int64_t>(metadata->duration_samples);
-  } else {
-    DBG("PreviewPlayer: WARNING - No metadata available for Cue Buss " << m_cueBussHandle);
-  }
-
-  // Initialize trim points to full file
-  m_trimInSamples = 0;
-  m_trimOutSamples = m_totalSamples;
-
-  DBG("PreviewPlayer: Loaded " << audioFile.getFileName() << " into Cue Buss " << m_cueBussHandle
-                               << " (" << m_sampleRate << " Hz, " << m_numChannels << " ch, "
-                               << m_totalSamples << " samples)");
-
-  return true;
-}
-
 void PreviewPlayer::setTrimPoints(int64_t trimInSamples, int64_t trimOutSamples) {
+  DBG("PreviewPlayer::setTrimPoints() CALLED - IN: " << trimInSamples << ", OUT: " << trimOutSamples
+                                                     << ", buttonIndex: " << m_buttonIndex);
+
   // Only clamp to file boundaries if metadata is loaded (m_totalSamples > 0)
-  // DO NOT automatically reset OUT point - preserve user's OUT point always
   if (m_totalSamples > 0) {
     trimInSamples = std::clamp(trimInSamples, int64_t(0), m_totalSamples);
     trimOutSamples = std::clamp(trimOutSamples, int64_t(0), m_totalSamples);
-
-    // No automatic OUT reset! ClipEditDialog validates IN < OUT before calling this.
   }
 
   m_trimInSamples = trimInSamples;
   m_trimOutSamples = trimOutSamples;
 
-  // Update Cue Buss metadata in AudioEngine
-  if (m_cueBussHandle != 0 && m_audioEngine) {
-    m_audioEngine->updateCueBussMetadata(m_cueBussHandle, trimInSamples, trimOutSamples,
-                                         m_fadeInSeconds, m_fadeOutSeconds, m_fadeInCurve,
-                                         m_fadeOutCurve);
+  // Update main grid clip metadata in AudioEngine (applies to LIVE playback)
+  if (m_audioEngine) {
+    bool updated = m_audioEngine->updateClipMetadata(m_buttonIndex, trimInSamples, trimOutSamples,
+                                                     m_fadeInSeconds, m_fadeOutSeconds,
+                                                     m_fadeInCurve, m_fadeOutCurve);
+
+    if (updated) {
+      DBG("PreviewPlayer: Updated main grid clip metadata (button " << m_buttonIndex << ")");
+    } else {
+      DBG("PreviewPlayer: WARNING - Failed to update main grid clip metadata (button "
+          << m_buttonIndex << ")");
+    }
   }
 
   DBG("PreviewPlayer: Trim points set to [" << trimInSamples << ", " << trimOutSamples << "]");
@@ -102,12 +79,13 @@ void PreviewPlayer::setTrimPoints(int64_t trimInSamples, int64_t trimOutSamples)
 void PreviewPlayer::setLoopEnabled(bool shouldLoop) {
   m_loopEnabled = shouldLoop;
 
-  // Update Cue Buss loop mode in AudioEngine
-  if (m_cueBussHandle != 0 && m_audioEngine) {
-    m_audioEngine->setCueBussLoop(m_cueBussHandle, shouldLoop);
+  // Update main grid clip loop mode in AudioEngine (applies to LIVE playback)
+  if (m_audioEngine) {
+    m_audioEngine->setClipLoopMode(m_buttonIndex, shouldLoop);
   }
 
-  DBG("PreviewPlayer: Loop " << (shouldLoop ? "enabled" : "disabled"));
+  DBG("PreviewPlayer: Loop " << (shouldLoop ? "enabled" : "disabled") << " (button "
+                             << m_buttonIndex << ")");
 }
 
 void PreviewPlayer::setFades(float fadeInSeconds, float fadeOutSeconds,
@@ -117,81 +95,148 @@ void PreviewPlayer::setFades(float fadeInSeconds, float fadeOutSeconds,
   m_fadeInCurve = fadeInCurve;
   m_fadeOutCurve = fadeOutCurve;
 
-  // Update Cue Buss metadata in AudioEngine
-  if (m_cueBussHandle != 0 && m_audioEngine) {
-    m_audioEngine->updateCueBussMetadata(m_cueBussHandle, m_trimInSamples, m_trimOutSamples,
-                                         fadeInSeconds, fadeOutSeconds, fadeInCurve, fadeOutCurve);
+  // Update main grid clip metadata in AudioEngine (applies to LIVE playback)
+  if (m_audioEngine) {
+    m_audioEngine->updateClipMetadata(m_buttonIndex, m_trimInSamples, m_trimOutSamples,
+                                      fadeInSeconds, fadeOutSeconds, fadeInCurve, fadeOutCurve);
   }
 
-  DBG("PreviewPlayer: Fades set to IN=" << fadeInSeconds << "s (" << fadeInCurve << "), OUT="
-                                        << fadeOutSeconds << "s (" << fadeOutCurve << ")");
-}
-
-void PreviewPlayer::clearFile() {
-  stop();
-
-  // Release Cue Buss
-  if (m_cueBussHandle != 0 && m_audioEngine) {
-    m_audioEngine->releaseCueBuss(m_cueBussHandle);
-    m_cueBussHandle = 0;
-  }
-
-  m_totalSamples = 0;
-  m_loadedFilePath.clear();
-
-  DBG("PreviewPlayer: Cleared file (released Cue Buss)");
+  DBG("PreviewPlayer: Fades set to IN=" << fadeInSeconds << "s, OUT=" << fadeOutSeconds
+                                        << "s (button " << m_buttonIndex << ")");
 }
 
 //==============================================================================
 void PreviewPlayer::play() {
-  if (m_cueBussHandle == 0 || !m_audioEngine) {
-    DBG("PreviewPlayer: Cannot play - no Cue Buss allocated");
+  if (!m_audioEngine) {
+    DBG("PreviewPlayer: Cannot play - AudioEngine is nullptr");
     return;
   }
 
-  bool started = m_audioEngine->startCueBuss(m_cueBussHandle);
+  // Start main grid clip (if already playing, SDK will handle seamlessly)
+  bool started = m_audioEngine->startClip(m_buttonIndex);
   if (started) {
-    m_isPlaying = true;
-    DBG("PreviewPlayer: Started playback (Cue Buss " << m_cueBussHandle << ")");
+    startPositionTimer(); // Start polling position for playhead updates
+    DBG("PreviewPlayer: Started main grid clip (button " << m_buttonIndex << ")");
   } else {
-    DBG("PreviewPlayer: Failed to start Cue Buss " << m_cueBussHandle);
+    DBG("PreviewPlayer: Failed to start main grid clip (button " << m_buttonIndex << ")");
   }
 }
 
 void PreviewPlayer::stop() {
-  if (m_cueBussHandle != 0 && m_audioEngine) {
-    m_audioEngine->stopCueBuss(m_cueBussHandle);
+  stopPositionTimer(); // Stop polling position
+
+  if (m_audioEngine) {
+    m_audioEngine->stopClip(m_buttonIndex);
   }
 
-  m_isPlaying = false;
-
-  // Notify UI
+  // Notify UI that playback stopped
   if (onPlaybackStopped) {
     onPlaybackStopped();
   }
 
-  DBG("PreviewPlayer: Stopped playback (Cue Buss " << m_cueBussHandle << ")");
+  DBG("PreviewPlayer: Stopped main grid clip (button " << m_buttonIndex << ")");
 }
 
 void PreviewPlayer::jumpTo(int64_t samplePosition) {
-  // Clamp to trim range
-  samplePosition = std::clamp(samplePosition, m_trimInSamples, m_trimOutSamples);
+  // Clamp to trim range (load atomic values)
+  int64_t trimIn = m_trimInSamples.load();
+  int64_t trimOut = m_trimOutSamples.load();
+  samplePosition = std::clamp(samplePosition, trimIn, trimOut);
 
-  // TODO: Implement transport jump in AudioEngine Cue Buss (future enhancement)
-  DBG("PreviewPlayer: Jump to sample " << samplePosition << " (not yet implemented in Cue Buss)");
+  if (!m_audioEngine) {
+    DBG("PreviewPlayer: Cannot jump - AudioEngine is nullptr");
+    return;
+  }
+
+  // Click-to-jog: Start or restart playback from clicked position
+  // LIMITATION: Without SDK seekClip() API, we must stop/restart which causes brief audio gap
+  // This is acceptable for edit dialog preview (not used during live performance)
+
+  bool wasPlaying = m_audioEngine->isClipPlaying(m_buttonIndex);
+
+  // Strategy: Temporarily update trim IN to clicked position, start playback, then restore
+  // This allows "jog to position" without full SDK seek support
+  int64_t originalTrimIn = trimIn;
+
+  // Stop current playback (if playing)
+  if (wasPlaying) {
+    m_audioEngine->stopClip(m_buttonIndex);
+  }
+
+  // Update trim IN to clicked position (temporarily)
+  m_audioEngine->updateClipMetadata(m_buttonIndex, samplePosition, trimOut, m_fadeInSeconds,
+                                    m_fadeOutSeconds, m_fadeInCurve, m_fadeOutCurve);
+
+  // Start playback from clicked position
+  bool started = m_audioEngine->startClip(m_buttonIndex);
+
+  // Restore original trim IN point (so metadata is preserved)
+  m_audioEngine->updateClipMetadata(m_buttonIndex, originalTrimIn, trimOut, m_fadeInSeconds,
+                                    m_fadeOutSeconds, m_fadeInCurve, m_fadeOutCurve);
+
+  if (started) {
+    startPositionTimer(); // Start polling position for playhead updates
+    DBG("PreviewPlayer: Jogged to sample " << samplePosition << " (button " << m_buttonIndex
+                                           << ")");
+  } else {
+    DBG("PreviewPlayer: Failed to jog to sample " << samplePosition << " (button " << m_buttonIndex
+                                                  << ")");
+  }
+}
+
+bool PreviewPlayer::isPlaying() const {
+  if (!m_audioEngine)
+    return false;
+
+  return m_audioEngine->isClipPlaying(m_buttonIndex);
 }
 
 int64_t PreviewPlayer::getCurrentPosition() const {
-  // TODO: Get real position from AudioEngine
-  // For now, return 0 (position tracking will be added in future iteration)
-  return 0;
+  if (!m_audioEngine)
+    return 0;
+
+  // Use AudioEngine's sample-accurate position tracking
+  return m_audioEngine->getClipPosition(m_buttonIndex);
 }
 
 //==============================================================================
 void PreviewPlayer::startPositionTimer() {
-  // TODO: Implement position polling timer (if needed)
+  // Start JUCE timer at 75 FPS (broadcast standard, matches 75fps timecode)
+  startTimer(13); // 75 FPS (13.33ms, rounds to 13ms)
 }
 
 void PreviewPlayer::stopPositionTimer() {
-  // TODO: Implement position polling timer (if needed)
+  // Stop JUCE timer
+  stopTimer();
+}
+
+void PreviewPlayer::timerCallback() {
+  if (!isPlaying()) {
+    // Timer is running but clip stopped - stop timer
+    stopTimer();
+    return;
+  }
+
+  // Query SDK for sample-accurate position (75 FPS polling)
+  int64_t currentPos = getCurrentPosition();
+
+  // DIAGNOSTIC: Warn if position escapes trim boundaries (SDK should prevent this)
+  // DO NOT clamp - UI must always show actual SDK position (never lie to user)
+  int64_t trimIn = m_trimInSamples.load();
+  int64_t trimOut = m_trimOutSamples.load();
+
+  if (currentPos < trimIn) {
+    DBG("PreviewPlayer: WARNING - Position " << currentPos << " escaped below IN point " << trimIn
+                                             << " (SDK should enforce boundaries)");
+  }
+  if (currentPos > trimOut) {
+    DBG("PreviewPlayer: WARNING - Position " << currentPos << " escaped above OUT point " << trimOut
+                                             << " (SDK should enforce boundaries)");
+  }
+
+  // Update UI playhead with ACTUAL position (even if outside bounds)
+  // This allows user to see when SDK boundary enforcement fails
+  if (onPositionChanged && currentPos >= 0) {
+    onPositionChanged(currentPos);
+  }
 }

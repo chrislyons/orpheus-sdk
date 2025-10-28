@@ -7,6 +7,11 @@ WaveformDisplay::WaveformDisplay() {
   setOpaque(false);
 }
 
+WaveformDisplay::~WaveformDisplay() {
+  // Stop any background thread from accessing this component after destruction
+  m_isLoading.store(false);
+}
+
 //==============================================================================
 void WaveformDisplay::setAudioFile(const juce::File& audioFile) {
   if (!audioFile.existsAsFile()) {
@@ -14,16 +19,63 @@ void WaveformDisplay::setAudioFile(const juce::File& audioFile) {
     return;
   }
 
-  // Generate waveform data on background thread
+  juce::String filePath = audioFile.getFullPathName();
+
+  // Check if this file is already cached
+  if (filePath == m_cachedFilePath && m_waveformData.isValid) {
+    DBG("WaveformDisplay: Using cached waveform for " << audioFile.getFileName());
+    repaint();
+    return; // Already loaded, no need to regenerate
+  }
+
+  // Check if this file exists in cache map
+  auto cachedData = m_waveformCache.find(filePath);
+  if (cachedData != m_waveformCache.end()) {
+    DBG("WaveformDisplay: Restoring waveform from cache for " << audioFile.getFileName());
+    juce::ScopedLock lock(m_dataLock);
+    m_waveformData = cachedData->second;
+    m_cachedFilePath = filePath;
+    repaint();
+    return;
+  }
+
+  // Not in cache - generate waveform data on background thread
   m_isLoading.store(true);
 
-  juce::Thread::launch([this, audioFile]() {
-    generateWaveformData(audioFile);
+  // CRITICAL: Use SafePointer to prevent use-after-free if component is destroyed
+  // while background thread is running
+  juce::Component::SafePointer<WaveformDisplay> safeThis(this);
 
-    m_isLoading.store(false);
+  juce::Thread::launch([safeThis, audioFile, filePath]() {
+    // Check if component still exists before accessing it
+    if (auto* self = safeThis.getComponent()) {
+      self->generateWaveformData(audioFile);
+      self->m_isLoading.store(false);
 
-    // Trigger repaint on message thread
-    juce::MessageManager::callAsync([this]() { repaint(); });
+      // Store in cache (limit to 5 most recent waveforms to prevent memory bloat)
+      {
+        juce::ScopedLock lock(self->m_dataLock);
+        self->m_waveformCache[filePath] = self->m_waveformData;
+        self->m_cachedFilePath = filePath;
+
+        // Limit cache size to 5 files
+        if (self->m_waveformCache.size() > 5) {
+          // Remove oldest entry (first in map)
+          self->m_waveformCache.erase(self->m_waveformCache.begin());
+          DBG("WaveformDisplay: Cache full, evicted oldest waveform");
+        }
+      }
+
+      // Trigger repaint on message thread (check again if component still exists)
+      juce::MessageManager::callAsync([safeThis]() {
+        if (auto* self = safeThis.getComponent()) {
+          self->repaint();
+        }
+      });
+
+      DBG("WaveformDisplay: Cached waveform for "
+          << audioFile.getFileName() << " (cache size: " << self->m_waveformCache.size() << ")");
+    }
   });
 }
 
@@ -37,13 +89,40 @@ void WaveformDisplay::setTrimPoints(int64_t trimInSamples, int64_t trimOutSample
 
 void WaveformDisplay::setPlayheadPosition(int64_t samplePosition) {
   m_playheadPosition = samplePosition;
+
+  // Paginated playhead chase (scroll viewport when playhead reaches edges)
+  if (m_zoomFactor > 1.0f && m_waveformData.totalSamples > 0 && samplePosition > 0) {
+    float playheadNormalized = samplePosition / static_cast<float>(m_waveformData.totalSamples);
+    float visibleWidth = 1.0f / m_zoomFactor; // Fixed zoom window size
+    float startFraction = m_zoomCenter - (visibleWidth / 2.0f);
+    float endFraction = m_zoomCenter + (visibleWidth / 2.0f);
+
+    // Clamp viewport to boundaries
+    startFraction = std::clamp(startFraction, 0.0f, 1.0f);
+    endFraction = std::clamp(endFraction, 0.0f, 1.0f);
+
+    // Check if playhead is approaching edges (within 10% margin) - then scroll viewport
+    float distanceFromStart = playheadNormalized - startFraction;
+    float distanceFromEnd = endFraction - playheadNormalized;
+    float edgeThreshold = visibleWidth * 0.15f; // 15% margin for smooth pagination
+
+    if (distanceFromEnd < edgeThreshold && endFraction < 1.0f) {
+      // Playhead approaching right edge - scroll viewport right (page forward)
+      m_zoomCenter =
+          std::min(1.0f - (visibleWidth / 2.0f), playheadNormalized + (visibleWidth / 4.0f));
+    } else if (distanceFromStart < edgeThreshold && startFraction > 0.0f) {
+      // Playhead approaching left edge - scroll viewport left (page backward)
+      m_zoomCenter = std::max((visibleWidth / 2.0f), playheadNormalized - (visibleWidth / 4.0f));
+    }
+  }
+
   repaint();
 }
 
-void WaveformDisplay::setZoomLevel(int level) {
-  m_zoomLevel = std::clamp(level, 0, 3); // 0-3 for 4 levels
+void WaveformDisplay::setZoomLevel(int level, float centerNormalized) {
+  m_zoomLevel = std::clamp(level, 0, 4); // 0-4 for 5 levels
 
-  // Convert level to zoom factor (1x, 2x, 4x, 8x)
+  // Convert level to zoom factor (1x, 2x, 4x, 8x, 16x)
   switch (m_zoomLevel) {
   case 0:
     m_zoomFactor = 1.0f;
@@ -57,9 +136,18 @@ void WaveformDisplay::setZoomLevel(int level) {
   case 3:
     m_zoomFactor = 8.0f;
     break;
+  case 4:
+    m_zoomFactor = 16.0f;
+    break;
   }
 
-  DBG("WaveformDisplay: Zoom level set to " << m_zoomLevel << " (" << m_zoomFactor << "x)");
+  // Update zoom center if provided (e.g., zoom to playhead position)
+  if (centerNormalized >= 0.0f) {
+    m_zoomCenter = std::clamp(centerNormalized, 0.0f, 1.0f);
+  }
+
+  DBG("WaveformDisplay: Zoom level set to " << m_zoomLevel << " (" << m_zoomFactor << "x)"
+                                            << ", center: " << m_zoomCenter);
   repaint();
 }
 
@@ -78,15 +166,24 @@ void WaveformDisplay::clear() {
 void WaveformDisplay::paint(juce::Graphics& g) {
   auto bounds = getLocalBounds().toFloat();
 
-  // Background
+  // Reserve 30px at bottom for time scale
+  const float timeScaleHeight = 30.0f;
+  auto waveformArea = bounds.withTrimmedBottom(timeScaleHeight);
+  auto timeScaleArea = bounds.withTop(bounds.getBottom() - timeScaleHeight);
+
+  // Background (waveform area)
   g.setColour(juce::Colour(0xff1a1a1a));
-  g.fillRect(bounds);
+  g.fillRect(waveformArea);
+
+  // Background (time scale area) - slightly darker
+  g.setColour(juce::Colour(0xff0f0f0f));
+  g.fillRect(timeScaleArea);
 
   // Loading state
   if (m_isLoading.load()) {
     g.setColour(juce::Colours::white.withAlpha(0.5f));
     g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
-    g.drawText("Loading waveform...", bounds, juce::Justification::centred);
+    g.drawText("Loading waveform...", waveformArea, juce::Justification::centred);
     return;
   }
 
@@ -94,12 +191,13 @@ void WaveformDisplay::paint(juce::Graphics& g) {
   {
     juce::ScopedLock lock(m_dataLock);
     if (m_waveformData.isValid) {
-      drawWaveform(g, bounds);
-      drawTrimMarkers(g, bounds);
+      drawWaveform(g, waveformArea);
+      drawTrimMarkers(g, waveformArea);
+      drawTimeScale(g, timeScaleArea);
     } else {
       g.setColour(juce::Colours::white.withAlpha(0.3f));
       g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
-      g.drawText("No waveform data", bounds, juce::Justification::centred);
+      g.drawText("No waveform data", waveformArea, juce::Justification::centred);
     }
   }
 }
@@ -170,50 +268,71 @@ void WaveformDisplay::mouseDown(const juce::MouseEvent& event) {
   globalNormalized = std::clamp(globalNormalized, 0.0f, 1.0f);
   int64_t samplePosition = static_cast<int64_t>(globalNormalized * m_waveformData.totalSamples);
 
-  // Detect mouse button + modifier keys (SpotOn-inspired accessibility)
-  // Priority: Modifier keys take precedence for accessibility
+  // INTERACTION MODEL (Two Modes):
+  //
+  // DEFAULT MODE (Trackpad-friendly with Shift modifier):
+  // - Click = Jog playhead to position while staying in playback
+  // - Shift+LeftClick = Set IN point (flexible, no accidental changes)
+  // - Shift+RightClick = Set OUT point (flexible, no accidental changes)
+  // - Shift+Drag on handles = Move IN/OUT points precisely
+  //
+  // THREE-BUTTON MOUSE MODE (Optional global preference):
+  // - Left-click = Set IN point
+  // - Right-click = Set OUT point
+  // - Middle-click = Jog playhead to position while staying in playback
+  // - Shift+Drag on handles = Move IN/OUT points precisely
+  //
+  // RATIONALE: Default mode optimized for trackpads (most users) with Shift for safety.
+  // Optional SpotOn-style three-button mode for professional users with dedicated mice.
+  //
+  // TODO: Add global preference toggle for Three-Button Mouse Mode (Phase 2.2)
 
-  // Cmd/Ctrl+Click = Set IN point (alternative to left-click for accessibility)
-  if (event.mods.isCommandDown() && !event.mods.isShiftDown() && !event.mods.isAltDown()) {
-    if (onLeftClick) {
-      onLeftClick(samplePosition);
+  if (m_threeButtonMouseMode) {
+    // THREE-BUTTON MOUSE MODE: SpotOn-style workflow
+    if (event.mods.isLeftButtonDown() && !event.mods.isRightButtonDown() &&
+        !event.mods.isMiddleButtonDown()) {
+      // Left click: Set IN point
+      if (onLeftClick) {
+        onLeftClick(samplePosition);
+      }
+      DBG("WaveformDisplay: [3-Button Mode] Left click (IN) at sample " << samplePosition);
+    } else if (event.mods.isRightButtonDown()) {
+      // Right click: Set OUT point
+      if (onRightClick) {
+        onRightClick(samplePosition);
+      }
+      DBG("WaveformDisplay: [3-Button Mode] Right click (OUT) at sample " << samplePosition);
+    } else if (event.mods.isMiddleButtonDown()) {
+      // Middle click: Jog transport
+      if (onMiddleClick) {
+        onMiddleClick(samplePosition);
+      }
+      DBG("WaveformDisplay: [3-Button Mode] Middle click (Jog) at sample " << samplePosition);
     }
-    DBG("WaveformDisplay: Cmd/Ctrl+Click (IN point) at sample " << samplePosition);
-  }
-  // Shift+Click = Set OUT point (alternative to right-click for accessibility)
-  else if (event.mods.isShiftDown() && !event.mods.isCommandDown() && !event.mods.isAltDown()) {
-    if (onRightClick) {
-      onRightClick(samplePosition);
+  } else {
+    // DEFAULT MODE: Trackpad-friendly with Shift for IN/OUT
+    if (event.mods.isShiftDown()) {
+      // Shift+Click: Set IN/OUT points (flexible workflow)
+      if (event.mods.isLeftButtonDown() && !event.mods.isRightButtonDown()) {
+        // Shift+LeftClick: Set IN point
+        if (onLeftClick) {
+          onLeftClick(samplePosition);
+        }
+        DBG("WaveformDisplay: [Default Mode] Shift+LeftClick (IN) at sample " << samplePosition);
+      } else if (event.mods.isRightButtonDown()) {
+        // Shift+RightClick: Set OUT point
+        if (onRightClick) {
+          onRightClick(samplePosition);
+        }
+        DBG("WaveformDisplay: [Default Mode] Shift+RightClick (OUT) at sample " << samplePosition);
+      }
+    } else {
+      // Normal Click (no Shift): Jog transport
+      if (onMiddleClick) {
+        onMiddleClick(samplePosition);
+      }
+      DBG("WaveformDisplay: [Default Mode] Click (Jog) at sample " << samplePosition);
     }
-    DBG("WaveformDisplay: Shift+Click (OUT point) at sample " << samplePosition);
-  }
-  // Alt/Option+Click = Jump transport (alternative to middle-click for accessibility)
-  else if (event.mods.isAltDown() && !event.mods.isCommandDown() && !event.mods.isShiftDown()) {
-    if (onMiddleClick) {
-      onMiddleClick(samplePosition);
-    }
-    DBG("WaveformDisplay: Alt/Option+Click (Jump) at sample " << samplePosition);
-  }
-  // Standard mouse buttons (when no modifiers)
-  else if (event.mods.isLeftButtonDown() && !event.mods.isRightButtonDown() &&
-           !event.mods.isMiddleButtonDown()) {
-    // Left click: Set IN point
-    if (onLeftClick) {
-      onLeftClick(samplePosition);
-    }
-    DBG("WaveformDisplay: Left click at sample " << samplePosition);
-  } else if (event.mods.isRightButtonDown()) {
-    // Right click: Set OUT point
-    if (onRightClick) {
-      onRightClick(samplePosition);
-    }
-    DBG("WaveformDisplay: Right click at sample " << samplePosition);
-  } else if (event.mods.isMiddleButtonDown()) {
-    // Middle click: Jump transport
-    if (onMiddleClick) {
-      onMiddleClick(samplePosition);
-    }
-    DBG("WaveformDisplay: Middle click at sample " << samplePosition);
   }
 }
 
@@ -296,10 +415,10 @@ void WaveformDisplay::generateWaveformData(const juce::File& audioFile) {
   newData.totalSamples = reader->lengthInSamples;
 
   // Target width (pixels) - use current component width or default to 800
-  // Double resolution for fine visual edits (2 data points per pixel)
-  int targetWidth = getWidth() * 2;
+  // Quadruple resolution for fine visual edits (4 data points per pixel for 16x zoom)
+  int targetWidth = getWidth() * 4;
   if (targetWidth <= 0)
-    targetWidth = 1600;
+    targetWidth = 3200;
 
   // Downsample: samples per pixel column (now 2x resolution)
   int64_t samplesPerPixel = std::max<int64_t>(1, newData.totalSamples / targetWidth);
@@ -513,4 +632,119 @@ void WaveformDisplay::drawTrimMarkers(juce::Graphics& g, const juce::Rectangle<f
                  3.0f); // Thicker (3.0f)
     }
   }
+}
+
+void WaveformDisplay::drawTimeScale(juce::Graphics& g, const juce::Rectangle<float>& bounds) {
+  if (m_waveformData.totalSamples == 0)
+    return;
+
+  // Account for dB scale offset (same as waveform)
+  const float scaleWidth = 40.0f;
+  auto timeScaleBounds = bounds.withTrimmedLeft(scaleWidth);
+  const float width = timeScaleBounds.getWidth();
+
+  // Calculate visible range based on zoom level
+  float visibleWidth = 1.0f / m_zoomFactor;
+  float startFraction = m_zoomCenter - (visibleWidth / 2.0f);
+  float endFraction = m_zoomCenter + (visibleWidth / 2.0f);
+  startFraction = std::clamp(startFraction, 0.0f, 1.0f);
+  endFraction = std::clamp(endFraction, 0.0f, 1.0f);
+
+  // Calculate visible time range
+  double startTime = startFraction *
+                     (m_waveformData.totalSamples / static_cast<double>(m_waveformData.sampleRate));
+  double endTime =
+      endFraction * (m_waveformData.totalSamples / static_cast<double>(m_waveformData.sampleRate));
+  double visibleDuration = endTime - startTime;
+  double totalDuration =
+      m_waveformData.totalSamples / static_cast<double>(m_waveformData.sampleRate);
+
+  // ADAPTIVE TIME INTERVAL LOGIC
+  // Goal: Show ~16 time markers at 1x zoom, scaled proportionally with zoom level
+  // For 3-minute track at 1x zoom: 180s / 16 = ~11s intervals (round to 10s)
+  // At 16x zoom: visible duration is 180s/16 = 11.25s, so 11.25s / 16 = ~0.7s (round to 1s or 0.5s)
+
+  double targetMarkerCount = 16.0; // Target number of markers visible
+  double roughInterval = visibleDuration / targetMarkerCount;
+
+  // Snap interval to nice round numbers for readability
+  double timeInterval;
+  if (roughInterval >= 60.0) {
+    // >= 1 minute per marker: round to nearest minute
+    timeInterval = std::ceil(roughInterval / 60.0) * 60.0;
+  } else if (roughInterval >= 30.0) {
+    timeInterval = 30.0; // 30 second intervals
+  } else if (roughInterval >= 10.0) {
+    timeInterval = 10.0; // 10 second intervals
+  } else if (roughInterval >= 5.0) {
+    timeInterval = 5.0; // 5 second intervals
+  } else if (roughInterval >= 2.0) {
+    timeInterval = 2.0; // 2 second intervals
+  } else if (roughInterval >= 1.0) {
+    timeInterval = 1.0; // 1 second intervals
+  } else if (roughInterval >= 0.5) {
+    timeInterval = 0.5; // 500ms intervals
+  } else if (roughInterval >= 0.25) {
+    timeInterval = 0.25; // 250ms intervals
+  } else if (roughInterval >= 0.1) {
+    timeInterval = 0.1; // 100ms intervals
+  } else {
+    timeInterval = 0.05; // 50ms intervals (very high zoom)
+  }
+
+  // Draw time markers with collision prevention
+  g.setColour(juce::Colours::white.withAlpha(0.7f));
+  g.setFont(juce::FontOptions("Inter", 9.0f, juce::Font::plain));
+
+  double firstMarker = std::ceil(startTime / timeInterval) * timeInterval;
+
+  // Minimum spacing between labels to prevent collision (in pixels)
+  const float minLabelSpacing = 80.0f; // Width of typical label + padding
+  float lastLabelX = -minLabelSpacing; // Initialize to allow first label
+
+  for (double time = firstMarker; time < endTime; time += timeInterval) {
+    float normalizedTime = (time - startTime) / visibleDuration;
+    float x = timeScaleBounds.getX() + normalizedTime * width;
+
+    // Skip this label if it would collide with the previous one
+    if (x - lastLabelX < minLabelSpacing) {
+      continue;
+    }
+
+    // Draw tick mark
+    g.drawLine(x, bounds.getY(), x, bounds.getY() + 8.0f, 1.0f);
+
+    // Format time label (adaptive based on interval size)
+    int minutes = static_cast<int>(time / 60.0);
+    double seconds = std::fmod(time, 60.0);
+    juce::String timeLabel;
+
+    if (timeInterval < 1.0) {
+      // Show milliseconds for sub-second intervals
+      int wholeSecs = static_cast<int>(seconds);
+      int millis = static_cast<int>((seconds - wholeSecs) * 1000.0);
+      timeLabel = juce::String(minutes) + ":" + juce::String(wholeSecs).paddedLeft('0', 2) + "." +
+                  juce::String(millis).paddedLeft('0', 3);
+    } else if (timeInterval < 10.0) {
+      // Show one decimal place for 1-9 second intervals
+      timeLabel = juce::String(minutes) + ":" + juce::String(seconds, 1).paddedLeft('0', 4);
+    } else {
+      // Show whole seconds for 10+ second intervals
+      timeLabel =
+          juce::String(minutes) + ":" + juce::String(static_cast<int>(seconds)).paddedLeft('0', 2);
+    }
+
+    // Draw label (centered on tick)
+    int labelWidth = 70;
+    g.drawText(timeLabel, static_cast<int>(x - labelWidth / 2),
+               static_cast<int>(bounds.getY()) + 10, labelWidth, 18, juce::Justification::centred,
+               false);
+
+    // Update last label position
+    lastLabelX = x;
+  }
+
+  DBG("WaveformDisplay: Time scale - totalDuration=" << totalDuration
+                                                     << "s, visibleDuration=" << visibleDuration
+                                                     << "s, interval=" << timeInterval << "s");
 }

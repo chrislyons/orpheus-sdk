@@ -207,9 +207,29 @@ bool AudioEngine::updateClipMetadata(int buttonIndex, int64_t trimInSamples, int
     return false;
   }
 
-  // Call SDK method to update fades
-  auto fadeResult = m_transportController->updateClipFades(handle, fadeInSeconds, fadeOutSeconds,
-                                                           fadeInCurveEnum, fadeOutCurveEnum);
+  // CRITICAL: Validate fade times don't exceed trim duration
+  int64_t trimDurationSamples = trimOutSamples - trimInSamples;
+  double trimDurationSeconds = static_cast<double>(trimDurationSamples) / m_sampleRate;
+
+  // Clamp fade times to fit within trim duration
+  double clampedFadeInSeconds = fadeInSeconds;
+  double clampedFadeOutSeconds = fadeOutSeconds;
+
+  if (fadeInSeconds + fadeOutSeconds > trimDurationSeconds) {
+    // Scale down proportionally to fit within trim duration
+    double ratio = trimDurationSeconds / (fadeInSeconds + fadeOutSeconds);
+    clampedFadeInSeconds = fadeInSeconds * ratio;
+    clampedFadeOutSeconds = fadeOutSeconds * ratio;
+
+    DBG("AudioEngine: Clamped fade times for button "
+        << buttonIndex << " - Requested: IN " << fadeInSeconds << "s, OUT " << fadeOutSeconds << "s"
+        << " | Clamped: IN " << clampedFadeInSeconds << "s, OUT " << clampedFadeOutSeconds << "s"
+        << " (trim duration: " << trimDurationSeconds << "s)");
+  }
+
+  // Call SDK method to update fades with validated values
+  auto fadeResult = m_transportController->updateClipFades(
+      handle, clampedFadeInSeconds, clampedFadeOutSeconds, fadeInCurveEnum, fadeOutCurveEnum);
   if (fadeResult != orpheus::SessionGraphError::OK) {
     DBG("AudioEngine: Failed to update fades: " << static_cast<int>(fadeResult));
     return false;
@@ -237,13 +257,29 @@ bool AudioEngine::startClip(int buttonIndex) {
   if (!m_transportController)
     return false;
 
-  auto result = m_transportController->startClip(handle);
-  if (result != orpheus::SessionGraphError::OK) {
-    DBG("AudioEngine: Failed to start clip " << handle);
-    return false;
+  // CRITICAL: Check if already playing - if so, RESTART from IN point (not resume)
+  // This ensures rapid clip button clicks always restart from the beginning
+  bool isAlreadyPlaying = m_transportController->isClipPlaying(handle);
+
+  orpheus::SessionGraphError result;
+  if (isAlreadyPlaying) {
+    // Already playing - use restartClip() to force restart from IN point
+    result = m_transportController->restartClip(handle);
+    if (result != orpheus::SessionGraphError::OK) {
+      DBG("AudioEngine: Failed to restart clip " << handle);
+      return false;
+    }
+    DBG("AudioEngine: Restarted clip on button " << buttonIndex << " (was already playing)");
+  } else {
+    // Not playing - use startClip() as normal
+    result = m_transportController->startClip(handle);
+    if (result != orpheus::SessionGraphError::OK) {
+      DBG("AudioEngine: Failed to start clip " << handle);
+      return false;
+    }
+    DBG("AudioEngine: Started clip on button " << buttonIndex);
   }
 
-  DBG("AudioEngine: Started clip on button " << buttonIndex);
   return true;
 }
 
@@ -292,6 +328,51 @@ bool AudioEngine::isClipPlaying(int buttonIndex) const {
     return false;
 
   return m_transportController->isClipPlaying(handle);
+}
+
+bool AudioEngine::isClipLooping(int buttonIndex) const {
+  if (buttonIndex < 0 || buttonIndex >= 48 || !m_transportController)
+    return false;
+
+  auto handle = m_clipHandles[buttonIndex];
+  if (handle == 0)
+    return false;
+
+  // Use SDK's isClipLooping() API (Phase 7 of ORP085)
+  return m_transportController->isClipLooping(handle);
+}
+
+bool AudioEngine::setClipLoopMode(int buttonIndex, bool shouldLoop) {
+  if (buttonIndex < 0 || buttonIndex >= 48 || !m_transportController)
+    return false;
+
+  auto handle = m_clipHandles[buttonIndex];
+  if (handle == 0) {
+    DBG("AudioEngine: Cannot set loop mode - no clip loaded at button " << buttonIndex);
+    return false;
+  }
+
+  auto result = m_transportController->setClipLoopMode(handle, shouldLoop);
+  if (result != orpheus::SessionGraphError::OK) {
+    DBG("AudioEngine: Failed to set loop mode for button " << buttonIndex);
+    return false;
+  }
+
+  DBG("AudioEngine: Set button " << buttonIndex << " loop mode to "
+                                 << (shouldLoop ? "enabled" : "disabled"));
+  return true;
+}
+
+int64_t AudioEngine::getClipPosition(int buttonIndex) const {
+  if (buttonIndex < 0 || buttonIndex >= 48 || !m_transportController)
+    return -1;
+
+  auto handle = m_clipHandles[buttonIndex];
+  if (handle == 0)
+    return -1;
+
+  // Use SDK's getClipPosition() API
+  return m_transportController->getClipPosition(handle);
 }
 
 orpheus::PlaybackState AudioEngine::getClipState(int buttonIndex) const {
@@ -448,8 +529,12 @@ orpheus::ClipHandle AudioEngine::allocateCueBuss(const juce::String& filePath) {
   // Determine Cue number for UI display (Cue 1, Cue 2, Cue 3, ...)
   int cueNumber = static_cast<int>(m_cueBussHandles.size());
 
+  // CRITICAL: Set default loop state to DISABLED (SDK defaults to loop=true)
+  // This will be overridden by ClipEditDialog::setClipMetadata() if user has loop enabled
+  m_transportController->setClipLoopMode(cueBussHandle, false);
+
   DBG("AudioEngine: Allocated Cue " << cueNumber << " (handle " << cueBussHandle
-                                    << "): " << filePath);
+                                    << "): " << filePath << " (loop=disabled by default)");
   return cueBussHandle;
 }
 
@@ -504,6 +589,21 @@ bool AudioEngine::stopCueBuss(orpheus::ClipHandle cueBussHandle) {
   return true;
 }
 
+bool AudioEngine::restartCueBuss(orpheus::ClipHandle cueBussHandle) {
+  if (cueBussHandle < 10001 || !m_transportController)
+    return false;
+
+  // Use SDK's restartClip() - works for both main grid and Cue Buss
+  auto result = m_transportController->restartClip(cueBussHandle);
+  if (result != orpheus::SessionGraphError::OK) {
+    DBG("AudioEngine: Failed to restart Cue Buss " << cueBussHandle);
+    return false;
+  }
+
+  DBG("AudioEngine: Restarted Cue Buss " << cueBussHandle << " (seamless, no gap)");
+  return true;
+}
+
 bool AudioEngine::updateCueBussMetadata(orpheus::ClipHandle cueBussHandle, int64_t trimInSamples,
                                         int64_t trimOutSamples, double fadeInSeconds,
                                         double fadeOutSeconds, const juce::String& fadeInCurve,
@@ -532,9 +632,31 @@ bool AudioEngine::updateCueBussMetadata(orpheus::ClipHandle cueBussHandle, int64
     return false;
   }
 
-  // Update fades
-  auto fadeResult = m_transportController->updateClipFades(
-      cueBussHandle, fadeInSeconds, fadeOutSeconds, fadeInCurveEnum, fadeOutCurveEnum);
+  // CRITICAL: Validate fade times don't exceed trim duration
+  int64_t trimDurationSamples = trimOutSamples - trimInSamples;
+  double trimDurationSeconds = static_cast<double>(trimDurationSamples) / m_sampleRate;
+
+  // Clamp fade times to fit within trim duration
+  double clampedFadeInSeconds = fadeInSeconds;
+  double clampedFadeOutSeconds = fadeOutSeconds;
+
+  if (fadeInSeconds + fadeOutSeconds > trimDurationSeconds) {
+    // Scale down proportionally to fit within trim duration
+    double ratio = trimDurationSeconds / (fadeInSeconds + fadeOutSeconds);
+    clampedFadeInSeconds = fadeInSeconds * ratio;
+    clampedFadeOutSeconds = fadeOutSeconds * ratio;
+
+    DBG("AudioEngine: Clamped Cue Buss fade times for handle "
+        << cueBussHandle << " - Requested: IN " << fadeInSeconds << "s, OUT " << fadeOutSeconds
+        << "s"
+        << " | Clamped: IN " << clampedFadeInSeconds << "s, OUT " << clampedFadeOutSeconds << "s"
+        << " (trim duration: " << trimDurationSeconds << "s)");
+  }
+
+  // Update fades with validated values
+  auto fadeResult = m_transportController->updateClipFades(cueBussHandle, clampedFadeInSeconds,
+                                                           clampedFadeOutSeconds, fadeInCurveEnum,
+                                                           fadeOutCurveEnum);
   if (fadeResult != orpheus::SessionGraphError::OK) {
     DBG("AudioEngine: Failed to update Cue Buss fades: " << static_cast<int>(fadeResult));
     return false;
@@ -575,6 +697,38 @@ bool AudioEngine::setCueBussLoop(orpheus::ClipHandle cueBussHandle, bool enabled
 
   DBG("AudioEngine: Set Cue Buss " << cueBussHandle << " loop mode to "
                                    << (enabled ? "enabled" : "disabled"));
+  return true;
+}
+
+int64_t AudioEngine::getCueBussPosition(orpheus::ClipHandle cueBussHandle) const {
+  if (cueBussHandle < 10001 || !m_transportController)
+    return 0;
+
+  // Use SDK's getClipPosition() API (Phase 2 of ORP085)
+  return m_transportController->getClipPosition(cueBussHandle);
+}
+
+bool AudioEngine::isCueBussLooping(orpheus::ClipHandle cueBussHandle) const {
+  if (cueBussHandle < 10001 || !m_transportController)
+    return false;
+
+  // Use SDK's isClipLooping() API (Phase 7 of ORP085)
+  return m_transportController->isClipLooping(cueBussHandle);
+}
+
+bool AudioEngine::seekCueBuss(orpheus::ClipHandle cueBussHandle, int64_t position) {
+  if (cueBussHandle < 10001 || !m_transportController)
+    return false;
+
+  // Use SDK's seekClip() API (ORP089)
+  auto result = m_transportController->seekClip(cueBussHandle, position);
+  if (result != orpheus::SessionGraphError::OK) {
+    DBG("AudioEngine: Failed to seek Cue Buss " << cueBussHandle << " to position " << position);
+    return false;
+  }
+
+  DBG("AudioEngine: Seeked Cue Buss " << cueBussHandle << " to position " << position
+                                      << " (gap-free, sample-accurate)");
   return true;
 }
 

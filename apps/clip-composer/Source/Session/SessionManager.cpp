@@ -215,6 +215,13 @@ bool SessionManager::saveSession(const juce::File& file) {
     clipObj->setProperty("fadeInCurve", juce::var(clipData.fadeInCurve));
     clipObj->setProperty("fadeOutCurve", juce::var(clipData.fadeOutCurve));
 
+    // Playback modes
+    clipObj->setProperty("loopEnabled", juce::var(clipData.loopEnabled));
+    clipObj->setProperty("stopOthersEnabled", juce::var(clipData.stopOthersEnabled));
+
+    // Color (save as hex string, e.g., "ff3498db")
+    clipObj->setProperty("color", juce::var(clipData.color.toString()));
+
     clipsArray.add(clipJson);
   }
 
@@ -316,6 +323,19 @@ bool SessionManager::loadSession(const juce::File& file) {
         }
         if (clipObj->hasProperty("fadeOutCurve")) {
           clipData.fadeOutCurve = clipObj->getProperty("fadeOutCurve").toString().toStdString();
+        }
+
+        // Restore playback modes
+        if (clipObj->hasProperty("loopEnabled")) {
+          clipData.loopEnabled = static_cast<bool>(clipObj->getProperty("loopEnabled"));
+        }
+        if (clipObj->hasProperty("stopOthersEnabled")) {
+          clipData.stopOthersEnabled = static_cast<bool>(clipObj->getProperty("stopOthersEnabled"));
+        }
+
+        // Restore color (parse hex string like "ff3498db")
+        if (clipObj->hasProperty("color")) {
+          clipData.color = juce::Colour::fromString(clipObj->getProperty("color").toString());
         }
       }
 

@@ -40,6 +40,11 @@ public:
 
     // Loop state (synced between Edit Dialog and Clip Button)
     bool loopEnabled = false;
+    bool stopOthersEnabled = false;
+
+    // Playback handoff (continuity between main grid and Edit Dialog)
+    bool wasPlayingOnMainGrid = false;  // true if clip was playing when Edit Dialog opened
+    int64_t playheadPositionAtOpen = 0; // Playhead position in samples when dialog opened
 
     // Phase 3: Fade times (seconds)
     double fadeInSeconds = 0.0;
@@ -62,7 +67,7 @@ public:
   };
 
   //==============================================================================
-  ClipEditDialog(AudioEngine* audioEngine);
+  ClipEditDialog(AudioEngine* audioEngine, int buttonIndex);
   ~ClipEditDialog() override;
 
   //==============================================================================
@@ -98,6 +103,7 @@ private:
   //==============================================================================
   ClipMetadata m_metadata;
   AudioEngine* m_audioEngine = nullptr; // Non-owning reference
+  int m_buttonIndex = -1;               // Button index (0-47) of main grid clip
 
   // Phase 1: Basic metadata controls
   std::unique_ptr<juce::Label> m_nameLabel;
@@ -114,15 +120,19 @@ private:
 
   // Phase 2: In/Out point controls
   std::unique_ptr<WaveformDisplay> m_waveformDisplay;
-  std::unique_ptr<juce::TextButton> m_zoom1xButton;
-  std::unique_ptr<juce::TextButton> m_zoom2xButton;
-  std::unique_ptr<juce::TextButton> m_zoom4xButton;
-  std::unique_ptr<juce::TextButton> m_zoom8xButton;
+  std::unique_ptr<juce::TextButton> m_zoomOutButton;
+  std::unique_ptr<juce::Label> m_zoomLabel;
+  std::unique_ptr<juce::TextButton> m_zoomInButton;
 
-  // Preview transport controls
-  std::unique_ptr<juce::TextButton> m_playButton;
-  std::unique_ptr<juce::TextButton> m_stopButton;
-  std::unique_ptr<juce::ToggleButton> m_loopButton;
+  void updateZoomLabel(); // Update zoom level display
+
+  // Preview transport controls (professional icon buttons)
+  std::unique_ptr<juce::DrawableButton> m_skipToStartButton;
+  std::unique_ptr<juce::DrawableButton> m_playButton;
+  std::unique_ptr<juce::DrawableButton> m_stopButton;
+  std::unique_ptr<juce::DrawableButton> m_skipToEndButton;
+  std::unique_ptr<juce::DrawableButton> m_loopButton;
+  std::unique_ptr<juce::ToggleButton> m_stopOthersButton;
   std::unique_ptr<juce::Label> m_transportPositionLabel;
 
   // Preview audio player

@@ -6,39 +6,40 @@
 #include <atomic>
 #include <functional>
 #include <juce_audio_basics/juce_audio_basics.h>
-#include <juce_audio_formats/juce_audio_formats.h>
 
 // Forward declaration
 class AudioEngine;
 
 /**
- * PreviewPlayer - Preview audio player for Edit Dialog using Cue Buss
+ * PreviewPlayer - View controller for Edit Dialog (controls main grid clip)
  *
- * ARCHITECTURE CHANGE (v0.2.0):
- * - No longer creates separate audio device (was causing overlapping streams)
- * - Now uses Cue Buss allocated from AudioEngine
- * - Cue Buss sums to main output (professional workflow)
- * - Single CoreAudio device for entire application
+ * ARCHITECTURE (v0.2.1):
+ * - Edit Dialog is a "zoomed view" of the main grid clip
+ * - PreviewPlayer is NOT a separate playback instance
+ * - Controls the main grid clip via buttonIndex (ONE clip, TWO views)
+ * - NO Cue Buss allocation (deferred to future routing requirements)
+ * - Edits apply to the main grid clip in real-time
+ *
+ * INTEGRATION WITH SDK:
+ * - OUT point enforcement is SDK-managed (automatic stop/loop at OUT)
+ * - Gap-free seeking via seekClip() API (no stop/start cycle)
+ * - UI layer just tracks position for playhead visualization
+ * - SDK handles all edit law enforcement sample-accurately
  *
  * Features:
- * - Play/Stop with respect to IN/OUT trim points
- * - Loop mode (restart at IN when reaching OUT)
+ * - Play/Stop controls for main grid clip (via AudioEngine)
+ * - Loop mode (SDK automatically restarts at IN when reaching OUT)
  * - Position tracking with callback for waveform playhead
- * - Sample-accurate trim point enforcement
- * - Routes through Cue Buss (not separate audio stream)
+ * - Gap-free waveform scrubbing (seekClip API)
+ * - Real-time metadata updates (trim/fade/loop)
  */
-class PreviewPlayer {
+class PreviewPlayer : private juce::Timer {
 public:
-  PreviewPlayer(AudioEngine* audioEngine);
+  PreviewPlayer(AudioEngine* audioEngine, int buttonIndex);
   ~PreviewPlayer();
 
   //==============================================================================
   // Setup
-
-  /// Load audio file for preview
-  /// @param audioFile Path to audio file
-  /// @return true on success
-  bool loadFile(const juce::File& audioFile);
 
   /// Set trim points (IN/OUT) in samples
   /// @param trimInSamples Trim IN point (sample position)
@@ -57,9 +58,6 @@ public:
   void setFades(float fadeInSeconds, float fadeOutSeconds, const juce::String& fadeInCurve,
                 const juce::String& fadeOutCurve);
 
-  /// Clear loaded file and stop playback
-  void clearFile();
-
   //==============================================================================
   // Playback Control
 
@@ -74,12 +72,18 @@ public:
   void jumpTo(int64_t samplePosition);
 
   /// Check if currently playing
-  bool isPlaying() const {
-    return m_isPlaying;
-  }
+  bool isPlaying() const;
 
   /// Get current playback position in samples
   int64_t getCurrentPosition() const;
+
+  /// Start position timer (for UI playhead updates at 75 FPS)
+  /// NOTE: Automatically started by play(), but can be called manually
+  /// if clip is already playing when Edit Dialog opens
+  void startPositionTimer();
+
+  /// Stop position timer (stops UI playhead updates)
+  void stopPositionTimer();
 
   //==============================================================================
   // Callbacks
@@ -92,18 +96,16 @@ public:
 
 private:
   //==============================================================================
-  // Cue Buss architecture
-  AudioEngine* m_audioEngine = nullptr;    // Non-owning reference
-  orpheus::ClipHandle m_cueBussHandle = 0; // 0 = not allocated
-  juce::String m_loadedFilePath;           // Track loaded file path
+  // Main grid clip control (view controller pattern)
+  AudioEngine* m_audioEngine = nullptr; // Non-owning reference
+  int m_buttonIndex = -1;               // Button index (0-47) of main grid clip
 
-  // Playback state
-  bool m_isPlaying = false;
+  // Playback state (synchronized with main grid clip)
   bool m_loopEnabled = false;
 
-  // Trim points (for UI state tracking)
-  int64_t m_trimInSamples = 0;
-  int64_t m_trimOutSamples = 0;
+  // Trim points (atomic for thread-safe access from timer callback)
+  std::atomic<int64_t> m_trimInSamples{0};
+  std::atomic<int64_t> m_trimOutSamples{0};
 
   // Fade settings (for UI state tracking)
   float m_fadeInSeconds = 0.0f;
@@ -111,14 +113,16 @@ private:
   juce::String m_fadeInCurve = "Linear";
   juce::String m_fadeOutCurve = "Linear";
 
-  // File metadata
+  // File metadata (read from AudioEngine)
   int m_sampleRate = 48000;
   int m_numChannels = 2;
   int64_t m_totalSamples = 0;
 
-  // Position tracking timer
-  void startPositionTimer();
-  void stopPositionTimer();
+  // Position tracking timer (75 FPS for UI playhead updates)
+  // NOTE: Edit law enforcement is now SDK-managed (ORP089)
+  // - This timer only updates UI playhead position
+  // - SDK handles OUT point enforcement automatically
+  void timerCallback() override; // Override from juce::Timer
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PreviewPlayer)
 };

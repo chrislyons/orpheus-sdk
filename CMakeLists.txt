@@ -9,6 +9,7 @@ option(ORPHEUS_ENABLE_ADAPTER_MINHOST "Build the minimal host adapter" ON)
 option(ORPHEUS_ENABLE_ADAPTER_REAPER "Build the REAPER adapter" OFF)
 option(ORPHEUS_ENABLE_APP_JUCE_HOST "Build the Orpheus JUCE demo host" OFF)
 option(ORPHEUS_ENABLE_APP_CLIP_COMPOSER "Build Orpheus Clip Composer application" OFF)
+option(ORPHEUS_BUILD_EXAMPLES "Build Orpheus SDK example applications" OFF)
 option(ENABLE_LTO "Enable interprocedural optimization" OFF)
 option(ORP_BUILD_SHARED_CORE "Build Orpheus ABI libraries as shared" OFF)
 option(ORP_BUILD_ABI_DYNAMIC "Build shared core libs for abi_link test" ON)
@@ -128,6 +129,10 @@ if(ORP_WITH_TESTS)
 endif()
 
 add_subdirectory(tools)
+
+if(ORPHEUS_BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
 
 if(ORP_WITH_TESTS)
   add_subdirectory(tests)

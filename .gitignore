@@ -69,3 +69,13 @@ deps-graph.svg
 *.gif
 *.mp3
 *.wav
+
+# Code coverage
+build-coverage/
+coverage-report/
+coverage.info
+coverage_filtered.info
+*.gcov
+*.gcda
+*.gcno
+docs/api/

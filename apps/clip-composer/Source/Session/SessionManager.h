@@ -50,6 +50,10 @@ public:
     std::string fadeInCurve = "Linear"; // Linear, EqualPower, Exponential
     std::string fadeOutCurve = "Linear";
 
+    // Playback modes
+    bool loopEnabled = false;
+    bool stopOthersEnabled = false; // Phase 2.1: Stop all other clips when this one plays
+
     bool isValid() const {
       return !filePath.empty();
     }
@@ -171,6 +175,10 @@ public:
 
   int getClipCount() const {
     return static_cast<int>(m_clips.size());
+  }
+
+  juce::File getCurrentFile() const {
+    return m_currentFile;
   }
 
 private:

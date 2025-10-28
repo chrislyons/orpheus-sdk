@@ -4,6 +4,7 @@
 
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_gui_extra/juce_gui_extra.h>
+#include <map>
 #include <vector>
 
 //==============================================================================
@@ -25,7 +26,7 @@ class WaveformDisplay : public juce::Component {
 public:
   //==============================================================================
   WaveformDisplay();
-  ~WaveformDisplay() override = default;
+  ~WaveformDisplay() override;
 
   //==============================================================================
   // Load audio file and generate waveform data
@@ -37,8 +38,9 @@ public:
   // Set playhead position (in samples) - updates transport bar
   void setPlayheadPosition(int64_t samplePosition);
 
-  // Zoom controls (4 levels: 1x, 2x, 4x, 8x)
-  void setZoomLevel(int level); // 0=1x, 1=2x, 2=4x, 3=8x
+  // Zoom controls (5 levels: 1x, 2x, 4x, 8x, 16x)
+  void setZoomLevel(int level,
+                    float center = 0.5f); // 0=1x, 1=2x, 2=4x, 3=8x, 4=16x, center=0-1 normalized
   int getZoomLevel() const {
     return m_zoomLevel;
   }
@@ -81,6 +83,7 @@ private:
   void generateWaveformData(const juce::File& audioFile);
   void drawWaveform(juce::Graphics& g, const juce::Rectangle<float>& bounds);
   void drawTrimMarkers(juce::Graphics& g, const juce::Rectangle<float>& bounds);
+  void drawTimeScale(juce::Graphics& g, const juce::Rectangle<float>& bounds);
 
   //==============================================================================
   WaveformData m_waveformData;
@@ -89,10 +92,18 @@ private:
   int64_t m_playheadPosition = 0;
   std::atomic<bool> m_isLoading{false};
 
-  // Zoom state (4 levels: 1x, 2x, 4x, 8x)
-  int m_zoomLevel = 0;       // 0=1x, 1=2x, 2=4x, 3=8x
+  // Waveform caching (prevent constant reloading)
+  juce::String m_cachedFilePath;                        // Path of currently cached waveform
+  std::map<juce::String, WaveformData> m_waveformCache; // Cache up to 5 recent waveforms
+
+  // Zoom state (5 levels: 1x, 2x, 4x, 8x, 16x)
+  int m_zoomLevel = 0;       // 0=1x, 1=2x, 2=4x, 3=8x, 4=16x
   float m_zoomFactor = 1.0f; // Current zoom factor
   float m_zoomCenter = 0.5f; // Center of zoom (normalized 0-1)
+
+  // Interaction mode
+  bool m_threeButtonMouseMode =
+      false; // false = default trackpad mode, true = SpotOn three-button mode
 
   juce::CriticalSection m_dataLock; // Protects waveform data during background generation
 

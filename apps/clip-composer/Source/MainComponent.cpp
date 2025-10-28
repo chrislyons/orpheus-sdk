@@ -400,6 +400,9 @@ void MainComponent::onClipRightClicked(int buttonIndex) {
     menu.addItem(6, "Load Multiple Audio Files...");
   }
 
+  // Ensure menu uses Orpheus/Inter aesthetic (inherited from MainComponent's LookAndFeel)
+  menu.setLookAndFeel(&m_interLookAndFeel);
+
   menu.showMenuAsync(juce::PopupMenu::Options(), [this, buttonIndex, hasClip](int result) {
     if (result == 5 && hasClip) {
       // Edit Clip - open edit dialog
@@ -426,6 +429,13 @@ void MainComponent::onClipRightClicked(int buttonIndex) {
     } else if (result == 7 && hasClip) {
       // Toggle loop mode
       m_loopEnabled[buttonIndex] = !m_loopEnabled[buttonIndex];
+
+      // Sync to AudioEngine (CRITICAL: Must update SDK loop state!)
+      if (m_audioEngine) {
+        m_audioEngine->setClipLoopMode(buttonIndex, m_loopEnabled[buttonIndex]);
+      }
+
+      // Update button visual state
       auto button = m_clipGrid->getButton(buttonIndex);
       if (button) {
         button->setLoopEnabled(m_loopEnabled[buttonIndex]);
@@ -477,11 +487,11 @@ void MainComponent::onClipRightClicked(int buttonIndex) {
         button->setClipColor(newColor);
       }
 
-      // Update session manager
+      // CRITICAL: Persist color to SessionManager (otherwise Edit Dialog will overwrite it)
       if (m_sessionManager.hasClip(buttonIndex)) {
         auto clipData = m_sessionManager.getClip(buttonIndex);
         clipData.color = newColor;
-        // Note: SessionManager may need a setClipColor method, for now just update button
+        m_sessionManager.setClip(buttonIndex, clipData); // Persist to SessionManager
       }
 
       DBG("Button " << buttonIndex << ": Color changed to " << newColor.toString());
@@ -550,8 +560,8 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
   // Get clip metadata from SessionManager
   auto clipData = m_sessionManager.getClip(buttonIndex);
 
-  // Create edit dialog (pass AudioEngine for Cue Buss allocation)
-  auto* dialog = new ClipEditDialog(m_audioEngine.get());
+  // Create edit dialog (pass AudioEngine and buttonIndex for main grid clip control)
+  auto* dialog = new ClipEditDialog(m_audioEngine.get(), buttonIndex);
 
   // Convert SessionManager::ClipData to ClipEditDialog::ClipMetadata
   ClipEditDialog::ClipMetadata metadata;
@@ -572,6 +582,9 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
   metadata.fadeOutSeconds = clipData.fadeOutSeconds;
   metadata.fadeInCurve = juce::String(clipData.fadeInCurve);
   metadata.fadeOutCurve = juce::String(clipData.fadeOutCurve);
+
+  // Sprint 2: Loop state (sync from MainComponent's internal state)
+  metadata.loopEnabled = m_loopEnabled[buttonIndex];
 
   dialog->setClipMetadata(metadata);
 
@@ -609,6 +622,18 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
         DBG("MainComponent: Failed to apply trim/fade metadata to AudioEngine for button "
             << buttonIndex);
       }
+
+      // Apply loop mode to AudioEngine (CRITICAL: Must apply loop state!)
+      bool loopUpdated = m_audioEngine->setClipLoopMode(buttonIndex, edited.loopEnabled);
+      if (loopUpdated) {
+        // Sync MainComponent's internal loop state array
+        m_loopEnabled[buttonIndex] = edited.loopEnabled;
+
+        DBG("MainComponent: Applied loop mode to AudioEngine for button "
+            << buttonIndex << " = " << (edited.loopEnabled ? "enabled" : "disabled"));
+      } else {
+        DBG("MainComponent: Failed to apply loop mode to AudioEngine for button " << buttonIndex);
+      }
     }
 
     // Update button visual state
@@ -617,6 +642,7 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
       button->setClipName(edited.displayName);
       button->setClipColor(edited.color);
       button->setClipGroup(edited.clipGroup);
+      button->setLoopEnabled(edited.loopEnabled); // CRITICAL: Sync loop visual state
 
       // Update duration with trimmed values
       if (edited.sampleRate > 0) {
@@ -743,8 +769,13 @@ void MainComponent::updateButtonFromClip(int buttonIndex) {
       m_audioEngine->loadClip(buttonIndex, juce::String(clipData.filePath));
     }
 
-    // Update button with real data
-    button->setState(ClipButton::State::Loaded);
+    // Check if clip is currently playing and restore correct button state
+    if (m_audioEngine && m_audioEngine->isClipPlaying(buttonIndex)) {
+      button->setState(ClipButton::State::Playing);
+    } else {
+      button->setState(ClipButton::State::Loaded);
+    }
+
     button->setClipName(juce::String(clipData.displayName));
     button->setClipColor(clipData.color);
 
@@ -764,6 +795,13 @@ void MainComponent::updateButtonFromClip(int buttonIndex) {
 
     // Restore loop state
     button->setLoopEnabled(m_loopEnabled[buttonIndex]);
+
+    // Set stop others indicator
+    button->setStopOthersEnabled(m_stopOthersOnPlay[buttonIndex]);
+
+    // Set fade indicators (show if fade duration > 0)
+    button->setFadeInEnabled(clipData.fadeInSeconds > 0.0);
+    button->setFadeOutEnabled(clipData.fadeOutSeconds > 0.0);
 
     // TODO: Parse beat offset from clip name if it contains "//" notation
     // For now, leave beat offset empty (will be set via edit dialogue later)
@@ -817,18 +855,11 @@ void MainComponent::onPanic() {
 void MainComponent::onTabSelected(int tabIndex) {
   DBG("MainComponent: Tab " << tabIndex << " selected");
 
-  // Stop all playing clips when switching tabs (safety measure)
-  for (int i = 0; i < m_clipGrid->getButtonCount(); ++i) {
-    auto button = m_clipGrid->getButton(i);
-    if (button && button->getState() == ClipButton::State::Playing) {
-      button->setState(ClipButton::State::Loaded);
-    }
-  }
-
   // Update SessionManager's active tab
   m_sessionManager.setActiveTab(tabIndex);
 
   // Refresh all buttons from SessionManager for the new tab
+  // This will restore colors, names, and playing states from AudioEngine
   for (int i = 0; i < m_clipGrid->getButtonCount(); ++i) {
     updateButtonFromClip(i);
   }

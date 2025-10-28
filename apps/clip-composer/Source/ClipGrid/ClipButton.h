@@ -68,6 +68,7 @@ public:
   void setFadeInEnabled(bool enabled);
   void setFadeOutEnabled(bool enabled);
   void setEffectsEnabled(bool enabled);
+  void setStopOthersEnabled(bool enabled);
 
   int getButtonIndex() const {
     return m_buttonIndex;
@@ -112,12 +113,11 @@ private:
   bool m_fadeInEnabled = false;
   bool m_fadeOutEnabled = false;
   bool m_effectsEnabled = false;
+  bool m_stopOthersEnabled = false;
 
-  // Drag state
-  juce::Time m_mouseDownTime;
+  // Drag state (Cmd+Drag to rearrange clips)
   juce::Point<int> m_mouseDownPosition;
   bool m_isDragging = false;
-  static constexpr int DRAG_HOLD_TIME_MS = 240; // 240ms hold before drag starts
 
   // Visual constants
   static constexpr int BORDER_THICKNESS = 2;

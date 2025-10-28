@@ -126,6 +126,22 @@ public:
   /// @return Transport position (samples, seconds, beats)
   orpheus::TransportPosition getCurrentPosition() const;
 
+  /// Check if clip is currently looping
+  /// @param buttonIndex Button index
+  /// @return true if clip is looping
+  bool isClipLooping(int buttonIndex) const;
+
+  /// Get current playback position for a main grid clip
+  /// @param buttonIndex Button index
+  /// @return Current position in samples (relative to file start), or -1 if not playing
+  int64_t getClipPosition(int buttonIndex) const;
+
+  /// Set loop mode for a main grid clip
+  /// @param buttonIndex Button index (0-47)
+  /// @param shouldLoop true = loop indefinitely, false = play once
+  /// @return true if loop mode was set successfully
+  bool setClipLoopMode(int buttonIndex, bool shouldLoop);
+
   /// Get audio latency in samples (device + buffer)
   /// @return Total latency in samples
   uint32_t getLatencySamples() const;
@@ -179,6 +195,13 @@ public:
   /// @return true if stopped successfully
   bool stopCueBuss(orpheus::ClipHandle cueBussHandle);
 
+  /// Restart Cue Buss playback from current IN point (seamless, no gap)
+  /// @param cueBussHandle Cue Buss ClipHandle (10001+)
+  /// @return true if restart succeeded, false if handle invalid
+  ///
+  /// Use case: OCC Edit Dialog < > trim buttons
+  bool restartCueBuss(orpheus::ClipHandle cueBussHandle);
+
   /// Update Cue Buss metadata (trim points, fades)
   /// @param cueBussHandle Cue Buss ClipHandle
   /// @param trimInSamples Trim IN point
@@ -208,6 +231,24 @@ public:
   /// @param enabled true = loop indefinitely, false = play once
   /// @return true if loop mode was set successfully
   bool setCueBussLoop(orpheus::ClipHandle cueBussHandle, bool enabled);
+
+  /// Get current playback position for a Cue Buss
+  /// @param cueBussHandle Cue Buss ClipHandle
+  /// @return Current position in samples, or 0 if not playing/invalid
+  int64_t getCueBussPosition(orpheus::ClipHandle cueBussHandle) const;
+
+  /// Check if Cue Buss is currently looping
+  /// @param cueBussHandle Cue Buss ClipHandle
+  /// @return true if Cue Buss is looping
+  bool isCueBussLooping(orpheus::ClipHandle cueBussHandle) const;
+
+  /// Seek Cue Buss to arbitrary position (gap-free, sample-accurate)
+  /// @param cueBussHandle Cue Buss ClipHandle
+  /// @param position Target position in samples (0-based file offset)
+  /// @return true if seek succeeded, false if handle invalid or not playing
+  ///
+  /// Use case: OCC waveform click-to-jog (seamless seek while playing)
+  bool seekCueBuss(orpheus::ClipHandle cueBussHandle, int64_t position);
 
   //==============================================================================
   // Callbacks from UI

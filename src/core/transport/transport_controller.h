@@ -54,10 +54,23 @@ struct ActiveClip {
   // Loop mode (atomic for thread safety)
   std::atomic<bool> loopEnabled{false}; // true = loop indefinitely
 
-  float fadeOutGain;             // 1.0 = normal, 0.0 = fully faded (for stop fade-out)
-  bool isStopping;               // true if fade-out in progress
-  IAudioFileReader* audioReader; // Cached pointer to audio file reader (owned by m_audioFiles)
-  uint16_t numChannels;          // Number of channels in audio file
+  float fadeOutGain;       // 1.0 = normal, 0.0 = fully faded (for stop fade-out)
+  bool isStopping;         // true if fade-out in progress
+  int64_t fadeOutStartPos; // Sample position when fade-out started (for additive time)
+
+  // Restart crossfade state (broadcast-safe restart mechanism)
+  bool isRestarting; // true if restart crossfade in progress
+  int64_t
+      restartFadeFramesRemaining; // Frames remaining in restart fade-in (5ms @ 48kHz = 240 frames)
+
+  uint16_t numChannels; // Number of channels in audio file
+
+  // Thread-safe reader reference (captured from AudioFileEntry when clip starts)
+  // Using shared_ptr provides reference-counted lifetime management:
+  // - Audio thread holds reference until clip stops
+  // - Reader can't be destroyed while audio thread is still using it
+  // - Atomic refcount increment/decrement (lock-free, broadcast-safe)
+  std::shared_ptr<IAudioFileReader> reader;
 };
 
 /// Transport controller implementation
@@ -85,6 +98,16 @@ public:
                                       int64_t& trimOutSamples) const override;
   SessionGraphError updateClipGain(ClipHandle handle, float gainDb) override;
   SessionGraphError setClipLoopMode(ClipHandle handle, bool shouldLoop) override;
+  int64_t getClipPosition(ClipHandle handle) const override;
+  SessionGraphError setClipStopOthersMode(ClipHandle handle, bool enabled) override;
+  bool getClipStopOthersMode(ClipHandle handle) const override;
+  SessionGraphError updateClipMetadata(ClipHandle handle, const ClipMetadata& metadata) override;
+  std::optional<ClipMetadata> getClipMetadata(ClipHandle handle) const override;
+  void setSessionDefaults(const SessionDefaults& defaults) override;
+  SessionDefaults getSessionDefaults() const override;
+  bool isClipLooping(ClipHandle handle) const override;
+  SessionGraphError restartClip(ClipHandle handle) override;
+  SessionGraphError seekClip(ClipHandle handle, int64_t position) override;
 
   /// Process audio (called from audio thread)
   /// @param outputBuffers Output buffers (one per channel)
@@ -130,6 +153,9 @@ private:
   uint32_t m_sampleRate;
   ITransportCallback* m_callback; // User-provided callback
 
+  // Session defaults (UI thread access, mutex protected)
+  SessionDefaults m_sessionDefaults;
+
   // Lock-free command queue (UI → Audio thread)
   static constexpr size_t MAX_COMMANDS = 256;
   std::array<TransportCommand, MAX_COMMANDS> m_commands;
@@ -150,11 +176,14 @@ private:
 
   // Fade parameters
   static constexpr float FADE_OUT_DURATION_MS = 10.0f;
-  size_t m_fadeOutSamples; // Calculated from sample rate
+  static constexpr float RESTART_CROSSFADE_DURATION_MS =
+      5.0f;                         // Broadcast-safe restart crossfade (5ms)
+  size_t m_fadeOutSamples;          // Calculated from sample rate
+  size_t m_restartCrossfadeSamples; // Calculated from sample rate
 
   // Audio file registry (UI thread access, mutex protected)
   struct AudioFileEntry {
-    std::unique_ptr<orpheus::IAudioFileReader> reader;
+    std::shared_ptr<orpheus::IAudioFileReader> reader;
     AudioFileMetadata metadata;
 
     // Persistent clip metadata (stored with audio file registration)
@@ -164,8 +193,9 @@ private:
     double fadeOutSeconds = 0.0;
     FadeCurve fadeInCurve = FadeCurve::Linear;
     FadeCurve fadeOutCurve = FadeCurve::Linear;
-    float gainDb = 0.0f;      // Gain in decibels (0.0 = unity)
-    bool loopEnabled = false; // true = loop indefinitely
+    float gainDb = 0.0f;           // Gain in decibels (0.0 = unity)
+    bool loopEnabled = false;      // true = loop indefinitely
+    bool stopOthersOnPlay = false; // true = stop all other clips when this one starts
   };
   std::mutex m_audioFilesMutex;
   std::unordered_map<ClipHandle, AudioFileEntry> m_audioFiles;

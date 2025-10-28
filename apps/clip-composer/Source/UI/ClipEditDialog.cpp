@@ -3,9 +3,10 @@
 #include "ClipEditDialog.h"
 
 //==============================================================================
-ClipEditDialog::ClipEditDialog(AudioEngine* audioEngine) : m_audioEngine(audioEngine) {
-  // Create preview player with AudioEngine reference (for Cue Buss allocation)
-  m_previewPlayer = std::make_unique<PreviewPlayer>(m_audioEngine);
+ClipEditDialog::ClipEditDialog(AudioEngine* audioEngine, int buttonIndex)
+    : m_audioEngine(audioEngine), m_buttonIndex(buttonIndex) {
+  // Create preview player with AudioEngine reference and buttonIndex (controls main grid clip)
+  m_previewPlayer = std::make_unique<PreviewPlayer>(m_audioEngine, m_buttonIndex);
 
   // Build Phase 1 UI (basic metadata)
   buildPhase1UI();
@@ -25,9 +26,10 @@ ClipEditDialog::~ClipEditDialog() {
   if (m_previewPlayer) {
     m_previewPlayer->onPositionChanged = nullptr;
     m_previewPlayer->onPlaybackStopped = nullptr;
-    m_previewPlayer->stop(); // Ensure Cue Buss is stopped
+    // NOTE: DO NOT stop playback here - Edit Dialog is just a view, not a controller
+    // Main grid clip should continue playing when dialog closes
   }
-  // PreviewPlayer destructor will safely release Cue Buss (via AudioEngine)
+  // PreviewPlayer destructor cleanup is safe (no Cue Buss to release)
 }
 
 //==============================================================================
@@ -85,6 +87,15 @@ void ClipEditDialog::setClipMetadata(const ClipMetadata& metadata) {
     m_fileInfoPanel->setText(infoText, juce::dontSendNotification);
   }
 
+  // CRITICAL: Check if clip is already playing BEFORE loading waveform and preview player
+  // This allows seamless continuity when Edit Dialog opens during playback
+  bool wasAlreadyPlaying = false;
+  if (m_previewPlayer) {
+    wasAlreadyPlaying = m_previewPlayer->isPlaying();
+    DBG("ClipEditDialog::setClipMetadata() - Clip was "
+        << (wasAlreadyPlaying ? "ALREADY PLAYING" : "stopped") << " when dialog opened");
+  }
+
   // Load waveform display and preview player
   if (m_waveformDisplay && m_metadata.filePath.isNotEmpty()) {
     juce::File audioFile(m_metadata.filePath);
@@ -94,9 +105,9 @@ void ClipEditDialog::setClipMetadata(const ClipMetadata& metadata) {
                                                                      ? m_metadata.trimOutSamples
                                                                      : m_metadata.durationSamples);
 
-      // Load into preview player
+      // Configure preview player (metadata already loaded from main grid clip via AudioEngine)
+      // NOTE: setTrimPoints/setFades DO NOT stop/restart playback - they just update metadata
       if (m_previewPlayer) {
-        m_previewPlayer->loadFile(audioFile);
         m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples > 0
                                                                      ? m_metadata.trimOutSamples
                                                                      : m_metadata.durationSamples);
@@ -114,6 +125,18 @@ void ClipEditDialog::setClipMetadata(const ClipMetadata& metadata) {
   // Sync preview player loop state
   if (m_previewPlayer) {
     m_previewPlayer->setLoopEnabled(m_metadata.loopEnabled);
+  }
+
+  // CRITICAL: If clip was already playing when dialog opened, start position timer
+  // This ensures playhead continues updating in Edit Dialog without interrupting playback
+  if (wasAlreadyPlaying && m_previewPlayer) {
+    m_previewPlayer->startPositionTimer();
+    DBG("ClipEditDialog::setClipMetadata() - Started position timer (clip was already playing)");
+  }
+
+  // Sync Stop Others button to metadata
+  if (m_stopOthersButton) {
+    m_stopOthersButton->setToggleState(m_metadata.stopOthersEnabled, juce::dontSendNotification);
   }
 
   // Phase 3: Initialize fade combos
@@ -261,6 +284,30 @@ void ClipEditDialog::updateTrimInfoLabel() {
   }
 }
 
+void ClipEditDialog::updateZoomLabel() {
+  if (!m_zoomLabel || !m_waveformDisplay)
+    return;
+
+  int zoomLevel = m_waveformDisplay->getZoomLevel();
+  switch (zoomLevel) {
+  case 0:
+    m_zoomLabel->setText("1x", juce::dontSendNotification);
+    break;
+  case 1:
+    m_zoomLabel->setText("2x", juce::dontSendNotification);
+    break;
+  case 2:
+    m_zoomLabel->setText("4x", juce::dontSendNotification);
+    break;
+  case 3:
+    m_zoomLabel->setText("8x", juce::dontSendNotification);
+    break;
+  case 4:
+    m_zoomLabel->setText("16x", juce::dontSendNotification);
+    break;
+  }
+}
+
 //==============================================================================
 void ClipEditDialog::buildPhase1UI() {
   // Clip Name
@@ -270,6 +317,7 @@ void ClipEditDialog::buildPhase1UI() {
 
   m_nameEditor = std::make_unique<juce::TextEditor>();
   m_nameEditor->setFont(juce::FontOptions("Inter", 14.0f, juce::Font::plain));
+  m_nameEditor->setJustification(juce::Justification::centredLeft); // Vertically center text
   m_nameEditor->onTextChange = [this]() { m_metadata.displayName = m_nameEditor->getText(); };
   addAndMakeVisible(m_nameEditor.get());
 
@@ -367,21 +415,81 @@ void ClipEditDialog::buildPhase2UI() {
   m_waveformDisplay = std::make_unique<WaveformDisplay>();
   addAndMakeVisible(m_waveformDisplay.get());
 
-  // Preview Transport Controls
-  m_playButton = std::make_unique<juce::TextButton>("Play");
-  m_playButton->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2ecc71)); // Green
+  // Preview Transport Controls (Professional icon-based buttons inspired by SpotOn and Merging
+  // Ovation)
+
+  // Skip to Start button (◄◄) - consistent padding and sizing
+  m_skipToStartButton =
+      std::make_unique<juce::DrawableButton>("SkipToStart", juce::DrawableButton::ImageFitted);
+  {
+    juce::Path skipToStartPath;
+    // Vertical bar (far left) - 20% padding from edges
+    skipToStartPath.addRectangle(0.20f, 0.30f, 0.10f, 0.40f);
+    // First triangle (left)
+    skipToStartPath.addTriangle(0.32f, 0.50f, 0.48f, 0.35f, 0.48f, 0.65f);
+    // Second triangle (right)
+    skipToStartPath.addTriangle(0.52f, 0.50f, 0.68f, 0.35f, 0.68f, 0.65f);
+
+    auto skipToStartIcon = std::make_unique<juce::DrawablePath>();
+    skipToStartIcon->setPath(skipToStartPath);
+    skipToStartIcon->setFill(juce::Colours::white);
+    m_skipToStartButton->setImages(skipToStartIcon.get());
+    skipToStartIcon.release(); // DrawableButton takes ownership
+  }
+  m_skipToStartButton->setColour(juce::DrawableButton::backgroundColourId,
+                                 juce::Colour(0xff3a3a3a));
+  m_skipToStartButton->setColour(juce::DrawableButton::backgroundOnColourId,
+                                 juce::Colour(0xff4a4a4a));
+  m_skipToStartButton->onClick = [this]() {
+    if (m_previewPlayer) {
+      m_previewPlayer->stop();
+      // Jump to IN point (start of trimmed region)
+      DBG("ClipEditDialog: Skip to start (IN point)");
+    }
+  };
+  addAndMakeVisible(m_skipToStartButton.get());
+
+  // Play button (►) - consistent padding and sizing
+  m_playButton = std::make_unique<juce::DrawableButton>("Play", juce::DrawableButton::ImageFitted);
+  {
+    juce::Path playPath;
+    // Triangle with 20% padding (0.25-0.75 horizontal, 0.25-0.75 vertical)
+    playPath.addTriangle(0.30f, 0.25f, 0.30f, 0.75f, 0.70f, 0.50f);
+
+    auto playIcon = std::make_unique<juce::DrawablePath>();
+    playIcon->setPath(playPath);
+    playIcon->setFill(juce::Colours::white);
+    m_playButton->setImages(playIcon.get());
+    playIcon.release(); // DrawableButton takes ownership
+  }
+  m_playButton->setColour(juce::DrawableButton::backgroundColourId,
+                          juce::Colour(0xff2ecc71)); // Green
+  m_playButton->setColour(juce::DrawableButton::backgroundOnColourId, juce::Colour(0xff27ae60));
   m_playButton->onClick = [this]() {
     if (m_previewPlayer) {
-      // Always restart playback from IN point (SpotOn behavior)
-      m_previewPlayer->stop();
+      // Play button ALWAYS restarts from IN point (that's its purpose)
       m_previewPlayer->play();
-      DBG("ClipEditDialog: Preview playback restarted");
+      DBG("ClipEditDialog: Play button - restarted from IN point");
     }
   };
   addAndMakeVisible(m_playButton.get());
 
-  m_stopButton = std::make_unique<juce::TextButton>("Stop");
-  m_stopButton->setColour(juce::TextButton::buttonColourId, juce::Colour(0xffe74c3c)); // Red
+  // Stop button (■) - consistent padding and sizing
+  m_stopButton = std::make_unique<juce::DrawableButton>("Stop", juce::DrawableButton::ImageFitted);
+  {
+    juce::Path stopPath;
+    // Square with 20% padding (0.30-0.70 for a centered 40% square)
+    stopPath.addRectangle(0.30f, 0.30f, 0.40f, 0.40f);
+
+    auto stopIcon = std::make_unique<juce::DrawablePath>();
+    stopIcon->setPath(stopPath);
+    stopIcon->setFill(juce::Colours::white);
+    m_stopButton->setImages(stopIcon.get());
+    stopIcon.release(); // DrawableButton takes ownership
+  }
+  m_stopButton->setColour(juce::DrawableButton::backgroundColourId,
+                          juce::Colour(0xffe74c3c)); // Red
+  m_stopButton->setColour(juce::DrawableButton::backgroundOnColourId, juce::Colour(0xffc0392b));
   m_stopButton->onClick = [this]() {
     if (m_previewPlayer) {
       m_previewPlayer->stop();
@@ -390,8 +498,67 @@ void ClipEditDialog::buildPhase2UI() {
   };
   addAndMakeVisible(m_stopButton.get());
 
-  m_loopButton = std::make_unique<juce::ToggleButton>("Loop");
-  m_loopButton->setColour(juce::ToggleButton::textColourId, juce::Colours::white);
+  // Skip to End button (►►) - consistent padding and sizing
+  m_skipToEndButton =
+      std::make_unique<juce::DrawableButton>("SkipToEnd", juce::DrawableButton::ImageFitted);
+  {
+    juce::Path skipToEndPath;
+    // First triangle (left)
+    skipToEndPath.addTriangle(0.32f, 0.35f, 0.32f, 0.65f, 0.48f, 0.50f);
+    // Second triangle (right)
+    skipToEndPath.addTriangle(0.52f, 0.35f, 0.52f, 0.65f, 0.68f, 0.50f);
+    // Vertical bar (far right) - 20% padding from edges
+    skipToEndPath.addRectangle(0.70f, 0.30f, 0.10f, 0.40f);
+
+    auto skipToEndIcon = std::make_unique<juce::DrawablePath>();
+    skipToEndIcon->setPath(skipToEndPath);
+    skipToEndIcon->setFill(juce::Colours::white);
+    m_skipToEndButton->setImages(skipToEndIcon.get());
+    skipToEndIcon.release(); // DrawableButton takes ownership
+  }
+  m_skipToEndButton->setColour(juce::DrawableButton::backgroundColourId, juce::Colour(0xff3a3a3a));
+  m_skipToEndButton->setColour(juce::DrawableButton::backgroundOnColourId,
+                               juce::Colour(0xff4a4a4a));
+  m_skipToEndButton->onClick = [this]() {
+    if (m_previewPlayer) {
+      m_previewPlayer->stop();
+      // Jump to OUT point (end of trimmed region)
+      DBG("ClipEditDialog: Skip to end (OUT point)");
+    }
+  };
+  addAndMakeVisible(m_skipToEndButton.get());
+
+  // Loop button (⟲ circular arrow) - DrawableButton with toggle mode
+  m_loopButton = std::make_unique<juce::DrawableButton>("Loop", juce::DrawableButton::ImageFitted);
+  {
+    // Create a composite drawable with both arc and arrow
+    auto loopComposite = std::make_unique<juce::DrawableComposite>();
+
+    // Arc path (270 degrees, stroked not filled)
+    juce::Path arcPath;
+    arcPath.addCentredArc(0.50f, 0.50f, 0.20f, 0.20f, 0.0f, 0.0f, 4.7f, true);
+    auto arcDrawable = std::make_unique<juce::DrawablePath>();
+    arcDrawable->setPath(arcPath);
+    arcDrawable->setStrokeFill(juce::Colours::white);
+    arcDrawable->setStrokeThickness(0.06f);
+    arcDrawable->setFill(juce::Colours::transparentBlack);
+    loopComposite->addAndMakeVisible(arcDrawable.release());
+
+    // Arrow head triangle (filled)
+    juce::Path arrowPath;
+    arrowPath.addTriangle(0.50f, 0.25f, 0.43f, 0.32f, 0.57f, 0.32f);
+    auto arrowDrawable = std::make_unique<juce::DrawablePath>();
+    arrowDrawable->setPath(arrowPath);
+    arrowDrawable->setFill(juce::Colours::white);
+    loopComposite->addAndMakeVisible(arrowDrawable.release());
+
+    m_loopButton->setImages(loopComposite.get());
+    loopComposite.release(); // DrawableButton takes ownership
+  }
+  m_loopButton->setClickingTogglesState(true); // Enable toggle mode
+  m_loopButton->setColour(juce::DrawableButton::backgroundColourId, juce::Colour(0xff3a3a3a));
+  m_loopButton->setColour(juce::DrawableButton::backgroundOnColourId,
+                          juce::Colour(0xff3498db)); // Blue when active (loop enabled)
   m_loopButton->onClick = [this]() {
     // Update metadata (source of truth)
     m_metadata.loopEnabled = m_loopButton->getToggleState();
@@ -404,6 +571,16 @@ void ClipEditDialog::buildPhase2UI() {
     DBG("ClipEditDialog: Loop " << (m_metadata.loopEnabled ? "enabled" : "disabled"));
   };
   addAndMakeVisible(m_loopButton.get());
+
+  m_stopOthersButton = std::make_unique<juce::ToggleButton>("Stop Others");
+  m_stopOthersButton->setColour(juce::ToggleButton::textColourId, juce::Colours::white);
+  m_stopOthersButton->onClick = [this]() {
+    // Update metadata (source of truth)
+    m_metadata.stopOthersEnabled = m_stopOthersButton->getToggleState();
+
+    DBG("ClipEditDialog: Stop Others " << (m_metadata.stopOthersEnabled ? "enabled" : "disabled"));
+  };
+  addAndMakeVisible(m_stopOthersButton.get());
 
   m_transportPositionLabel = std::make_unique<juce::Label>("posLabel", "00:00:00");
   m_transportPositionLabel->setFont(juce::FontOptions("Inter", 14.0f, juce::Font::plain));
@@ -432,7 +609,7 @@ void ClipEditDialog::buildPhase2UI() {
 
   // Set up waveform click handlers for LOOP functionality
   m_waveformDisplay->onLeftClick = [this](int64_t samples) {
-    // Left click: Set IN point
+    // Left click: Set IN point (THREE-BUTTON MOUSE MODE only)
     // Validate: IN must be < OUT
     int64_t newInPoint = samples;
     if (newInPoint >= m_metadata.trimOutSamples) {
@@ -441,18 +618,16 @@ void ClipEditDialog::buildPhase2UI() {
 
     m_metadata.trimInSamples = newInPoint;
     updateTrimInfoLabel();
-    m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
-    // Update preview player trim points
-    if (m_previewPlayer) {
-      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-    }
+    // CRITICAL: ONLY update waveform, which triggers onTrimPointsChanged callback
+    // That callback handles preview player update (prevents double restart)
+    m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
     DBG("ClipEditDialog: Set IN point to sample " << newInPoint);
   };
 
   m_waveformDisplay->onRightClick = [this](int64_t samples) {
-    // Right click: Set OUT point
+    // Right click: Set OUT point (THREE-BUTTON MOUSE MODE only)
     // Validate: OUT must be > IN
     int64_t newOutPoint = samples;
     if (newOutPoint <= m_metadata.trimInSamples) {
@@ -462,20 +637,20 @@ void ClipEditDialog::buildPhase2UI() {
 
     m_metadata.trimOutSamples = newOutPoint;
     updateTrimInfoLabel();
-    m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
-    // Update preview player trim points
-    if (m_previewPlayer) {
-      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-    }
+    // CRITICAL: ONLY update waveform, which triggers onTrimPointsChanged callback
+    // That callback handles preview player update (prevents double restart)
+    m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
     DBG("ClipEditDialog: Set OUT point to sample " << newOutPoint);
   };
 
   m_waveformDisplay->onMiddleClick = [this](int64_t samples) {
-    // Middle click: Jump transport (future implementation)
-    DBG("ClipEditDialog: Transport jump to sample " << samples << " (not yet implemented)");
-    // TODO: Implement transport jump when AudioEngine preview functionality is available
+    // Click-to-jog: Jump transport to clicked position
+    if (m_previewPlayer) {
+      m_previewPlayer->jumpTo(samples);
+      DBG("ClipEditDialog: Click-to-jog - jumped to sample " << samples);
+    }
   };
 
   m_waveformDisplay->onTrimPointsChanged = [this](int64_t inSamples, int64_t outSamples) {
@@ -490,47 +665,49 @@ void ClipEditDialog::buildPhase2UI() {
     }
   };
 
-  // Zoom buttons (4 levels: 1x, 2x, 4x, 8x)
-  m_zoom1xButton = std::make_unique<juce::TextButton>("1x");
-  m_zoom1xButton->setToggleState(true, juce::dontSendNotification); // Default active
-  m_zoom1xButton->onClick = [this]() {
-    m_waveformDisplay->setZoomLevel(0);
-    m_zoom1xButton->setToggleState(true, juce::dontSendNotification);
-    m_zoom2xButton->setToggleState(false, juce::dontSendNotification);
-    m_zoom4xButton->setToggleState(false, juce::dontSendNotification);
-    m_zoom8xButton->setToggleState(false, juce::dontSendNotification);
-  };
-  addAndMakeVisible(m_zoom1xButton.get());
+  // Zoom controls: +/- buttons (4 levels: 1x, 2x, 4x, 8x)
+  // Zoom always centers on playhead position for intuitive navigation
+  m_zoomOutButton = std::make_unique<juce::TextButton>("-");
+  m_zoomOutButton->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff3a3a3a));
+  m_zoomOutButton->onClick = [this]() {
+    int currentLevel = m_waveformDisplay->getZoomLevel();
+    if (currentLevel > 0) {
+      // Get playhead position to center zoom
+      int64_t playheadPos = m_previewPlayer ? m_previewPlayer->getCurrentPosition() : 0;
+      float playheadNormalized = 0.5f; // Default to center if no playhead
+      if (m_metadata.durationSamples > 0) {
+        playheadNormalized = static_cast<float>(playheadPos) / m_metadata.durationSamples;
+      }
 
-  m_zoom2xButton = std::make_unique<juce::TextButton>("2x");
-  m_zoom2xButton->onClick = [this]() {
-    m_waveformDisplay->setZoomLevel(1);
-    m_zoom1xButton->setToggleState(false, juce::dontSendNotification);
-    m_zoom2xButton->setToggleState(true, juce::dontSendNotification);
-    m_zoom4xButton->setToggleState(false, juce::dontSendNotification);
-    m_zoom8xButton->setToggleState(false, juce::dontSendNotification);
+      m_waveformDisplay->setZoomLevel(currentLevel - 1, playheadNormalized);
+      updateZoomLabel();
+    }
   };
-  addAndMakeVisible(m_zoom2xButton.get());
+  addAndMakeVisible(m_zoomOutButton.get());
 
-  m_zoom4xButton = std::make_unique<juce::TextButton>("4x");
-  m_zoom4xButton->onClick = [this]() {
-    m_waveformDisplay->setZoomLevel(2);
-    m_zoom1xButton->setToggleState(false, juce::dontSendNotification);
-    m_zoom2xButton->setToggleState(false, juce::dontSendNotification);
-    m_zoom4xButton->setToggleState(true, juce::dontSendNotification);
-    m_zoom8xButton->setToggleState(false, juce::dontSendNotification);
-  };
-  addAndMakeVisible(m_zoom4xButton.get());
+  m_zoomLabel = std::make_unique<juce::Label>("zoomLabel", "1x");
+  m_zoomLabel->setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
+  m_zoomLabel->setJustificationType(juce::Justification::centred);
+  m_zoomLabel->setColour(juce::Label::textColourId, juce::Colours::white);
+  addAndMakeVisible(m_zoomLabel.get());
 
-  m_zoom8xButton = std::make_unique<juce::TextButton>("8x");
-  m_zoom8xButton->onClick = [this]() {
-    m_waveformDisplay->setZoomLevel(3);
-    m_zoom1xButton->setToggleState(false, juce::dontSendNotification);
-    m_zoom2xButton->setToggleState(false, juce::dontSendNotification);
-    m_zoom4xButton->setToggleState(false, juce::dontSendNotification);
-    m_zoom8xButton->setToggleState(true, juce::dontSendNotification);
+  m_zoomInButton = std::make_unique<juce::TextButton>("+");
+  m_zoomInButton->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff3a3a3a));
+  m_zoomInButton->onClick = [this]() {
+    int currentLevel = m_waveformDisplay->getZoomLevel();
+    if (currentLevel < 4) { // Max zoom level is 4 (16x)
+      // Get playhead position to center zoom
+      int64_t playheadPos = m_previewPlayer ? m_previewPlayer->getCurrentPosition() : 0;
+      float playheadNormalized = 0.5f; // Default to center if no playhead
+      if (m_metadata.durationSamples > 0) {
+        playheadNormalized = static_cast<float>(playheadPos) / m_metadata.durationSamples;
+      }
+
+      m_waveformDisplay->setZoomLevel(currentLevel + 1, playheadNormalized);
+      updateZoomLabel();
+    }
   };
-  addAndMakeVisible(m_zoom8xButton.get());
+  addAndMakeVisible(m_zoomInButton.get());
 
   // Trim In Point
   m_trimInLabel = std::make_unique<juce::Label>("trimInLabel", "Trim In:");
@@ -540,6 +717,7 @@ void ClipEditDialog::buildPhase2UI() {
   // Time editor (MM:SS:FF - SpotOn format, 75fps)
   m_trimInTimeEditor = std::make_unique<juce::TextEditor>();
   m_trimInTimeEditor->setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
+  m_trimInTimeEditor->setJustification(juce::Justification::centredLeft); // Vertically center text
   m_trimInTimeEditor->setText("00:00:00", false);
   m_trimInTimeEditor->onReturnKey = [this]() {
     int64_t newInPoint = timeStringToSamples(m_trimInTimeEditor->getText(), m_metadata.sampleRate);
@@ -552,15 +730,20 @@ void ClipEditDialog::buildPhase2UI() {
     m_metadata.trimInSamples = newInPoint;
     updateTrimInfoLabel();
 
-    // Update waveform display
+    // CRITICAL: ONLY update waveform, which triggers onTrimPointsChanged callback
+    // That callback handles preview player update and restart (prevents double restart)
     if (m_waveformDisplay) {
       m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
     }
 
-    // Update preview player trim points and restart for audition
-    if (m_previewPlayer) {
-      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-      m_previewPlayer->play(); // Restart to audition new IN point
+    // CRITICAL: If playhead is now before new IN point, clamp it forward to IN
+    if (m_previewPlayer && m_previewPlayer->isPlaying()) {
+      int64_t currentPos = m_previewPlayer->getCurrentPosition();
+      if (currentPos < m_metadata.trimInSamples) {
+        m_previewPlayer->jumpTo(m_metadata.trimInSamples);
+        DBG("ClipEditDialog: Playhead was before new IN point - clamped to "
+            << m_metadata.trimInSamples);
+      }
     }
   };
   addAndMakeVisible(m_trimInTimeEditor.get());
@@ -568,55 +751,69 @@ void ClipEditDialog::buildPhase2UI() {
   // Nudge buttons (< and > for rapid audition)
   m_trimInDecButton = std::make_unique<juce::TextButton>("<");
   m_trimInDecButton->onClick = [this]() {
-    // Decrement by 1 tick (1/75 second) and restart preview
+    // Decrement by 1 tick (1/75 second) - restarts playback from new IN (SpotOn behavior)
     int64_t decrement = m_metadata.sampleRate / 75;
     m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimInSamples - decrement);
 
+    DBG("ClipEditDialog: < button clicked - New IN: " << m_metadata.trimInSamples);
+
     updateTrimInfoLabel();
 
+    // Update waveform display (visual only, doesn't trigger callback)
     if (m_waveformDisplay) {
       m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
     }
 
-    // Restart preview for instant audition
+    // CRITICAL: Update trim points AND force restart (< > buttons ALWAYS restart for rapid
+    // audition)
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-      m_previewPlayer->stop(); // Stop first to force restart
-      m_previewPlayer->play(); // Restart from new IN point
+      // Force restart from new IN point (rapid audition feature)
+      if (m_previewPlayer->isPlaying()) {
+        m_previewPlayer->play(); // Seamless restart
+
+        // NOTE: No need to check if playhead < IN, because play() already restarts from IN
+      }
     }
   };
   addAndMakeVisible(m_trimInDecButton.get());
 
   m_trimInIncButton = std::make_unique<juce::TextButton>(">");
   m_trimInIncButton->onClick = [this]() {
-    // Increment by 1 tick (1/75 second) and restart preview
+    // Increment by 1 tick (1/75 second) - restarts playback from new IN (SpotOn behavior)
     int64_t increment = m_metadata.sampleRate / 75;
     m_metadata.trimInSamples = std::min(m_metadata.trimOutSamples - (m_metadata.sampleRate / 75),
                                         m_metadata.trimInSamples + increment);
 
+    DBG("ClipEditDialog: > button clicked - New IN: " << m_metadata.trimInSamples);
+
     updateTrimInfoLabel();
 
+    // Update waveform display (visual only, doesn't trigger callback)
     if (m_waveformDisplay) {
       m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
     }
 
-    // Restart preview for instant audition
+    // CRITICAL: Update trim points AND force restart (< > buttons ALWAYS restart for rapid
+    // audition)
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-      m_previewPlayer->stop(); // Stop first to force restart
-      m_previewPlayer->play(); // Restart from new IN point
+      // Force restart from new IN point (rapid audition feature)
+      if (m_previewPlayer->isPlaying()) {
+        m_previewPlayer->play(); // Seamless restart
+      }
     }
   };
   addAndMakeVisible(m_trimInIncButton.get());
 
-  // HOLD button for IN point (capture current playback position - SpotOn-inspired)
-  m_trimInHoldButton = std::make_unique<juce::TextButton>("HOLD");
+  // SET button for IN point (capture current playback position - SpotOn-inspired)
+  m_trimInHoldButton = std::make_unique<juce::TextButton>("SET");
   m_trimInHoldButton->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff3498db)); // Blue
   m_trimInHoldButton->onClick = [this]() {
     if (m_previewPlayer) {
       int64_t currentPos = m_previewPlayer->getCurrentPosition();
 
-      // Validate: IN must be < OUT
+      // Enforce edit law: IN must be < OUT
       if (currentPos >= m_metadata.trimOutSamples) {
         currentPos = std::max(int64_t(0), m_metadata.trimOutSamples - (m_metadata.sampleRate / 75));
       }
@@ -624,15 +821,13 @@ void ClipEditDialog::buildPhase2UI() {
       m_metadata.trimInSamples = currentPos;
       updateTrimInfoLabel();
 
+      // CRITICAL: ONLY update waveform, which will trigger onTrimPointsChanged callback
+      // That callback handles preview player update (prevents double restart)
       if (m_waveformDisplay) {
         m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
       }
 
-      // Update preview player and restart
-      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-      m_previewPlayer->play();
-
-      DBG("ClipEditDialog: HOLD - Set IN point to current position " << currentPos);
+      DBG("ClipEditDialog: SET - Set IN point to current position " << currentPos);
     }
   };
   addAndMakeVisible(m_trimInHoldButton.get());
@@ -665,6 +860,7 @@ void ClipEditDialog::buildPhase2UI() {
   // Time editor (MM:SS:FF - SpotOn format, 75fps)
   m_trimOutTimeEditor = std::make_unique<juce::TextEditor>();
   m_trimOutTimeEditor->setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
+  m_trimOutTimeEditor->setJustification(juce::Justification::centredLeft); // Vertically center text
   m_trimOutTimeEditor->setText("00:00:00", false);
   m_trimOutTimeEditor->onReturnKey = [this]() {
     int64_t newOutPoint =
@@ -686,6 +882,16 @@ void ClipEditDialog::buildPhase2UI() {
     // Update preview player
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+
+      // CRITICAL: If playhead is now past new OUT point, clamp it back to OUT
+      if (m_previewPlayer->isPlaying()) {
+        int64_t currentPos = m_previewPlayer->getCurrentPosition();
+        if (currentPos > m_metadata.trimOutSamples) {
+          m_previewPlayer->jumpTo(m_metadata.trimOutSamples);
+          DBG("ClipEditDialog: Playhead was past new OUT point - clamped to "
+              << m_metadata.trimOutSamples);
+        }
+      }
     }
   };
   addAndMakeVisible(m_trimOutTimeEditor.get());
@@ -698,6 +904,8 @@ void ClipEditDialog::buildPhase2UI() {
     m_metadata.trimOutSamples = std::max(m_metadata.trimInSamples + (m_metadata.sampleRate / 75),
                                          m_metadata.trimOutSamples - decrement);
 
+    DBG("ClipEditDialog: OUT < button clicked - New OUT: " << m_metadata.trimOutSamples);
+
     updateTrimInfoLabel();
 
     if (m_waveformDisplay) {
@@ -707,6 +915,17 @@ void ClipEditDialog::buildPhase2UI() {
     // Update preview player trim points WITHOUT restarting playback
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+
+      // CRITICAL: If playhead is now past new OUT point, clamp it back to OUT
+      // This ensures edit law enforcement (playhead must be <= OUT) when trimming during playback
+      if (m_previewPlayer->isPlaying()) {
+        int64_t currentPos = m_previewPlayer->getCurrentPosition();
+        if (currentPos > m_metadata.trimOutSamples) {
+          m_previewPlayer->jumpTo(m_metadata.trimOutSamples);
+          DBG("ClipEditDialog: Playhead was past new OUT point - clamped to "
+              << m_metadata.trimOutSamples);
+        }
+      }
     }
   };
   addAndMakeVisible(m_trimOutDecButton.get());
@@ -718,6 +937,8 @@ void ClipEditDialog::buildPhase2UI() {
     m_metadata.trimOutSamples =
         std::min(m_metadata.durationSamples, m_metadata.trimOutSamples + increment);
 
+    DBG("ClipEditDialog: OUT > button clicked - New OUT: " << m_metadata.trimOutSamples);
+
     updateTrimInfoLabel();
 
     if (m_waveformDisplay) {
@@ -727,19 +948,22 @@ void ClipEditDialog::buildPhase2UI() {
     // Update preview player trim points WITHOUT restarting playback
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+
+      // NOTE: Incrementing OUT point extends the range, so playhead cannot be past new OUT
+      // No need to clamp playhead when extending OUT range
     }
   };
   addAndMakeVisible(m_trimOutIncButton.get());
 
-  // HOLD button for OUT point (capture current playback position - SpotOn-inspired)
-  m_trimOutHoldButton = std::make_unique<juce::TextButton>("HOLD");
+  // SET button for OUT point (capture current playback position - SpotOn-inspired)
+  m_trimOutHoldButton = std::make_unique<juce::TextButton>("SET");
   m_trimOutHoldButton->setColour(juce::TextButton::buttonColourId,
                                  juce::Colour(0xff3498db)); // Blue
   m_trimOutHoldButton->onClick = [this]() {
     if (m_previewPlayer) {
       int64_t currentPos = m_previewPlayer->getCurrentPosition();
 
-      // Validate: OUT must be > IN
+      // Enforce edit law: OUT must be > IN
       if (currentPos <= m_metadata.trimInSamples) {
         currentPos = std::min(m_metadata.durationSamples,
                               m_metadata.trimInSamples + (m_metadata.sampleRate / 75));
@@ -755,7 +979,7 @@ void ClipEditDialog::buildPhase2UI() {
       // Update preview player (no restart needed for OUT point)
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
-      DBG("ClipEditDialog: HOLD - Set OUT point to current position " << currentPos);
+      DBG("ClipEditDialog: SET - Set OUT point to current position " << currentPos);
     }
   };
   addAndMakeVisible(m_trimOutHoldButton.get());
@@ -961,6 +1185,15 @@ void ClipEditDialog::paint(juce::Graphics& g) {
   // Dark background
   g.fillAll(juce::Colour(0xff1a1a1a));
 
+  // Styled outer border (professional 2px with subtle highlight)
+  auto bounds = getLocalBounds().toFloat();
+  g.setColour(juce::Colour(0xff3498db).withAlpha(0.6f)); // Blue accent
+  g.drawRoundedRectangle(bounds.reduced(1.0f), 6.0f, 2.0f);
+
+  // Inner shadow/depth effect
+  g.setColour(juce::Colours::black.withAlpha(0.3f));
+  g.drawRoundedRectangle(bounds.reduced(3.0f), 4.0f, 1.0f);
+
   // Title bar
   g.setColour(juce::Colour(0xff252525));
   g.fillRect(0, 0, getWidth(), 50);
@@ -992,33 +1225,52 @@ void ClipEditDialog::resized() {
   if (m_waveformDisplay) {
     m_waveformDisplay->setBounds(contentArea.removeFromTop(GRID * 15)); // Larger waveform
   }
+  contentArea.removeFromTop(GRID / 2); // Small spacing before zoom buttons
+
+  // === ZOOM CONTROLS (+/- buttons with level display, centered below waveform) ===
+  if (m_zoomOutButton && m_zoomLabel && m_zoomInButton) {
+    auto zoomRow = contentArea.removeFromTop(GRID * 3);
+    auto zoomCenter = zoomRow.withSizeKeepingCentre(GRID * 12, GRID * 3);
+
+    m_zoomOutButton->setBounds(zoomCenter.removeFromLeft(GRID * 3));
+    zoomCenter.removeFromLeft(GRID / 2);
+    m_zoomLabel->setBounds(zoomCenter.removeFromLeft(GRID * 5));
+    zoomCenter.removeFromLeft(GRID / 2);
+    m_zoomInButton->setBounds(zoomCenter.removeFromLeft(GRID * 3));
+  }
   contentArea.removeFromTop(GRID);
 
-  // === TRANSPORT BAR (Prominent, centered like SpotOn) ===
-  if (m_playButton && m_stopButton && m_loopButton && m_transportPositionLabel) {
-    auto transportRow = contentArea.removeFromTop(GRID * 4);
-    auto transportCenter = transportRow.withSizeKeepingCentre(GRID * 40, GRID * 4);
+  // === TRANSPORT BAR (Professional, SpotOn-inspired with icons) ===
+  if (m_skipToStartButton && m_playButton && m_stopButton && m_skipToEndButton && m_loopButton &&
+      m_transportPositionLabel) {
+    auto transportRow = contentArea.removeFromTop(GRID * 6); // Increased height for label
 
-    // Rewind button placeholder (left)
-    auto rewindArea = transportCenter.removeFromLeft(GRID * 5);
+    // Transport buttons (top row)
+    auto buttonRow = transportRow.removeFromTop(GRID * 4);
+    auto transportCenter = buttonRow.withSizeKeepingCentre(GRID * 35, GRID * 4);
+
+    // Skip to Start button (◄◄)
+    m_skipToStartButton->setBounds(transportCenter.removeFromLeft(GRID * 4));
+    transportCenter.removeFromLeft(GRID);
 
     // Loop button
     m_loopButton->setBounds(transportCenter.removeFromLeft(GRID * 6));
     transportCenter.removeFromLeft(GRID);
 
-    // Play button (larger, prominent)
-    m_playButton->setBounds(transportCenter.removeFromLeft(GRID * 7));
+    // Play button (►) - larger, prominent
+    m_playButton->setBounds(transportCenter.removeFromLeft(GRID * 6));
     transportCenter.removeFromLeft(GRID);
 
-    // Stop button
-    m_stopButton->setBounds(transportCenter.removeFromLeft(GRID * 7));
+    // Stop button (■)
+    m_stopButton->setBounds(transportCenter.removeFromLeft(GRID * 6));
     transportCenter.removeFromLeft(GRID);
 
-    // Fast forward placeholder (right)
-    auto ffArea = transportCenter.removeFromLeft(GRID * 5);
+    // Skip to End button (►►)
+    m_skipToEndButton->setBounds(transportCenter.removeFromLeft(GRID * 4));
 
-    // Transport position label (centered below)
-    m_transportPositionLabel->setBounds(transportRow.withSizeKeepingCentre(GRID * 15, GRID * 3));
+    // Transport position label (centered below buttons)
+    auto labelRow = transportRow.removeFromTop(GRID * 2);
+    m_transportPositionLabel->setBounds(labelRow.withSizeKeepingCentre(GRID * 15, GRID * 2));
   }
   contentArea.removeFromTop(GRID);
 
@@ -1040,9 +1292,10 @@ void ClipEditDialog::resized() {
 
     trimInCol.removeFromTop(GRID / 2);
     auto trimInButtonRow = trimInCol.removeFromTop(GRID * 3);
-    m_trimInClearButton->setBounds(trimInButtonRow.removeFromLeft(GRID * 5));
+    m_trimInHoldButton->setBounds(
+        trimInButtonRow.removeFromLeft(GRID * 5)); // SET button first (visual priority)
     trimInButtonRow.removeFromLeft(GRID);
-    m_trimInHoldButton->setBounds(trimInButtonRow.removeFromLeft(GRID * 5));
+    m_trimInClearButton->setBounds(trimInButtonRow.removeFromLeft(GRID * 5));
   }
 
   trimSection.removeFromLeft(GRID * 2); // Column spacing
@@ -1062,9 +1315,10 @@ void ClipEditDialog::resized() {
 
     trimOutCol.removeFromTop(GRID / 2);
     auto trimOutButtonRow = trimOutCol.removeFromTop(GRID * 3);
-    m_trimOutClearButton->setBounds(trimOutButtonRow.removeFromLeft(GRID * 5));
+    m_trimOutHoldButton->setBounds(
+        trimOutButtonRow.removeFromLeft(GRID * 5)); // SET button first (visual priority)
     trimOutButtonRow.removeFromLeft(GRID);
-    m_trimOutHoldButton->setBounds(trimOutButtonRow.removeFromLeft(GRID * 5));
+    m_trimOutClearButton->setBounds(trimOutButtonRow.removeFromLeft(GRID * 5));
   }
 
   contentArea.removeFromTop(GRID);
@@ -1127,16 +1381,79 @@ void ClipEditDialog::resized() {
 
 //==============================================================================
 bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
+  // ENTER key: Submit dialog (OK)
+  if (key == juce::KeyPress::returnKey ||
+      key == juce::KeyPress(juce::KeyPress::returnKey, juce::ModifierKeys(), 0)) {
+    if (onOkClicked)
+      onOkClicked(m_metadata);
+    return true;
+  }
+
+  // ESC key: Cancel dialog
+  if (key == juce::KeyPress::escapeKey) {
+    if (onCancelClicked)
+      onCancelClicked();
+    return true;
+  }
+
   // Keyboard shortcuts (SpotOn-inspired accessibility)
-  // I = Set IN point (at current transport position, for now use middle of visible region)
-  // O = Set OUT point (at current transport position, for now use middle of visible region)
-  // J = Jump transport (at current transport position, not yet implemented)
-  // [ = Nudge IN point left (-1 tick)
-  // ] = Nudge IN point right (+1 tick)
-  // { = Nudge OUT point left (-1 tick)
-  // } = Nudge OUT point right (+1 tick)
+  //
+  // TRIM POINTS:
+  //   I = Set IN point (at current transport position)
+  //   O = Set OUT point (at current transport position)
+  //   J = Jump transport (not yet implemented)
+  //   [ = Nudge IN point left (-1 tick)
+  //   ] = Nudge IN point right (+1 tick)
+  //   Shift+[ = Nudge OUT point left (-1 tick)
+  //   Shift+] = Nudge OUT point right (+1 tick)
+  //   Option+[ / Shift+Option+[ = Jump by 1 second (IN or OUT)
+  //   Option+] / Shift+Option+] = Jump by 1 second (IN or OUT)
+  //
+  // WAVEFORM ZOOM:
+  //   Cmd/Ctrl + Plus = Zoom in (1x → 2x → 4x → 8x)
+  //   Cmd/Ctrl + Minus = Zoom out (8x → 4x → 2x → 1x)
+  //
+  // FADE TIMES:
+  //   Cmd/Ctrl + 1-5 = Set OUT fade time (0.1s, 0.2s, 0.3s, 0.5s, 1.0s)
+  //   Opt+Cmd/Ctrl + 1-5 = Set IN fade time (0.1s, 0.2s, 0.3s, 0.5s, 1.0s)
 
   int64_t tickInSamples = m_metadata.sampleRate / 75;
+  int64_t oneSecondInSamples = m_metadata.sampleRate;
+
+  // Zoom keyboard shortcuts: Cmd/Ctrl +/- (must check BEFORE +/- alone)
+  if ((key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown()) &&
+      (key == juce::KeyPress('+') || key == juce::KeyPress('='))) {
+    // Zoom In (Cmd/Ctrl +)
+    int currentLevel = m_waveformDisplay->getZoomLevel();
+    if (currentLevel < 4) { // Max zoom level is 4 (16x)
+      int64_t playheadPos = m_previewPlayer ? m_previewPlayer->getCurrentPosition() : 0;
+      float playheadNormalized = 0.5f;
+      if (m_metadata.durationSamples > 0) {
+        playheadNormalized = static_cast<float>(playheadPos) / m_metadata.durationSamples;
+      }
+      m_waveformDisplay->setZoomLevel(currentLevel + 1, playheadNormalized);
+      updateZoomLabel();
+      DBG("ClipEditDialog: Cmd/Ctrl+Plus - Zoom in to level " << (currentLevel + 1));
+    }
+    return true;
+  }
+
+  if ((key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown()) &&
+      key == juce::KeyPress('-')) {
+    // Zoom Out (Cmd/Ctrl -)
+    int currentLevel = m_waveformDisplay->getZoomLevel();
+    if (currentLevel > 0) {
+      int64_t playheadPos = m_previewPlayer ? m_previewPlayer->getCurrentPosition() : 0;
+      float playheadNormalized = 0.5f;
+      if (m_metadata.durationSamples > 0) {
+        playheadNormalized = static_cast<float>(playheadPos) / m_metadata.durationSamples;
+      }
+      m_waveformDisplay->setZoomLevel(currentLevel - 1, playheadNormalized);
+      updateZoomLabel();
+      DBG("ClipEditDialog: Cmd/Ctrl+Minus - Zoom out to level " << (currentLevel - 1));
+    }
+    return true;
+  }
 
   // I key: Set IN point to current preview playback position
   if (key == juce::KeyPress('i') || key == juce::KeyPress('I')) {
@@ -1145,12 +1462,13 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
       m_metadata.trimInSamples =
           std::clamp(currentPos, int64_t(0), m_metadata.trimOutSamples - tickInSamples);
       updateTrimInfoLabel();
+
+      // CRITICAL: ONLY update waveform, which triggers onTrimPointsChanged callback
+      // That callback handles preview player update and restart (prevents double restart)
       if (m_waveformDisplay) {
         m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
       }
-      // Update preview player and restart from new IN point
-      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-      m_previewPlayer->play();
+
       DBG("ClipEditDialog: 'I' key - Set IN point to sample " << m_metadata.trimInSamples);
     }
     return true;
@@ -1163,11 +1481,13 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
       m_metadata.trimOutSamples = std::clamp(currentPos, m_metadata.trimInSamples + tickInSamples,
                                              m_metadata.durationSamples);
       updateTrimInfoLabel();
+
+      // CRITICAL: ONLY update waveform, which triggers onTrimPointsChanged callback
+      // That callback handles preview player update (prevents double call)
       if (m_waveformDisplay) {
         m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
       }
-      // Update preview player (no restart needed for OUT point)
-      m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+
       DBG("ClipEditDialog: 'O' key - Set OUT point to sample " << m_metadata.trimOutSamples);
     }
     return true;
@@ -1179,50 +1499,200 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
     return true;
   }
 
-  // [ key: Nudge IN point left (-1 tick)
-  if (key == juce::KeyPress('[')) {
-    m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimInSamples - tickInSamples);
-    updateTrimInfoLabel();
-    if (m_waveformDisplay) {
-      m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+  // Number keys with Cmd/Ctrl: Set OUT fade time (0.1-1.0s)
+  // Number keys with Opt+Cmd/Ctrl: Set IN fade time (0.1-1.0s)
+  // Mapping: 1=0.1s, 2=0.2s, 3=0.3s, 4=0.5s, 5=1.0s
+  if (key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown()) {
+    char keyChar = key.getTextCharacter();
+    bool isAlt = key.getModifiers().isAltDown();
+    double fadeTime = -1.0;
+
+    // Map number keys to fade times
+    if (keyChar >= '1' && keyChar <= '5') {
+      switch (keyChar) {
+      case '1':
+        fadeTime = 0.1;
+        break;
+      case '2':
+        fadeTime = 0.2;
+        break;
+      case '3':
+        fadeTime = 0.3;
+        break;
+      case '4':
+        fadeTime = 0.5;
+        break;
+      case '5':
+        fadeTime = 1.0;
+        break;
+      }
+
+      if (fadeTime >= 0.0) {
+        if (isAlt) {
+          // Opt+Cmd/Ctrl+N: Set IN fade time
+          m_metadata.fadeInSeconds = fadeTime;
+          // Update UI combo box
+          if (m_fadeInCombo) {
+            if (fadeTime <= 0.05)
+              m_fadeInCombo->setSelectedId(1, juce::dontSendNotification);
+            else if (fadeTime <= 0.15)
+              m_fadeInCombo->setSelectedId(2, juce::dontSendNotification);
+            else if (fadeTime <= 0.25)
+              m_fadeInCombo->setSelectedId(3, juce::dontSendNotification);
+            else if (fadeTime <= 0.4)
+              m_fadeInCombo->setSelectedId(4, juce::dontSendNotification);
+            else if (fadeTime <= 0.75)
+              m_fadeInCombo->setSelectedId(5, juce::dontSendNotification);
+            else if (fadeTime <= 1.25)
+              m_fadeInCombo->setSelectedId(6, juce::dontSendNotification);
+          }
+          // Update preview player
+          if (m_previewPlayer) {
+            m_previewPlayer->setFades(m_metadata.fadeInSeconds, m_metadata.fadeOutSeconds,
+                                      m_metadata.fadeInCurve, m_metadata.fadeOutCurve);
+          }
+          DBG("ClipEditDialog: Opt+Cmd/Ctrl+" << keyChar << " - Set IN fade to " << fadeTime
+                                              << "s");
+        } else {
+          // Cmd/Ctrl+N: Set OUT fade time
+          m_metadata.fadeOutSeconds = fadeTime;
+          // Update UI combo box
+          if (m_fadeOutCombo) {
+            if (fadeTime <= 0.05)
+              m_fadeOutCombo->setSelectedId(1, juce::dontSendNotification);
+            else if (fadeTime <= 0.15)
+              m_fadeOutCombo->setSelectedId(2, juce::dontSendNotification);
+            else if (fadeTime <= 0.25)
+              m_fadeOutCombo->setSelectedId(3, juce::dontSendNotification);
+            else if (fadeTime <= 0.4)
+              m_fadeOutCombo->setSelectedId(4, juce::dontSendNotification);
+            else if (fadeTime <= 0.75)
+              m_fadeOutCombo->setSelectedId(5, juce::dontSendNotification);
+            else if (fadeTime <= 1.25)
+              m_fadeOutCombo->setSelectedId(6, juce::dontSendNotification);
+          }
+          // Update preview player
+          if (m_previewPlayer) {
+            m_previewPlayer->setFades(m_metadata.fadeInSeconds, m_metadata.fadeOutSeconds,
+                                      m_metadata.fadeInCurve, m_metadata.fadeOutCurve);
+          }
+          DBG("ClipEditDialog: Cmd/Ctrl+" << keyChar << " - Set OUT fade to " << fadeTime << "s");
+        }
+        return true;
+      }
     }
-    DBG("ClipEditDialog: '[' key - Nudged IN point left to sample " << m_metadata.trimInSamples);
+  }
+
+  // [ key: Nudge IN or OUT point left
+  // Option modifier: jump by 1 SECOND instead of 1 tick
+  // Shift modifier: control OUT point instead of IN point
+  if (key == juce::KeyPress('[') || key == juce::KeyPress('{')) {
+    bool isShift = key.getModifiers().isShiftDown() || key == juce::KeyPress('{');
+    bool isOption = key.getModifiers().isAltDown();
+    int64_t jumpAmount = isOption ? oneSecondInSamples : tickInSamples;
+
+    if (isShift) {
+      // Control OUT point (Shift+[)
+      m_metadata.trimOutSamples = std::max(m_metadata.trimInSamples + tickInSamples,
+                                           m_metadata.trimOutSamples - jumpAmount);
+      updateTrimInfoLabel();
+      if (m_waveformDisplay) {
+        m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+      }
+      if (m_previewPlayer) {
+        m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+
+        // CRITICAL: If playhead is now past new OUT point, clamp it back to OUT
+        if (m_previewPlayer->isPlaying()) {
+          int64_t currentPos = m_previewPlayer->getCurrentPosition();
+          if (currentPos > m_metadata.trimOutSamples) {
+            m_previewPlayer->jumpTo(m_metadata.trimOutSamples);
+            DBG("ClipEditDialog: Playhead was past new OUT point - clamped to "
+                << m_metadata.trimOutSamples);
+          }
+        }
+      }
+      DBG("ClipEditDialog: Shift+[ - Nudged OUT point left by "
+          << (isOption ? "1 second" : "1 tick") << " to sample " << m_metadata.trimOutSamples);
+    } else {
+      // Control IN point ([)
+      m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimInSamples - jumpAmount);
+      // Enforce edit law: IN < OUT
+      if (m_metadata.trimInSamples >= m_metadata.trimOutSamples) {
+        m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimOutSamples - tickInSamples);
+      }
+      updateTrimInfoLabel();
+      if (m_waveformDisplay) {
+        m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+      }
+      // IN point changes restart playback from new IN
+      if (m_previewPlayer) {
+        m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+
+        // NOTE: Decrementing IN extends range to the left, playhead cannot be before new IN
+        // No need to clamp
+      }
+      DBG("ClipEditDialog: [ - Nudged IN point left by "
+          << (isOption ? "1 second" : "1 tick") << " to sample " << m_metadata.trimInSamples);
+    }
     return true;
   }
 
-  // ] key: Nudge IN point right (+1 tick)
-  if (key == juce::KeyPress(']')) {
-    m_metadata.trimInSamples =
-        std::min(m_metadata.trimOutSamples, m_metadata.trimInSamples + tickInSamples);
-    updateTrimInfoLabel();
-    if (m_waveformDisplay) {
-      m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-    }
-    DBG("ClipEditDialog: ']' key - Nudged IN point right to sample " << m_metadata.trimInSamples);
-    return true;
-  }
+  // ] key: Nudge IN or OUT point right
+  // Option modifier: jump by 1 SECOND instead of 1 tick
+  // Shift modifier: control OUT point instead of IN point
+  if (key == juce::KeyPress(']') || key == juce::KeyPress('}')) {
+    bool isShift = key.getModifiers().isShiftDown() || key == juce::KeyPress('}');
+    bool isOption = key.getModifiers().isAltDown();
+    int64_t jumpAmount = isOption ? oneSecondInSamples : tickInSamples;
 
-  // { key (Shift+[): Nudge OUT point left (-1 tick)
-  if (key == juce::KeyPress('{')) {
-    m_metadata.trimOutSamples =
-        std::max(m_metadata.trimInSamples, m_metadata.trimOutSamples - tickInSamples);
-    updateTrimInfoLabel();
-    if (m_waveformDisplay) {
-      m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
-    }
-    DBG("ClipEditDialog: '{' key - Nudged OUT point left to sample " << m_metadata.trimOutSamples);
-    return true;
-  }
+    if (isShift) {
+      // Control OUT point (Shift+])
+      m_metadata.trimOutSamples =
+          std::min(m_metadata.durationSamples, m_metadata.trimOutSamples + jumpAmount);
+      // Enforce edit law: OUT > IN
+      if (m_metadata.trimOutSamples <= m_metadata.trimInSamples) {
+        m_metadata.trimOutSamples =
+            std::min(m_metadata.durationSamples, m_metadata.trimInSamples + tickInSamples);
+      }
+      updateTrimInfoLabel();
+      if (m_waveformDisplay) {
+        m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+      }
+      if (m_previewPlayer) {
+        m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+      }
+      DBG("ClipEditDialog: Shift+] - Nudged OUT point right by "
+          << (isOption ? "1 second" : "1 tick") << " to sample " << m_metadata.trimOutSamples);
+    } else {
+      // Control IN point (])
+      m_metadata.trimInSamples = std::min(m_metadata.trimOutSamples - tickInSamples,
+                                          m_metadata.trimInSamples + jumpAmount);
+      // Enforce edit law: IN < OUT
+      if (m_metadata.trimInSamples >= m_metadata.trimOutSamples) {
+        m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimOutSamples - tickInSamples);
+      }
+      updateTrimInfoLabel();
+      if (m_waveformDisplay) {
+        m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+      }
+      // IN point changes restart playback from new IN
+      if (m_previewPlayer) {
+        m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
-  // } key (Shift+]): Nudge OUT point right (+1 tick)
-  if (key == juce::KeyPress('}')) {
-    m_metadata.trimOutSamples =
-        std::min(m_metadata.durationSamples, m_metadata.trimOutSamples + tickInSamples);
-    updateTrimInfoLabel();
-    if (m_waveformDisplay) {
-      m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+        // CRITICAL: If playhead is now before new IN point, clamp it forward to IN
+        if (m_previewPlayer->isPlaying()) {
+          int64_t currentPos = m_previewPlayer->getCurrentPosition();
+          if (currentPos < m_metadata.trimInSamples) {
+            m_previewPlayer->jumpTo(m_metadata.trimInSamples);
+            DBG("ClipEditDialog: Playhead was before new IN point - clamped to "
+                << m_metadata.trimInSamples);
+          }
+        }
+      }
+      DBG("ClipEditDialog: ] - Nudged IN point right by "
+          << (isOption ? "1 second" : "1 tick") << " to sample " << m_metadata.trimInSamples);
     }
-    DBG("ClipEditDialog: '}' key - Nudged OUT point right to sample " << m_metadata.trimOutSamples);
     return true;
   }
 
