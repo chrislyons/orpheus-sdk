@@ -336,6 +336,24 @@ void ClipEditDialog::updateZoomLabel() {
   }
 }
 
+void ClipEditDialog::enforceOutPointEditLaw() {
+  // EDIT LAW: If OUT point is set to <= playhead position, jump playhead to IN and restart
+  // This prevents playback from escaping the OUT boundary
+  // The interruption is acceptable in an edit scenario - we guarantee playback never occurs >= OUT
+
+  if (!m_previewPlayer || !m_previewPlayer->isPlaying())
+    return; // Only enforce during playback
+
+  int64_t currentPos = m_previewPlayer->getCurrentPosition();
+
+  if (currentPos >= m_metadata.trimOutSamples) {
+    // Playhead is at or past new OUT point - jump to IN and restart
+    m_previewPlayer->play(); // Restarts from IN point
+    DBG("ClipEditDialog: OUT point edit law enforced - playhead was >= OUT ("
+        << currentPos << " >= " << m_metadata.trimOutSamples << "), jumped to IN and restarted");
+  }
+}
+
 //==============================================================================
 void ClipEditDialog::buildPhase1UI() {
   // Clip Name
@@ -945,15 +963,8 @@ void ClipEditDialog::buildPhase2UI() {
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
-      // CRITICAL: If playhead is now past new OUT point, clamp it back to OUT
-      if (m_previewPlayer->isPlaying()) {
-        int64_t currentPos = m_previewPlayer->getCurrentPosition();
-        if (currentPos > m_metadata.trimOutSamples) {
-          m_previewPlayer->jumpTo(m_metadata.trimOutSamples);
-          DBG("ClipEditDialog: Playhead was past new OUT point - clamped to "
-              << m_metadata.trimOutSamples);
-        }
-      }
+      // CRITICAL: Enforce OUT point edit law (if playhead >= OUT, jump to IN and restart)
+      enforceOutPointEditLaw();
     }
   };
   addAndMakeVisible(m_trimOutTimeEditor.get());
@@ -978,16 +989,8 @@ void ClipEditDialog::buildPhase2UI() {
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
-      // CRITICAL: If playhead is now past new OUT point, clamp it back to OUT
-      // This ensures edit law enforcement (playhead must be <= OUT) when trimming during playback
-      if (m_previewPlayer->isPlaying()) {
-        int64_t currentPos = m_previewPlayer->getCurrentPosition();
-        if (currentPos > m_metadata.trimOutSamples) {
-          m_previewPlayer->jumpTo(m_metadata.trimOutSamples);
-          DBG("ClipEditDialog: Playhead was past new OUT point - clamped to "
-              << m_metadata.trimOutSamples);
-        }
-      }
+      // CRITICAL: Enforce OUT point edit law (if playhead >= OUT, jump to IN and restart)
+      enforceOutPointEditLaw();
     }
   };
   addAndMakeVisible(m_trimOutDecButton.get());
@@ -1821,15 +1824,8 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
-      // CRITICAL: If playhead is now past new OUT point, clamp it back to OUT
-      if (m_previewPlayer->isPlaying()) {
-        int64_t currentPos = m_previewPlayer->getCurrentPosition();
-        if (currentPos > m_metadata.trimOutSamples) {
-          m_previewPlayer->jumpTo(m_metadata.trimOutSamples);
-          DBG("ClipEditDialog: Playhead was past new OUT point - clamped to "
-              << m_metadata.trimOutSamples);
-        }
-      }
+      // CRITICAL: Enforce OUT point edit law (if playhead >= OUT, jump to IN and restart)
+      enforceOutPointEditLaw();
     }
     DBG("ClipEditDialog: " << (isShift ? "Shift+;" : ";") << " - Nudged OUT point left by "
                            << (isShift ? "15 ticks" : "1 tick") << " to sample "

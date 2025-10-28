@@ -148,6 +148,10 @@ private:
   int64_t timeStringToSamples(const juce::String& timeStr,
                               int sampleRate); // Convert hh:mm:ss.tt to samples
 
+  // Edit Law: Enforce playhead constraints when OUT point changes
+  // If OUT is set to <= playhead, jump playhead to IN and restart
+  void enforceOutPointEditLaw();
+
   //==============================================================================
   ClipMetadata m_metadata;
   AudioEngine* m_audioEngine = nullptr; // Non-owning reference
