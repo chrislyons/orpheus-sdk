@@ -603,8 +603,10 @@ void ClipEditDialog::buildPhase2UI() {
   addAndMakeVisible(m_stopOthersButton.get());
 
   m_transportPositionLabel = std::make_unique<juce::Label>("posLabel", "00:00:00");
-  m_transportPositionLabel->setFont(juce::FontOptions("Inter", 14.0f, juce::Font::plain));
+  m_transportPositionLabel->setFont(
+      juce::FontOptions("Inter", 32.0f, juce::Font::bold)); // Issue #11: Enlarged for readability
   m_transportPositionLabel->setJustificationType(juce::Justification::centred);
+  m_transportPositionLabel->setColour(juce::Label::textColourId, juce::Colours::white);
   addAndMakeVisible(m_transportPositionLabel.get());
 
   // Wire up preview player callbacks
@@ -1293,9 +1295,11 @@ void ClipEditDialog::resized() {
     // Skip to End button (►►)
     m_skipToEndButton->setBounds(transportCenter.removeFromLeft(GRID * 4));
 
-    // Transport position label (centered below buttons)
-    auto labelRow = transportRow.removeFromTop(GRID * 2);
-    m_transportPositionLabel->setBounds(labelRow.withSizeKeepingCentre(GRID * 15, GRID * 2));
+    // Transport position label (centered below buttons) - Issue #11: Enlarged to 50px height
+    auto labelRow =
+        transportRow.removeFromTop(GRID * 5); // Was GRID * 2 (20px), now 50px for larger font
+    m_transportPositionLabel->setBounds(
+        labelRow.withSizeKeepingCentre(GRID * 20, GRID * 5)); // Wider for larger text
   }
   contentArea.removeFromTop(GRID);
 
