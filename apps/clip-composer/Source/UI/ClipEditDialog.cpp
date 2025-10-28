@@ -1756,9 +1756,14 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
     if (m_waveformDisplay) {
       m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
     }
-    // IN point changes restart playback from new IN
+    // IN point changes restart playback from new IN (same as < button behavior)
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
+
+      // Restart playback if currently playing (mirrors < > button behavior)
+      if (m_previewPlayer->isPlaying()) {
+        m_previewPlayer->play(); // Seamless restart from new IN point
+      }
     }
     DBG("ClipEditDialog: " << (isShift ? "Shift+[" : "[") << " - Nudged IN point left by "
                            << (isShift ? "15 ticks" : "1 tick") << " to sample "
@@ -1783,18 +1788,15 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
     if (m_waveformDisplay) {
       m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
     }
-    // IN point changes restart playback from new IN
+    // IN point changes restart playback from new IN (same as > button behavior)
     if (m_previewPlayer) {
       m_previewPlayer->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
-      // CRITICAL: If playhead is now before new IN point, clamp it forward to IN
+      // Restart playback if currently playing (mirrors < > button behavior)
       if (m_previewPlayer->isPlaying()) {
-        int64_t currentPos = m_previewPlayer->getCurrentPosition();
-        if (currentPos < m_metadata.trimInSamples) {
-          m_previewPlayer->jumpTo(m_metadata.trimInSamples);
-          DBG("ClipEditDialog: Playhead was before new IN point - clamped to "
-              << m_metadata.trimInSamples);
-        }
+        m_previewPlayer->play(); // Seamless restart from new IN point
+
+        // NOTE: No need to check if playhead < IN, because play() already restarts from IN
       }
     }
     DBG("ClipEditDialog: " << (isShift ? "Shift+]" : "]") << " - Nudged IN point right by "
