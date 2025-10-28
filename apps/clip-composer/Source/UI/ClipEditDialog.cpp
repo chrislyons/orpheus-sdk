@@ -684,7 +684,7 @@ void ClipEditDialog::buildPhase2UI() {
 
   // Set up waveform click handlers for LOOP functionality
   m_waveformDisplay->onLeftClick = [this](int64_t samples) {
-    // Left click: Set IN point (THREE-BUTTON MOUSE MODE only)
+    // Cmd+Click: Set IN point
     // Validate: IN must be < OUT
     int64_t newInPoint = samples;
     if (newInPoint >= m_metadata.trimOutSamples) {
@@ -698,11 +698,21 @@ void ClipEditDialog::buildPhase2UI() {
     // That callback handles preview player update (prevents double restart)
     m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
-    DBG("ClipEditDialog: Set IN point to sample " << newInPoint);
+    // Enforce edit law: If playhead < new IN, jump to IN and restart
+    if (m_previewPlayer && m_previewPlayer->isPlaying()) {
+      int64_t currentPos = m_previewPlayer->getCurrentPosition();
+      if (currentPos < m_metadata.trimInSamples) {
+        m_previewPlayer->play(); // Restarts from new IN point
+        DBG("ClipEditDialog: IN point edit law enforced - playhead was < IN ("
+            << currentPos << " < " << m_metadata.trimInSamples << "), restarted from IN");
+      }
+    }
+
+    DBG("ClipEditDialog: Cmd+Click - Set IN point to sample " << newInPoint);
   };
 
   m_waveformDisplay->onRightClick = [this](int64_t samples) {
-    // Right click: Set OUT point (THREE-BUTTON MOUSE MODE only)
+    // Cmd+Shift+Click: Set OUT point
     // Validate: OUT must be > IN
     int64_t newOutPoint = samples;
     if (newOutPoint <= m_metadata.trimInSamples) {
@@ -717,7 +727,10 @@ void ClipEditDialog::buildPhase2UI() {
     // That callback handles preview player update (prevents double restart)
     m_waveformDisplay->setTrimPoints(m_metadata.trimInSamples, m_metadata.trimOutSamples);
 
-    DBG("ClipEditDialog: Set OUT point to sample " << newOutPoint);
+    // Enforce edit law: If playhead >= new OUT, jump to IN and restart
+    enforceOutPointEditLaw();
+
+    DBG("ClipEditDialog: Cmd+Shift+Click - Set OUT point to sample " << newOutPoint);
   };
 
   m_waveformDisplay->onMiddleClick = [this](int64_t samples) {
