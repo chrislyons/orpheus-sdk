@@ -647,9 +647,14 @@ void ClipEditDialog::buildPhase2UI() {
 
   m_waveformDisplay->onMiddleClick = [this](int64_t samples) {
     // Click-to-jog: Jump transport to clicked position
+    // CRITICAL: Clamp to [IN, OUT] bounds to prevent playhead from escaping trim range
     if (m_previewPlayer) {
-      m_previewPlayer->jumpTo(samples);
-      DBG("ClipEditDialog: Click-to-jog - jumped to sample " << samples);
+      int64_t clampedSamples =
+          std::clamp(samples, m_metadata.trimInSamples, m_metadata.trimOutSamples);
+      m_previewPlayer->jumpTo(clampedSamples);
+      DBG("ClipEditDialog: Click-to-jog - jumped to sample "
+          << clampedSamples << " (clamped from " << samples << " to [" << m_metadata.trimInSamples
+          << ", " << m_metadata.trimOutSamples << "])");
     }
   };
 

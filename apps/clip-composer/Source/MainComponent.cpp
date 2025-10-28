@@ -557,11 +557,21 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
     return;
   }
 
+  // CRITICAL: Close any existing Edit Dialog before opening a new one
+  // This prevents multiple dialogs from stacking and causing state corruption
+  if (m_currentEditDialog != nullptr) {
+    DBG("MainComponent: Closing existing Edit Dialog before opening new one");
+    m_currentEditDialog->setVisible(false);
+    delete m_currentEditDialog;
+    m_currentEditDialog = nullptr;
+  }
+
   // Get clip metadata from SessionManager
   auto clipData = m_sessionManager.getClip(buttonIndex);
 
   // Create edit dialog (pass AudioEngine and buttonIndex for main grid clip control)
   auto* dialog = new ClipEditDialog(m_audioEngine.get(), buttonIndex);
+  m_currentEditDialog = dialog; // Track current dialog
 
   // Convert SessionManager::ClipData to ClipEditDialog::ClipMetadata
   ClipEditDialog::ClipMetadata metadata;
@@ -658,15 +668,17 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
         << " Fade: [" << clipData.fadeInSeconds << "s " << clipData.fadeInCurve << ", "
         << clipData.fadeOutSeconds << "s " << clipData.fadeOutCurve << "]");
 
-    // Close dialog
+    // Close dialog and clear reference
     dialog->setVisible(false);
     delete dialog;
+    m_currentEditDialog = nullptr; // Clear reference to allow new dialog
   };
 
-  dialog->onCancelClicked = [dialog]() {
+  dialog->onCancelClicked = [this, dialog]() {
     // Close dialog without saving
     dialog->setVisible(false);
     delete dialog;
+    m_currentEditDialog = nullptr; // Clear reference to allow new dialog
   };
 
   // Show dialog as modal
