@@ -454,11 +454,30 @@ void MainComponent::onClipRightClicked(int buttonIndex) {
     } else if (result == 4) {
       // Toggle "stop others on play" mode
       m_stopOthersOnPlay[buttonIndex] = !m_stopOthersOnPlay[buttonIndex];
+
+      // CRITICAL: Persist to SessionManager
+      if (m_sessionManager.hasClip(buttonIndex)) {
+        auto clipData = m_sessionManager.getClip(buttonIndex);
+        clipData.stopOthersEnabled = m_stopOthersOnPlay[buttonIndex];
+        m_sessionManager.setClip(buttonIndex, clipData);
+      }
+
+      // Update button visual state
+      auto button = m_clipGrid->getButton(buttonIndex);
+      if (button) {
+        button->setStopOthersEnabled(m_stopOthersOnPlay[buttonIndex]);
+      }
+
       DBG("Button " << buttonIndex << ": Stop others on play = "
                     << (m_stopOthersOnPlay[buttonIndex] ? "ON" : "OFF"));
     } else if (result == 7 && hasClip) {
       // Toggle loop mode
       m_loopEnabled[buttonIndex] = !m_loopEnabled[buttonIndex];
+
+      // CRITICAL: Persist to SessionManager
+      auto clipData = m_sessionManager.getClip(buttonIndex);
+      clipData.loopEnabled = m_loopEnabled[buttonIndex];
+      m_sessionManager.setClip(buttonIndex, clipData);
 
       // Sync to AudioEngine (CRITICAL: Must update SDK loop state!)
       if (m_audioEngine) {
@@ -625,6 +644,7 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
 
   // Sprint 2: Loop state (sync from MainComponent's internal state)
   metadata.loopEnabled = m_loopEnabled[buttonIndex];
+  metadata.stopOthersEnabled = m_stopOthersOnPlay[buttonIndex];
 
   dialog->setClipMetadata(metadata);
 
@@ -645,6 +665,10 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
     clipData.fadeOutSeconds = edited.fadeOutSeconds;
     clipData.fadeInCurve = edited.fadeInCurve.toStdString();
     clipData.fadeOutCurve = edited.fadeOutCurve.toStdString();
+
+    // CRITICAL: Persist loop and stopOthers state
+    clipData.loopEnabled = edited.loopEnabled;
+    clipData.stopOthersEnabled = edited.stopOthersEnabled;
 
     // Persist to SessionManager
     m_sessionManager.setClip(buttonIndex, clipData);
