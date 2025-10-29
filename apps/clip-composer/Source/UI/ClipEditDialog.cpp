@@ -211,6 +211,13 @@ void ClipEditDialog::setClipMetadata(const ClipMetadata& metadata) {
     else if (m_metadata.fadeOutCurve == "Exponential")
       m_fadeOutCurveCombo->setSelectedId(3, juce::dontSendNotification);
   }
+
+  // Feature 5: Initialize gain slider
+  if (m_gainSlider) {
+    m_gainSlider->setValue(m_metadata.gainDb, juce::dontSendNotification);
+    m_gainValueLabel->setText(juce::String(m_metadata.gainDb, 1) + " dB",
+                              juce::dontSendNotification);
+  }
 }
 
 juce::String ClipEditDialog::samplesToTimeString(int64_t samples, int sampleRate) {
@@ -1051,6 +1058,45 @@ void ClipEditDialog::buildPhase2UI() {
   m_fileInfoPanel->setColour(juce::Label::backgroundColourId, juce::Colour(0xfffff4cc)); // Yellow
   m_fileInfoPanel->setColour(juce::Label::textColourId, juce::Colours::black);
   addAndMakeVisible(m_fileInfoPanel.get());
+
+  // Gain Control (Feature 5: -30dB to +10dB, default 0dB)
+  m_gainLabel = std::make_unique<juce::Label>("gainLabel", "Gain:");
+  m_gainLabel->setFont(juce::FontOptions("Inter", 14.0f, juce::Font::bold));
+  addAndMakeVisible(m_gainLabel.get());
+
+  m_gainSlider =
+      std::make_unique<juce::Slider>(juce::Slider::LinearHorizontal, juce::Slider::NoTextBox);
+  m_gainSlider->setRange(-30.0, 10.0, 1.0); // -30dB to +10dB in 1dB steps
+  m_gainSlider->setValue(0.0);              // Default 0dB
+  m_gainSlider->onValueChange = [this]() {
+    // Update gain value label
+    double gain = m_gainSlider->getValue();
+    m_gainValueLabel->setText(juce::String(gain, 1) + " dB", juce::dontSendNotification);
+
+    // Update metadata
+    m_metadata.gainDb = gain;
+
+    // TODO (User note): Wire to AudioEngine gain attenuation
+  };
+  addAndMakeVisible(m_gainSlider.get());
+
+  m_gainValueLabel = std::make_unique<juce::Label>("gainValueLabel", "0.0 dB");
+  m_gainValueLabel->setFont(juce::FontOptions("Inter", 14.0f, juce::Font::plain));
+  m_gainValueLabel->setJustificationType(juce::Justification::centred);
+  m_gainValueLabel->setEditable(true);
+  m_gainValueLabel->onTextChange = [this]() {
+    // Parse text input (accept single integer like "3" or decimal like "3.0")
+    juce::String text = m_gainValueLabel->getText()
+                            .trimCharactersAtStart("+-")
+                            .upToFirstOccurrenceOf("dB", false, true)
+                            .trim();
+    double gain = text.getDoubleValue();
+    gain = juce::jlimit(-30.0, 10.0, gain);
+    m_gainSlider->setValue(gain, juce::dontSendNotification);
+    m_gainValueLabel->setText(juce::String(gain, 1) + " dB", juce::dontSendNotification);
+    m_metadata.gainDb = gain;
+  };
+  addAndMakeVisible(m_gainValueLabel.get());
 }
 
 void ClipEditDialog::buildPhase3UI() {
@@ -1457,23 +1503,43 @@ void ClipEditDialog::resized() {
   navRow.removeFromLeft(SECTION_SPACING);
 
   // Trim Out navigation (right side: < > buttons, then CLR aligned with SET above)
+  // BUG FIX 8: Corrected layout logic to make buttons visible
   if (m_trimOutDecButton && m_trimOutIncButton && m_trimOutClearButton) {
     auto navRight = navRow.removeFromRight(SECTION_WIDTH);
-    // Place buttons from right to left: Time field (skip), SET position (CLR here), space, >,
-    // space, < Row 2 layout: [........SET][GRID][.......TIME.......] Row 3 layout:
-    // [<][GRID][>][GRID][..CLR..] (aligned with SET)
+    // Place < > buttons from LEFT, then skip to align CLR with SET
+    // Row 2 layout: [........SET][GRID][.......TIME.......]
+    // Row 3 layout: [<][GRID][>][GRID][..CLR..] (aligned with SET)
 
-    // Skip time field width from the right
-    navRight.removeFromRight(TIME_FIELD_WIDTH);
-    navRight.removeFromRight(GRID);
-    // Place CLR aligned with SET button above
-    m_trimOutClearButton->setBounds(navRight.removeFromRight(BUTTON_WIDTH));
-    navRight.removeFromRight(GRID);
-    // Place > button
-    m_trimOutIncButton->setBounds(navRight.removeFromRight(NAV_BUTTON_WIDTH));
-    navRight.removeFromRight(GRID);
-    // Place < button
-    m_trimOutDecButton->setBounds(navRight.removeFromRight(NAV_BUTTON_WIDTH));
+    m_trimOutDecButton->setBounds(navRight.removeFromLeft(NAV_BUTTON_WIDTH));
+    navRight.removeFromLeft(GRID);
+    m_trimOutIncButton->setBounds(navRight.removeFromLeft(NAV_BUTTON_WIDTH));
+
+    // Skip remaining space to align CLR with SET button above
+    // SET button is at position: TIME_FIELD_WIDTH + GRID from the right
+    // We've used: NAV_BUTTON_WIDTH + GRID + NAV_BUTTON_WIDTH from the left
+    // Need to skip to get to SET position
+    int usedWidth = NAV_BUTTON_WIDTH + GRID + NAV_BUTTON_WIDTH;
+    int setButtonPosition = TIME_FIELD_WIDTH + GRID;
+    navRight.removeFromLeft(setButtonPosition - usedWidth);
+    m_trimOutClearButton->setBounds(navRight.removeFromLeft(BUTTON_WIDTH));
+  }
+
+  contentArea.removeFromTop(GRID * 2);
+
+  // === GAIN CONTROL (Feature 5) ===
+  auto gainRow = contentArea.removeFromTop(GRID * 3);
+  if (m_gainLabel && m_gainSlider && m_gainValueLabel) {
+    // Label on the left
+    m_gainLabel->setBounds(gainRow.removeFromLeft(GRID * 6));
+    gainRow.removeFromLeft(GRID);
+
+    // Value label on the right
+    auto valueLabelArea = gainRow.removeFromRight(GRID * 10);
+    m_gainValueLabel->setBounds(valueLabelArea);
+
+    // Slider takes remaining space
+    gainRow.removeFromRight(GRID);
+    m_gainSlider->setBounds(gainRow);
   }
 
   contentArea.removeFromTop(GRID * 2);
@@ -1789,11 +1855,12 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
     }
   }
 
-  // [ key: Nudge IN point left (Issue #7) - with acceleration on hold
+  // < key (comma): Nudge IN point left (BUG FIX 9) - with acceleration on hold
   // Shift modifier: 15-tick jump instead of 1-tick
-  if (key == juce::KeyPress('[') || key == juce::KeyPress('{')) {
-    // Detect Shift: either explicit modifier OR the shifted key character '{'
-    bool isShift = key.getModifiers().isShiftDown() || (key.getTextCharacter() == '{');
+  // Note: < is Shift+Comma on US keyboards
+  if (key == juce::KeyPress(',') || key == juce::KeyPress('<')) {
+    // Detect Shift: either explicit modifier OR the shifted key character '<'
+    bool isShift = key.getModifiers().isShiftDown() || (key.getTextCharacter() == '<');
     int64_t jumpAmount = isShift ? (15 * tickInSamples) : tickInSamples;
 
     // Perform the nudge action immediately on first key press
@@ -1823,17 +1890,18 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
       m_nudgeInLeftTimer.startNudge(300);
     }
 
-    DBG("ClipEditDialog: " << (isShift ? "Shift+[" : "[") << " - Nudged IN point left by "
+    DBG("ClipEditDialog: " << (isShift ? "Shift+<" : "<") << " - Nudged IN point left by "
                            << (isShift ? "15 ticks" : "1 tick") << " to sample "
                            << m_metadata.trimInSamples);
     return true;
   }
 
-  // ] key: Nudge IN point right (Issue #7) - with acceleration on hold
+  // > key (period): Nudge IN point right (BUG FIX 9) - with acceleration on hold
   // Shift modifier: 15-tick jump instead of 1-tick
-  if (key == juce::KeyPress(']') || key == juce::KeyPress('}')) {
-    // Detect Shift: either explicit modifier OR the shifted key character '}'
-    bool isShift = key.getModifiers().isShiftDown() || (key.getTextCharacter() == '}');
+  // Note: > is Shift+Period on US keyboards
+  if (key == juce::KeyPress('.') || key == juce::KeyPress('>')) {
+    // Detect Shift: either explicit modifier OR the shifted key character '>'
+    bool isShift = key.getModifiers().isShiftDown() || (key.getTextCharacter() == '>');
     int64_t jumpAmount = isShift ? (15 * tickInSamples) : tickInSamples;
 
     // Perform the nudge action immediately on first key press
@@ -1864,7 +1932,7 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
       m_nudgeInRightTimer.startNudge(300);
     }
 
-    DBG("ClipEditDialog: " << (isShift ? "Shift+]" : "]") << " - Nudged IN point right by "
+    DBG("ClipEditDialog: " << (isShift ? "Shift+>" : ">") << " - Nudged IN point right by "
                            << (isShift ? "15 ticks" : "1 tick") << " to sample "
                            << m_metadata.trimInSamples);
     return true;
@@ -1950,12 +2018,13 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
 
 bool ClipEditDialog::keyStateChanged(bool isKeyDown) {
   // Stop acceleration timers when keys are released
+  // BUG FIX 9: Updated for new trim keys (< > for IN, ; ' for OUT)
   if (!isKeyDown) {
     // Check which nudge keys are no longer held
-    if (!juce::KeyPress::isKeyCurrentlyDown('[') && !juce::KeyPress::isKeyCurrentlyDown('{')) {
+    if (!juce::KeyPress::isKeyCurrentlyDown(',') && !juce::KeyPress::isKeyCurrentlyDown('<')) {
       m_nudgeInLeftTimer.stopNudge();
     }
-    if (!juce::KeyPress::isKeyCurrentlyDown(']') && !juce::KeyPress::isKeyCurrentlyDown('}')) {
+    if (!juce::KeyPress::isKeyCurrentlyDown('.') && !juce::KeyPress::isKeyCurrentlyDown('>')) {
       m_nudgeInRightTimer.stopNudge();
     }
     if (!juce::KeyPress::isKeyCurrentlyDown(';') && !juce::KeyPress::isKeyCurrentlyDown(':')) {

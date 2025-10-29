@@ -637,6 +637,9 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
   metadata.fadeInCurve = juce::String(clipData.fadeInCurve);
   metadata.fadeOutCurve = juce::String(clipData.fadeOutCurve);
 
+  // Feature 5: Gain
+  metadata.gainDb = clipData.gainDb;
+
   // Sprint 2: Loop state (sync from MainComponent's internal state)
   metadata.loopEnabled = m_loopEnabled[buttonIndex];
   metadata.stopOthersEnabled = m_stopOthersOnPlay[buttonIndex];
@@ -660,6 +663,9 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
     clipData.fadeOutSeconds = edited.fadeOutSeconds;
     clipData.fadeInCurve = edited.fadeInCurve.toStdString();
     clipData.fadeOutCurve = edited.fadeOutCurve.toStdString();
+
+    // Feature 5: Gain
+    clipData.gainDb = edited.gainDb;
 
     // CRITICAL: Persist loop and stopOthers state
     clipData.loopEnabled = edited.loopEnabled;
@@ -977,6 +983,15 @@ void MainComponent::onTabSelected(int tabIndex) {
 
   // Update SessionManager's active tab
   m_sessionManager.setActiveTab(tabIndex);
+
+  // Feature 4: Update tab index on all buttons for consecutive numbering
+  // Tab 1 = clips 1-48, Tab 2 = clips 49-96, Tab 3 = clips 97-144, etc.
+  for (int i = 0; i < m_clipGrid->getButtonCount(); ++i) {
+    auto button = m_clipGrid->getButton(i);
+    if (button) {
+      button->setTabIndex(tabIndex);
+    }
+  }
 
   // Refresh all buttons from SessionManager for the new tab
   // This will restore colors, names, and playing states from AudioEngine
