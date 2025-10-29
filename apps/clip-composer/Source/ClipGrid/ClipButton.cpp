@@ -407,16 +407,16 @@ void ClipButton::drawStatusIcons(juce::Graphics& g, juce::Rectangle<float> bound
       float boxHeight = 16.0f;
       auto stopBox = juce::Rectangle<float>(xPos, yPos, boxWidth, boxHeight);
 
-      // Draw red hexagon (stop sign shape)
+      // Draw red hexagon (stop sign shape with flat bottom)
       juce::Path hexagon;
       float cx = stopBox.getCentreX();
       float cy = stopBox.getCentreY();
       float radius = 7.0f;
 
-      // Create hexagon with 6 points
+      // Create hexagon with 6 points, rotated so bottom is flat (like a stop sign)
+      // Start at 0 degrees (right side) for proper stop sign orientation
       for (int i = 0; i < 6; ++i) {
-        float angle =
-            (i / 6.0f) * juce::MathConstants<float>::twoPi - juce::MathConstants<float>::pi / 2.0f;
+        float angle = (i / 6.0f) * juce::MathConstants<float>::twoPi;
         float x = cx + radius * std::cos(angle);
         float y = cy + radius * std::sin(angle);
 
