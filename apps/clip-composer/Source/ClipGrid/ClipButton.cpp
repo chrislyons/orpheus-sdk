@@ -157,9 +157,10 @@ void ClipButton::paint(juce::Graphics& g) {
     float pulsePhase = std::fmod(now / 500.0, 1.0); // Fast pulse: 500ms cycle
     float pulseAlpha = 0.6f + 0.4f * std::sin(pulsePhase * juce::MathConstants<float>::twoPi);
 
-    // Draw thicker glowing border
+    // Draw thick glowing border
     g.setColour(borderColor.withAlpha(pulseAlpha));
-    g.drawRoundedRectangle(bounds.reduced(1.0f), CORNER_RADIUS, 3.0f); // Thicker border for glow
+    g.drawRoundedRectangle(bounds.reduced(1.0f), CORNER_RADIUS,
+                           5.0f); // Thick border for prominent glow
 
     // Trigger repaint for animation (only when playing)
     repaint();
@@ -204,11 +205,11 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
     break;
   }
 
-  // Use black text ONLY on extremely light backgrounds (>0.65), white otherwise
+  // Use black text ONLY on extremely light backgrounds (>0.4), white otherwise
   // This ensures readability while strongly favoring white text for dark mode aesthetic
   float brightness = bgColor.getBrightness();
   juce::Colour textColor =
-      brightness > 0.65f ? juce::Colours::black.withAlpha(0.95f) : juce::Colours::white;
+      brightness > 0.4f ? juce::Colours::black.withAlpha(0.95f) : juce::Colours::white;
   juce::Colour subtleTextColor = textColor.withAlpha(0.6f);
   juce::Colour prominentTextColor = textColor.withAlpha(0.95f);
 
