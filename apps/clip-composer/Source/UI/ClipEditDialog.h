@@ -136,6 +136,7 @@ public:
   void paint(juce::Graphics& g) override;
   void resized() override;
   bool keyPressed(const juce::KeyPress& key) override;
+  bool keyStateChanged(bool isKeyDown) override;
 
 private:
   //==============================================================================
@@ -218,6 +219,50 @@ private:
   // Dialog buttons
   std::unique_ptr<juce::TextButton> m_okButton;
   std::unique_ptr<juce::TextButton> m_cancelButton;
+
+  // Keyboard nudge acceleration timers (matches NudgeButton behavior for [ ] ; ' keys)
+  class KeyboardNudgeTimer : public juce::Timer {
+  public:
+    std::function<void()> onNudge;
+
+    void startNudge(int initialInterval = 300) {
+      m_interval = initialInterval;
+      startTimer(m_interval);
+    }
+
+    void stopNudge() {
+      stopTimer();
+      m_interval = 300; // Reset for next time
+    }
+
+    bool isTimerRunning() const {
+      return juce::Timer::isTimerRunning();
+    }
+
+  private:
+    void timerCallback() override {
+      if (onNudge)
+        onNudge();
+
+      // Accelerate: 300ms → 150ms → 75ms → 40ms (matches NudgeButton behavior)
+      if (m_interval > 40) {
+        m_interval = std::max(40, m_interval - 75);
+        startTimer(m_interval);
+      }
+    }
+
+    int m_interval = 300;
+  };
+
+  KeyboardNudgeTimer m_nudgeInLeftTimer;
+  KeyboardNudgeTimer m_nudgeInRightTimer;
+  KeyboardNudgeTimer m_nudgeOutLeftTimer;
+  KeyboardNudgeTimer m_nudgeOutRightTimer;
+
+  int m_nudgeInLeftInterval = 300;
+  int m_nudgeInRightInterval = 300;
+  int m_nudgeOutLeftInterval = 300;
+  int m_nudgeOutRightInterval = 300;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ClipEditDialog)
 };
