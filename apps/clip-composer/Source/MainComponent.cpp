@@ -845,7 +845,30 @@ void MainComponent::updateButtonFromClip(int buttonIndex) {
     // Load clip into audio engine first
     if (m_audioEngine) {
       m_audioEngine->loadClip(buttonIndex, juce::String(clipData.filePath));
+
+      // CRITICAL: Apply trim/fade metadata to AudioEngine
+      bool metadataApplied = m_audioEngine->updateClipMetadata(
+          buttonIndex, clipData.trimInSamples, clipData.trimOutSamples, clipData.fadeInSeconds,
+          clipData.fadeOutSeconds, juce::String(clipData.fadeInCurve),
+          juce::String(clipData.fadeOutCurve));
+
+      if (metadataApplied) {
+        DBG("MainComponent: Applied trim/fade metadata to AudioEngine for button " << buttonIndex);
+      } else {
+        DBG("MainComponent: Failed to apply trim/fade metadata to AudioEngine for button "
+            << buttonIndex);
+      }
+
+      // CRITICAL: Apply loop mode to AudioEngine
+      bool loopApplied = m_audioEngine->setClipLoopMode(buttonIndex, clipData.loopEnabled);
+      if (!loopApplied) {
+        DBG("MainComponent: Failed to apply loop mode to AudioEngine for button " << buttonIndex);
+      }
     }
+
+    // CRITICAL: Sync MainComponent's internal state arrays from SessionManager clipData
+    m_loopEnabled[buttonIndex] = clipData.loopEnabled;
+    m_stopOthersOnPlay[buttonIndex] = clipData.stopOthersEnabled;
 
     // Check if clip is currently playing and restore correct button state
     if (m_audioEngine && m_audioEngine->isClipPlaying(buttonIndex)) {
@@ -871,22 +894,22 @@ void MainComponent::updateButtonFromClip(int buttonIndex) {
     juce::String shortcut = getKeyboardShortcutForButton(buttonIndex);
     button->setKeyboardShortcut(shortcut);
 
-    // Restore loop state
+    // Restore loop state (from synced array)
     button->setLoopEnabled(m_loopEnabled[buttonIndex]);
 
-    // Set stop others indicator
+    // Set stop others indicator (from synced array)
     button->setStopOthersEnabled(m_stopOthersOnPlay[buttonIndex]);
 
     // Set fade indicators (show if fade duration > 0)
     button->setFadeInEnabled(clipData.fadeInSeconds > 0.0);
     button->setFadeOutEnabled(clipData.fadeOutSeconds > 0.0);
 
-    // TODO: Parse beat offset from clip name if it contains "//" notation
-    // For now, leave beat offset empty (will be set via edit dialogue later)
-
-    DBG("MainComponent: Updated button " << buttonIndex << " with clip: " << clipData.displayName
-                                         << " (" << clipData.sampleRate << " Hz, "
-                                         << clipData.numChannels << " ch)");
+    DBG("MainComponent: Updated button "
+        << buttonIndex << " with clip: " << clipData.displayName << " (" << clipData.sampleRate
+        << " Hz, " << clipData.numChannels
+        << " ch) - Loop: " << (clipData.loopEnabled ? "ON" : "OFF")
+        << ", StopOthers: " << (clipData.stopOthersEnabled ? "ON" : "OFF")
+        << ", Fades: IN=" << clipData.fadeInSeconds << "s, OUT=" << clipData.fadeOutSeconds << "s");
   } else {
     // Clear button
     button->clearClip();
@@ -1080,14 +1103,36 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
     break;
 
   case 10: // Clear All Clips
-    m_sessionManager.clearSession();
-    for (int i = 0; i < m_clipGrid->getButtonCount(); ++i) {
-      auto button = m_clipGrid->getButton(i);
-      if (button)
-        button->clearClip();
+  {
+    // Warn user before clearing all clips
+    bool confirmed =
+        juce::AlertWindow::showOkCancelBox(juce::AlertWindow::WarningIcon, "Clear All Clips?",
+                                           "This will remove all clips from all tabs.\n\n"
+                                           "This action cannot be undone.\n\n"
+                                           "Are you sure?",
+                                           "Clear All", "Cancel");
+
+    if (confirmed) {
+      // Stop all playing audio first
+      if (m_audioEngine) {
+        m_audioEngine->stopAllClips();
+      }
+
+      m_sessionManager.clearSession();
+      for (int i = 0; i < m_clipGrid->getButtonCount(); ++i) {
+        auto button = m_clipGrid->getButton(i);
+        if (button)
+          button->clearClip();
+      }
+
+      // Clear internal state arrays
+      m_loopEnabled.fill(false);
+      m_stopOthersOnPlay.fill(false);
+
+      DBG("MainComponent: All clips cleared");
     }
-    DBG("MainComponent: All clips cleared");
     break;
+  }
 
   case 11: // Stop All Clips
     onStopAll();
