@@ -348,7 +348,7 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
 
   // === STATUS INDICATORS ===
   // Draw status icons in bottom-left corner (Feature 2 - fixed grid layout)
-  // Order: [PLAY] [LOOP] [FADE IN] [FADE OUT] [SPEED]
+  // Order: [PLAY] [STOP OTHERS] [LOOP] [FADE IN] [FADE OUT] [SPEED]
   // Grid is ALWAYS drawn - blank spaces shown for inactive states
   auto indicatorArea = juce::Rectangle<float>(contentArea.getX(), contentArea.getBottom() - 16.0f,
                                               contentArea.getWidth(), 14.0f);
@@ -357,47 +357,81 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
 
 void ClipButton::drawStatusIcons(juce::Graphics& g, juce::Rectangle<float> bounds) {
   // Feature 2: Icon-based status indicators in bottom-left corner (fixed grid)
-  // Order: [PLAY] [LOOP] [FADE IN] [FADE OUT] [SPEED]
-  // Each position is FIXED (shows blank if state is false)
+  // Order: [PLAY BOX] [STOP OTHERS] [LOOP] [FADE IN] [FADE OUT] [SPEED]
+  // PLAY icon matches clip number box design (green rounded rectangle)
 
-  constexpr float ICON_SIZE = 14.0f;
-  constexpr float ICON_GAP = 2.0f;
+  constexpr float SMALL_ICON_SIZE = 14.0f;
+  constexpr float ICON_GAP = 4.0f; // Increased spacing
 
   float xPos = bounds.getX();
   float yPos = bounds.getY();
 
-  // Position 0: PLAY icon (only when playing)
+  // Position 0: PLAY icon (green rounded rectangle, matches clip number box size)
   {
-    auto iconBounds = juce::Rectangle<float>(xPos, yPos, ICON_SIZE, ICON_SIZE);
-
     if (m_state == State::Playing) {
-      // Draw play triangle (pointing right)
+      // Calculate box size (similar to clip number box in top-left)
+      float boxWidth = 24.0f;  // Slightly wider for visibility
+      float boxHeight = 16.0f; // Same height as clip number box
+      auto playBox = juce::Rectangle<float>(xPos, yPos, boxWidth, boxHeight);
+
+      // Draw green rounded rectangle background (bright green)
+      g.setColour(juce::Colour(0xff00ff00)); // Bright green
+      g.fillRoundedRectangle(playBox, 2.0f); // Same radius as clip number box
+
+      // Draw white play triangle inside
       juce::Path playTriangle;
-      float cx = iconBounds.getCentreX();
-      float cy = iconBounds.getCentreY();
-      float size = 8.0f;
+      float cx = playBox.getCentreX();
+      float cy = playBox.getCentreY();
+      float size = 7.0f; // Triangle size
 
       playTriangle.addTriangle(cx - size * 0.3f, cy - size * 0.5f, // Top-left
                                cx - size * 0.3f, cy + size * 0.5f, // Bottom-left
                                cx + size * 0.6f, cy                // Right point
       );
 
-      // Bright green background circle
-      g.setColour(juce::Colour(0xff00ff00)); // Bright green
-      g.fillEllipse(iconBounds);
-
-      // White play triangle
       g.setColour(juce::Colours::white);
       g.fillPath(playTriangle);
-    }
-    // Else: blank space (no icon drawn)
 
-    xPos += ICON_SIZE + ICON_GAP;
+      xPos += boxWidth + ICON_GAP; // Advance past PLAY box
+    } else {
+      // Reserve space even when not playing (fixed grid)
+      xPos += 24.0f + ICON_GAP;
+    }
   }
 
-  // Position 1: LOOP icon
+  // Position 1: STOP OTHERS icon
   {
-    auto iconBounds = juce::Rectangle<float>(xPos, yPos, ICON_SIZE, ICON_SIZE);
+    auto iconBounds = juce::Rectangle<float>(xPos, yPos, SMALL_ICON_SIZE, SMALL_ICON_SIZE);
+
+    if (m_stopOthersEnabled) {
+      // Draw stop hand symbol (open palm facing viewer)
+      float cx = iconBounds.getCentreX();
+      float cy = iconBounds.getCentreY();
+      float size = 6.0f;
+
+      // Draw palm circle
+      g.setColour(juce::Colour(0xffff0000).withAlpha(0.9f)); // Red
+      g.fillEllipse(cx - size * 0.5f, cy - size * 0.3f, size, size);
+
+      // Draw fingers (4 small rectangles above palm)
+      float fingerWidth = 1.5f;
+      float fingerHeight = 3.0f;
+      float fingerSpacing = 1.8f;
+      float fingerStartX = cx - (fingerSpacing * 1.5f);
+      float fingerY = cy - size * 0.8f;
+
+      for (int i = 0; i < 4; ++i) {
+        g.fillRect(fingerStartX + (i * fingerSpacing), fingerY, fingerWidth, fingerHeight);
+      }
+    }
+    // Else: blank space
+
+    xPos += SMALL_ICON_SIZE + ICON_GAP;
+  }
+
+  // Position 2: LOOP icon
+  {
+    auto iconBounds = juce::Rectangle<float>(xPos, yPos, SMALL_ICON_SIZE, SMALL_ICON_SIZE);
 
     if (m_loopEnabled) {
       // Draw circular arrow (loop symbol)
@@ -423,12 +457,12 @@ void ClipButton::drawStatusIcons(juce::Graphics& g, juce::Rectangle<float> bound
     }
     // Else: blank space
 
-    xPos += ICON_SIZE + ICON_GAP;
+    xPos += SMALL_ICON_SIZE + ICON_GAP;
   }
 
-  // Position 2: FADE IN icon
+  // Position 3: FADE IN icon
   {
-    auto iconBounds = juce::Rectangle<float>(xPos, yPos, ICON_SIZE, ICON_SIZE);
+    auto iconBounds = juce::Rectangle<float>(xPos, yPos, SMALL_ICON_SIZE, SMALL_ICON_SIZE);
 
     if (m_fadeInEnabled) {
       // Draw fade in ramp (ascending line)
@@ -442,12 +476,12 @@ void ClipButton::drawStatusIcons(juce::Graphics& g, juce::Rectangle<float> bound
     }
     // Else: blank space
 
-    xPos += ICON_SIZE + ICON_GAP;
+    xPos += SMALL_ICON_SIZE + ICON_GAP;
   }
 
-  // Position 3: FADE OUT icon
+  // Position 4: FADE OUT icon
   {
-    auto iconBounds = juce::Rectangle<float>(xPos, yPos, ICON_SIZE, ICON_SIZE);
+    auto iconBounds = juce::Rectangle<float>(xPos, yPos, SMALL_ICON_SIZE, SMALL_ICON_SIZE);
 
     if (m_fadeOutEnabled) {
       // Draw fade out ramp (descending line)
@@ -461,17 +495,17 @@ void ClipButton::drawStatusIcons(juce::Graphics& g, juce::Rectangle<float> bound
     }
     // Else: blank space
 
-    xPos += ICON_SIZE + ICON_GAP;
+    xPos += SMALL_ICON_SIZE + ICON_GAP;
   }
 
-  // Position 4: SPEED icon (placeholder - reserved for future)
+  // Position 5: SPEED icon (placeholder - reserved for future)
   {
-    auto iconBounds = juce::Rectangle<float>(xPos, yPos, ICON_SIZE, ICON_SIZE);
+    auto iconBounds = juce::Rectangle<float>(xPos, yPos, SMALL_ICON_SIZE, SMALL_ICON_SIZE);
 
     // Future: if (speedModifier != 100) { draw speed icon }
     // For now: always blank
 
-    // xPos += ICON_SIZE + ICON_GAP; // Uncomment if adding more icons
+    // xPos += SMALL_ICON_SIZE + ICON_GAP; // Uncomment if adding more icons
   }
 }
 

@@ -1361,7 +1361,7 @@ void ClipEditDialog::resized() {
   if (m_nameEditor) {
     m_nameEditor->setBounds(contentArea.removeFromTop(GRID * 3));
   }
-  contentArea.removeFromTop(GRID);
+  contentArea.removeFromTop(GRID * 1.5); // Increased: GRID -> GRID * 1.5
 
   // === FILE INFO PANEL + ZOOM CONTROLS (on same row) ===
   auto headerRow = contentArea.removeFromTop(GRID * 3);
@@ -1524,7 +1524,7 @@ void ClipEditDialog::resized() {
     m_trimOutClearButton->setBounds(navRight.removeFromLeft(BUTTON_WIDTH));
   }
 
-  contentArea.removeFromTop(GRID * 2);
+  contentArea.removeFromTop(GRID); // Reduced: GRID * 2 -> GRID
 
   // === GAIN CONTROL (Feature 5) ===
   auto gainRow = contentArea.removeFromTop(GRID * 3);
@@ -1542,7 +1542,7 @@ void ClipEditDialog::resized() {
     m_gainSlider->setBounds(gainRow);
   }
 
-  contentArea.removeFromTop(GRID * 2);
+  contentArea.removeFromTop(GRID * 1.5); // Reduced: GRID * 2 -> GRID * 1.5
 
   // === FADE SECTION (Equal width columns with consistent spacing) ===
   auto fadeSection = contentArea.removeFromTop(GRID * 6);
@@ -1585,7 +1585,7 @@ void ClipEditDialog::resized() {
     m_fadeOutCurveCombo->setBounds(fadeControlsRow); // Takes remaining space
   }
 
-  contentArea.removeFromTop(GRID * 2);
+  contentArea.removeFromTop(GRID * 1.5); // Increased: GRID * 2 -> GRID * 1.5 for fade spacing
 
   // === COLOR + GROUP SECTION (flush on same row) ===
   const int SPACING = GRID;
@@ -1610,8 +1610,10 @@ void ClipEditDialog::resized() {
     m_groupComboBox->setBounds(colorGroupRow); // Takes remaining width
   }
 
-  // Dialog buttons at bottom
-  auto buttonArea = contentArea.removeFromBottom(GRID * 4);
+  contentArea.removeFromTop(GRID * 1.5); // Added bottom margin for color/group row
+
+  // Dialog buttons at bottom (25% taller)
+  auto buttonArea = contentArea.removeFromBottom(GRID * 5); // Increased: GRID * 4 -> GRID * 5
   m_cancelButton->setBounds(buttonArea.removeFromRight(GRID * 10));
   buttonArea.removeFromRight(GRID);
   m_okButton->setBounds(buttonArea.removeFromRight(GRID * 10));
@@ -1861,10 +1863,14 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
   if (key == juce::KeyPress(',') || key == juce::KeyPress('<')) {
     // Detect Shift: either explicit modifier OR the shifted key character '<'
     bool isShift = key.getModifiers().isShiftDown() || (key.getTextCharacter() == '<');
-    int64_t jumpAmount = isShift ? (15 * tickInSamples) : tickInSamples;
 
     // Perform the nudge action immediately on first key press
-    auto nudgeAction = [this, tickInSamples, jumpAmount]() {
+    // Lambda must check Shift state dynamically for timer repeats
+    auto nudgeAction = [this, tickInSamples, isShift]() {
+      // Recalculate jump amount based on current Shift state (for timer repeats)
+      bool currentShift = juce::ModifierKeys::currentModifiers.isShiftDown();
+      int64_t jumpAmount = currentShift ? (15 * tickInSamples) : tickInSamples;
+
       m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimInSamples - jumpAmount);
       if (m_metadata.trimInSamples >= m_metadata.trimOutSamples) {
         m_metadata.trimInSamples = std::max(int64_t(0), m_metadata.trimOutSamples - tickInSamples);
@@ -1902,10 +1908,14 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
   if (key == juce::KeyPress('.') || key == juce::KeyPress('>')) {
     // Detect Shift: either explicit modifier OR the shifted key character '>'
     bool isShift = key.getModifiers().isShiftDown() || (key.getTextCharacter() == '>');
-    int64_t jumpAmount = isShift ? (15 * tickInSamples) : tickInSamples;
 
     // Perform the nudge action immediately on first key press
-    auto nudgeAction = [this, tickInSamples, jumpAmount]() {
+    // Lambda must check Shift state dynamically for timer repeats
+    auto nudgeAction = [this, tickInSamples, isShift]() {
+      // Recalculate jump amount based on current Shift state (for timer repeats)
+      bool currentShift = juce::ModifierKeys::currentModifiers.isShiftDown();
+      int64_t jumpAmount = currentShift ? (15 * tickInSamples) : tickInSamples;
+
       m_metadata.trimInSamples = std::min(m_metadata.trimOutSamples - tickInSamples,
                                           m_metadata.trimInSamples + jumpAmount);
       if (m_metadata.trimInSamples >= m_metadata.trimOutSamples) {
@@ -1943,10 +1953,14 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
   if (key == juce::KeyPress(';') || key == juce::KeyPress(':')) {
     // Detect Shift: either explicit modifier OR the shifted key character ':'
     bool isShift = key.getModifiers().isShiftDown() || (key.getTextCharacter() == ':');
-    int64_t jumpAmount = isShift ? (15 * tickInSamples) : tickInSamples;
 
     // Perform the nudge action immediately on first key press
-    auto nudgeAction = [this, tickInSamples, jumpAmount]() {
+    // Lambda must check Shift state dynamically for timer repeats
+    auto nudgeAction = [this, tickInSamples, isShift]() {
+      // Recalculate jump amount based on current Shift state (for timer repeats)
+      bool currentShift = juce::ModifierKeys::currentModifiers.isShiftDown();
+      int64_t jumpAmount = currentShift ? (15 * tickInSamples) : tickInSamples;
+
       m_metadata.trimOutSamples = std::max(m_metadata.trimInSamples + tickInSamples,
                                            m_metadata.trimOutSamples - jumpAmount);
       updateTrimInfoLabel();
@@ -1979,10 +1993,14 @@ bool ClipEditDialog::keyPressed(const juce::KeyPress& key) {
   if (key == juce::KeyPress('\'') || key == juce::KeyPress('"')) {
     // Detect Shift: either explicit modifier OR the shifted key character '"'
     bool isShift = key.getModifiers().isShiftDown() || (key.getTextCharacter() == '"');
-    int64_t jumpAmount = isShift ? (15 * tickInSamples) : tickInSamples;
 
     // Perform the nudge action immediately on first key press
-    auto nudgeAction = [this, tickInSamples, jumpAmount]() {
+    // Lambda must check Shift state dynamically for timer repeats
+    auto nudgeAction = [this, tickInSamples, isShift]() {
+      // Recalculate jump amount based on current Shift state (for timer repeats)
+      bool currentShift = juce::ModifierKeys::currentModifiers.isShiftDown();
+      int64_t jumpAmount = currentShift ? (15 * tickInSamples) : tickInSamples;
+
       m_metadata.trimOutSamples =
           std::min(m_metadata.durationSamples, m_metadata.trimOutSamples + jumpAmount);
       if (m_metadata.trimOutSamples <= m_metadata.trimInSamples) {
