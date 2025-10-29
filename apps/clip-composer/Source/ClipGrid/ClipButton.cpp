@@ -523,15 +523,8 @@ void ClipButton::mouseUp(const juce::MouseEvent& e) {
       }
     }
     m_isDragging = false;
-  } else {
-    // Not dragging
-    // Check if this is a double-click (click already fired in mouseDown, so just handle
-    // double-click here)
-    if (e.getNumberOfClicks() >= 2 && m_state != State::Empty) {
-      // Double-click on loaded clip - open edit dialog
-      if (onDoubleClick)
-        onDoubleClick(m_buttonIndex);
-    }
-    // Single click already handled in mouseDown() for immediate response
   }
+  // Note: Double-click behavior intentionally removed
+  // Clip buttons prioritize single-click for PLAY/STOP at all times
+  // Use right-click menu or Ctrl+Opt+Cmd+Click to access Edit Dialog
 }
