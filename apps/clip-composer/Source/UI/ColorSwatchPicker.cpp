@@ -8,42 +8,40 @@
 ColorSwatchGrid::ColorSwatchGrid() {
   initializeColorPalette();
   m_selectedIndex = 0;
-  // 4:3 aspect swatches + 4px spacing, 4 rows (removed black row)
-  // Calculate optimal width to eliminate dead space:
+  // 4:3 aspect swatches + 4px spacing, 4 rows × 12 columns = 48 swatches
+  // Calculate optimal dimensions for tight fit:
   // Height = 80px, padding = 6px × 2 = 12px
   // Available height = 80 - 12 = 68px
   // Swatch height = (68 - (3 × 4spacing)) / 4 rows = (68 - 12) / 4 = 14px
   // Swatch width = 14 × 4/3 = 18.67 ≈ 19px (rounded up)
-  // Total width = 14swatches × 19px + 13spacing × 4px + 12padding = 266 + 52 + 12 = 330px
-  setSize(330, 80); // Tighter fit, no wasted horizontal space
+  // Total width = 12swatches × 19px + 11spacing × 4px + 12padding = 228 + 44 + 12 = 284px
+  setSize(284, 80); // Tight border for 4×12 grid
 }
 
 void ColorSwatchGrid::initializeColorPalette() {
-  // Ableton-inspired color palette (4 rows × 14 columns, removed mostly-black row 5)
-  m_colorPalette = {// Row 1
-                    juce::Colour(0xffff9eb3), juce::Colour(0xffff8030), juce::Colour(0xffc89633),
-                    juce::Colour(0xffffe766), juce::Colour(0xffc8ff66), juce::Colour(0xff7fff66),
-                    juce::Colour(0xff66ffaa), juce::Colour(0xff66ffdd), juce::Colour(0xff99ccff),
-                    juce::Colour(0xff9999ff), juce::Colour(0xffb399ff), juce::Colour(0xffcc99ff),
-                    juce::Colour(0xffff99cc), juce::Colour(0xffffffff),
-                    // Row 2
-                    juce::Colour(0xffff3333), juce::Colour(0xffff8833), juce::Colour(0xffaa7733),
-                    juce::Colour(0xffffff66), juce::Colour(0xffccff66), juce::Colour(0xff88ff66),
-                    juce::Colour(0xff66ffbb), juce::Colour(0xff66ffff), juce::Colour(0xff66ccff),
-                    juce::Colour(0xff6699ff), juce::Colour(0xff9966ff), juce::Colour(0xffcc66ff),
-                    juce::Colour(0xffff66cc), juce::Colour(0xffcccccc),
-                    // Row 3
-                    juce::Colour(0xffff9999), juce::Colour(0xffffaa77), juce::Colour(0xffccaa88),
-                    juce::Colour(0xffffff99), juce::Colour(0xffddff99), juce::Colour(0xffaaff99),
-                    juce::Colour(0xff99ffcc), juce::Colour(0xff99ffff), juce::Colour(0xff99ddff),
-                    juce::Colour(0xff99bbff), juce::Colour(0xffbb99ff), juce::Colour(0xffee99ff),
-                    juce::Colour(0xffff99ee), juce::Colour(0xffaaaaaa),
-                    // Row 4
-                    juce::Colour(0xffdd6666), juce::Colour(0xffff7733), juce::Colour(0xff997755),
-                    juce::Colour(0xffffdd44), juce::Colour(0xffaacc44), juce::Colour(0xff66cc44),
-                    juce::Colour(0xff44ccaa), juce::Colour(0xff44cccc), juce::Colour(0xff4499dd),
-                    juce::Colour(0xff4477dd), juce::Colour(0xff8844dd), juce::Colour(0xffcc44cc),
-                    juce::Colour(0xffff44aa), juce::Colour(0xff888888)};
+  // Custom color palette (4 rows × 12 columns = 48 swatches)
+  // Arranged as smooth spectrum gradient: Reds → Oranges → Yellows → Greens → Cyans → Blues →
+  // Purples → Pinks → Grays
+  m_colorPalette = {// Row 1: Reds → Oranges → Yellows
+                    juce::Colour(0xff822636), juce::Colour(0xffA42D32), juce::Colour(0xffE24040),
+                    juce::Colour(0xffF56A5C), juce::Colour(0xffC85C3C), juce::Colour(0xffF59673),
+                    juce::Colour(0xffF78A3E), juce::Colour(0xffE8A456), juce::Colour(0xffDBB949),
+                    juce::Colour(0xffF5D94F), juce::Colour(0xffF5EAD6), juce::Colour(0xffCCAB8E),
+                    // Row 2: Greens → Cyans
+                    juce::Colour(0xff9FBE60), juce::Colour(0xffA4D68F), juce::Colour(0xffC4D2AE),
+                    juce::Colour(0xff30BE56), juce::Colour(0xff6FC5A6), juce::Colour(0xffA9DBCE),
+                    juce::Colour(0xff2B7F73), juce::Colour(0xff3E6F7C), juce::Colour(0xff6A92A2),
+                    juce::Colour(0xff5EA9D9), juce::Colour(0xff26A3E1), juce::Colour(0xff2B7CBA),
+                    // Row 3: Blues → Purples
+                    juce::Colour(0xff8FC4E6), juce::Colour(0xff326FCF), juce::Colour(0xff2542A0),
+                    juce::Colour(0xff21397A), juce::Colour(0xff12304E), juce::Colour(0xff7F7ACD),
+                    juce::Colour(0xff9876D4), juce::Colour(0xffAF78E3), juce::Colour(0xff6848AD),
+                    juce::Colour(0xffCEC8E4), juce::Colour(0xffBDAFE6), juce::Colour(0xffC6A6D6),
+                    // Row 4: Pinks → Grays (light to dark)
+                    juce::Colour(0xffE8B3C2), juce::Colour(0xffF5A9B8), juce::Colour(0xffE4879D),
+                    juce::Colour(0xffD98092), juce::Colour(0xffC36F8C), juce::Colour(0xffD3A8BF),
+                    juce::Colour(0xffF6F5F9), juce::Colour(0xffEDEAEE), juce::Colour(0xffD6D5DB),
+                    juce::Colour(0xffACADB0), juce::Colour(0xff7D7F83), juce::Colour(0xff333A40)};
 }
 
 void ColorSwatchGrid::setSelectedColor(const juce::Colour& color) {
@@ -186,26 +184,26 @@ void ColorSwatchPicker::setSelectedColor(const juce::Colour& color) {
 void ColorSwatchPicker::paint(juce::Graphics& g) {
   auto bounds = getLocalBounds();
 
-  // Draw button background
-  g.setColour(juce::Colour(0xff3a3a3a));
+  // Fill ENTIRE button background with clip's current color
+  g.setColour(m_selectedColor);
   g.fillRoundedRectangle(bounds.toFloat(), 4.0f);
 
-  // Draw current color swatch (left side of button)
-  auto colorSwatch = bounds.reduced(4).removeFromLeft(bounds.getHeight() - 8);
-  g.setColour(m_selectedColor);
-  g.fillRoundedRectangle(colorSwatch.toFloat(), 2.0f);
-
-  // Draw border
-  g.setColour(juce::Colour(0xff555555));
+  // Draw border (darker for contrast)
+  g.setColour(juce::Colour(0xff222222));
   g.drawRoundedRectangle(bounds.toFloat().reduced(0.5f), 4.0f, 1.0f);
 
   // Draw dropdown indicator (small triangle on right)
+  // Use contrasting color based on brightness
   auto triangleArea = bounds.removeFromRight(20);
   juce::Path triangle;
   triangle.addTriangle(triangleArea.getCentreX() - 4.0f, triangleArea.getCentreY() - 2.0f,
                        triangleArea.getCentreX() + 4.0f, triangleArea.getCentreY() - 2.0f,
                        triangleArea.getCentreX(), triangleArea.getCentreY() + 3.0f);
-  g.setColour(juce::Colours::white.withAlpha(0.7f));
+
+  // Use white or black triangle depending on background brightness
+  float brightness = m_selectedColor.getBrightness();
+  g.setColour(brightness > 0.5f ? juce::Colours::black.withAlpha(0.7f)
+                                : juce::Colours::white.withAlpha(0.7f));
   g.fillPath(triangle);
 }
 
@@ -238,8 +236,8 @@ void ColorSwatchPicker::showColorPopup() {
 
   // Create popup hovering over the button (centered on parent)
   auto bounds = getScreenBounds();
-  int popupWidth = 330;                                 // Optimized width (no wasted space)
-  int popupHeight = 80;                                 // 4 rows instead of 5
+  int popupWidth = 284;                                 // Tight fit for 4×12 grid
+  int popupHeight = 80;                                 // 4 rows
   int popupX = bounds.getCentreX() - (popupWidth / 2);  // Center horizontally to parent
   int popupY = bounds.getCentreY() - (popupHeight / 2); // Center vertically (hover over button)
   juce::Rectangle<int> popupBounds(popupX, popupY, popupWidth, popupHeight);

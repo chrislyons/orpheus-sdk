@@ -26,8 +26,8 @@ public:
   void mouseDown(const juce::MouseEvent& event) override;
 
 private:
-  static constexpr int ROWS = 4; // Reduced from 5 (removed mostly-black row)
-  static constexpr int COLS = 14;
+  static constexpr int ROWS = 4;  // 48 swatches in 4 rows
+  static constexpr int COLS = 12; // 12 columns
 
   std::vector<juce::Colour> m_colorPalette;
   int m_selectedIndex = -1;

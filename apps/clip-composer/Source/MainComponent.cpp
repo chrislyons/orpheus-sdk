@@ -524,16 +524,16 @@ void MainComponent::onClipRightClicked(int buttonIndex) {
       juce::Rectangle<int> popupBounds;
       if (button) {
         auto buttonBounds = button->getScreenBounds();
-        int popupWidth = 330; // Optimized width (no wasted space)
-        int popupHeight = 80; // 4 rows instead of 5
+        int popupWidth = 284; // Tight fit for 4×12 grid
+        int popupHeight = 80; // 4 rows
         // Center popup OVER the button (not below it)
         int popupX = buttonBounds.getCentreX() - (popupWidth / 2);
         int popupY = buttonBounds.getCentreY() - (popupHeight / 2); // Hover over button
         popupBounds = juce::Rectangle<int>(popupX, popupY, popupWidth, popupHeight);
       } else {
         // Fallback: center on screen
-        popupBounds = juce::Rectangle<int>(getScreenX() + getWidth() / 2 - 165,
-                                           getScreenY() + getHeight() / 2 - 40, 330, 80);
+        popupBounds = juce::Rectangle<int>(getScreenX() + getWidth() / 2 - 142,
+                                           getScreenY() + getHeight() / 2 - 40, 284, 80);
       }
 
       // Show popup (CallOutBox takes ownership and deletes grid when closed)
