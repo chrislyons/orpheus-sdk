@@ -19,29 +19,66 @@ ColorSwatchGrid::ColorSwatchGrid() {
 }
 
 void ColorSwatchGrid::initializeColorPalette() {
-  // Custom color palette (4 rows × 12 columns = 48 swatches)
-  // Arranged as smooth spectrum gradient: Reds → Oranges → Yellows → Greens → Cyans → Blues →
-  // Purples → Pinks → Grays
-  m_colorPalette = {// Row 1: Reds → Oranges → Yellows
-                    juce::Colour(0xff822636), juce::Colour(0xffA42D32), juce::Colour(0xffE24040),
-                    juce::Colour(0xffF56A5C), juce::Colour(0xffC85C3C), juce::Colour(0xffF59673),
-                    juce::Colour(0xffF78A3E), juce::Colour(0xffE8A456), juce::Colour(0xffDBB949),
-                    juce::Colour(0xffF5D94F), juce::Colour(0xffF5EAD6), juce::Colour(0xffCCAB8E),
-                    // Row 2: Greens → Cyans
-                    juce::Colour(0xff9FBE60), juce::Colour(0xffA4D68F), juce::Colour(0xffC4D2AE),
-                    juce::Colour(0xff30BE56), juce::Colour(0xff6FC5A6), juce::Colour(0xffA9DBCE),
-                    juce::Colour(0xff2B7F73), juce::Colour(0xff3E6F7C), juce::Colour(0xff6A92A2),
-                    juce::Colour(0xff5EA9D9), juce::Colour(0xff26A3E1), juce::Colour(0xff2B7CBA),
-                    // Row 3: Blues → Purples
-                    juce::Colour(0xff8FC4E6), juce::Colour(0xff326FCF), juce::Colour(0xff2542A0),
-                    juce::Colour(0xff21397A), juce::Colour(0xff12304E), juce::Colour(0xff7F7ACD),
-                    juce::Colour(0xff9876D4), juce::Colour(0xffAF78E3), juce::Colour(0xff6848AD),
-                    juce::Colour(0xffCEC8E4), juce::Colour(0xffBDAFE6), juce::Colour(0xffC6A6D6),
-                    // Row 4: Pinks → Grays (light to dark)
-                    juce::Colour(0xffE8B3C2), juce::Colour(0xffF5A9B8), juce::Colour(0xffE4879D),
-                    juce::Colour(0xffD98092), juce::Colour(0xffC36F8C), juce::Colour(0xffD3A8BF),
-                    juce::Colour(0xffF6F5F9), juce::Colour(0xffEDEAEE), juce::Colour(0xffD6D5DB),
-                    juce::Colour(0xffACADB0), juce::Colour(0xff7D7F83), juce::Colour(0xff333A40)};
+  // Professionally curated color palette (4 rows × 12 columns = 48 swatches)
+  // Evenly spaced through spectrum with optimal saturation/brightness for button visibility
+  // Designed for dark mode UI with excellent text contrast
+  m_colorPalette = {
+      // Row 1: Reds → Oranges → Yellows (warm spectrum)
+      juce::Colour(0xffCC2936), // Deep red
+      juce::Colour(0xffE63946), // Bright red
+      juce::Colour(0xffF4442E), // Red-orange
+      juce::Colour(0xffFF6B35), // Vivid orange
+      juce::Colour(0xffFF8C42), // Light orange
+      juce::Colour(0xffFFA500), // Pure orange
+      juce::Colour(0xffFFB627), // Golden orange
+      juce::Colour(0xffFFC857), // Amber
+      juce::Colour(0xffFFD93D), // Golden yellow
+      juce::Colour(0xffFFE66D), // Bright yellow
+      juce::Colour(0xffFFF176), // Light yellow
+      juce::Colour(0xffFFF9C4), // Pale yellow
+
+      // Row 2: Greens (lime → emerald → forest)
+      juce::Colour(0xffC3E991), // Pale lime
+      juce::Colour(0xffB8E986), // Light lime
+      juce::Colour(0xff9ACD32), // Yellow-green
+      juce::Colour(0xff7CB342), // Lime green
+      juce::Colour(0xff66BB6A), // Medium green
+      juce::Colour(0xff4CAF50), // Green
+      juce::Colour(0xff43A047), // Forest green
+      juce::Colour(0xff388E3C), // Dark green
+      juce::Colour(0xff2E7D32), // Deep green
+      juce::Colour(0xff1B5E20), // Very dark green
+      juce::Colour(0xff00695C), // Teal green
+      juce::Colour(0xff004D40), // Dark teal
+
+      // Row 3: Cyans → Blues → Purples (cool spectrum)
+      juce::Colour(0xff26C6DA), // Bright cyan
+      juce::Colour(0xff00BCD4), // Cyan
+      juce::Colour(0xff0097A7), // Dark cyan
+      juce::Colour(0xff00ACC1), // Light blue
+      juce::Colour(0xff039BE5), // Blue
+      juce::Colour(0xff1976D2), // Strong blue
+      juce::Colour(0xff1565C0), // Deep blue
+      juce::Colour(0xff0D47A1), // Navy blue
+      juce::Colour(0xff5E35B1), // Deep purple
+      juce::Colour(0xff7E57C2), // Medium purple
+      juce::Colour(0xff9C27B0), // Purple
+      juce::Colour(0xffAB47BC), // Light purple
+
+      // Row 4: Magentas → Pinks → Browns → Neutrals
+      juce::Colour(0xffD81B60), // Magenta
+      juce::Colour(0xffE91E63), // Pink
+      juce::Colour(0xffF06292), // Light pink
+      juce::Colour(0xffEC407A), // Medium pink
+      juce::Colour(0xffF48FB1), // Pale pink
+      juce::Colour(0xff8D6E63), // Brown
+      juce::Colour(0xffA1887F), // Light brown
+      juce::Colour(0xffBCAAA4), // Tan
+      juce::Colour(0xffFFFFFF), // White
+      juce::Colour(0xffBDBDBD), // Light gray
+      juce::Colour(0xff616161), // Dark gray
+      juce::Colour(0xff212121), // Black
+  };
 }
 
 void ColorSwatchGrid::setSelectedColor(const juce::Colour& color) {
