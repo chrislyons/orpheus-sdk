@@ -399,34 +399,47 @@ void ClipButton::drawStatusIcons(juce::Graphics& g, juce::Rectangle<float> bound
     }
   }
 
-  // Position 1: STOP OTHERS icon
+  // Position 1: STOP OTHERS icon (red hexagon, matches PLAY icon size)
   {
-    auto iconBounds = juce::Rectangle<float>(xPos, yPos, SMALL_ICON_SIZE, SMALL_ICON_SIZE);
-
     if (m_stopOthersEnabled) {
-      // Draw stop hand symbol (open palm facing viewer)
-      float cx = iconBounds.getCentreX();
-      float cy = iconBounds.getCentreY();
-      float size = 6.0f;
+      // Match PLAY icon dimensions
+      float boxWidth = 24.0f;
+      float boxHeight = 16.0f;
+      auto stopBox = juce::Rectangle<float>(xPos, yPos, boxWidth, boxHeight);
 
-      // Draw palm circle
-      g.setColour(juce::Colour(0xffff0000).withAlpha(0.9f)); // Red
-      g.fillEllipse(cx - size * 0.5f, cy - size * 0.3f, size, size);
+      // Draw red hexagon (stop sign shape)
+      juce::Path hexagon;
+      float cx = stopBox.getCentreX();
+      float cy = stopBox.getCentreY();
+      float radius = 7.0f;
 
-      // Draw fingers (4 small rectangles above palm)
-      float fingerWidth = 1.5f;
-      float fingerHeight = 3.0f;
-      float fingerSpacing = 1.8f;
-      float fingerStartX = cx - (fingerSpacing * 1.5f);
-      float fingerY = cy - size * 0.8f;
+      // Create hexagon with 6 points
+      for (int i = 0; i < 6; ++i) {
+        float angle =
+            (i / 6.0f) * juce::MathConstants<float>::twoPi - juce::MathConstants<float>::pi / 2.0f;
+        float x = cx + radius * std::cos(angle);
+        float y = cy + radius * std::sin(angle);
 
-      for (int i = 0; i < 4; ++i) {
-        g.fillRect(fingerStartX + (i * fingerSpacing), fingerY, fingerWidth, fingerHeight);
+        if (i == 0)
+          hexagon.startNewSubPath(x, y);
+        else
+          hexagon.lineTo(x, y);
       }
-    }
-    // Else: blank space
+      hexagon.closeSubPath();
 
-    xPos += SMALL_ICON_SIZE + ICON_GAP;
+      // Fill with red
+      g.setColour(juce::Colour(0xffff0000)); // Bright red
+      g.fillPath(hexagon);
+
+      // Thin white border
+      g.setColour(juce::Colours::white);
+      g.strokePath(hexagon, juce::PathStrokeType(1.0f));
+
+      xPos += boxWidth + ICON_GAP;
+    } else {
+      // Reserve space even when not enabled (fixed grid)
+      xPos += 24.0f + ICON_GAP;
+    }
   }
 
   // Position 2: LOOP icon
