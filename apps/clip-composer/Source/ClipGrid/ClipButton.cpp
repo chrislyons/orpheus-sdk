@@ -453,12 +453,12 @@ void ClipButton::resized() {
 
 void ClipButton::mouseDown(const juce::MouseEvent& e) {
   if (e.mods.isLeftButtonDown()) {
-    // Check for Ctrl+Opt+Cmd+Click to open Edit Dialog (Feature 1)
-    if (e.mods.isCommandDown() && e.mods.isCtrlDown() && e.mods.isAltDown() &&
-        m_state != State::Empty) {
-      // Open Edit Dialog immediately
-      if (onDoubleClick)
-        onDoubleClick(m_buttonIndex);
+    // Check for Ctrl+Opt+Cmd+LeftClick to open right-click menu (Feature 1)
+    // This provides an alternative to right-click for opening the context menu
+    if (e.mods.isCommandDown() && e.mods.isCtrlDown() && e.mods.isAltDown()) {
+      // Trigger right-click menu (works on both empty and loaded buttons)
+      if (onRightClick)
+        onRightClick(m_buttonIndex);
       return; // Don't process as drag or regular click
     }
 
@@ -474,7 +474,7 @@ void ClipButton::mouseDown(const juce::MouseEvent& e) {
         onClick(m_buttonIndex);
     }
   } else if (e.mods.isRightButtonDown()) {
-    // Right click - context menu
+    // Right click - context menu (works on both empty and loaded buttons)
     if (onRightClick)
       onRightClick(m_buttonIndex);
   }
