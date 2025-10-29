@@ -221,9 +221,13 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
     // Button index in white rounded rectangle (Feature 3)
     // Feature 4: Use consecutive numbering across tabs
     juce::String buttonNumber = juce::String(getDisplayNumber());
-    juce::Font numberFont("Inter", 12.0f, juce::Font::bold);
-    g.setFont(juce::FontOptions(numberFont));
-    float textWidth = numberFont.getStringWidth(buttonNumber);
+    auto numberFont = juce::FontOptions("Inter", 12.0f, juce::Font::bold);
+    g.setFont(numberFont);
+
+    // Calculate text width using GlyphArrangement (replaces deprecated getStringWidth)
+    juce::GlyphArrangement glyphs;
+    glyphs.addLineOfText(juce::Font(numberFont), buttonNumber, 0.0f, 0.0f);
+    float textWidth = glyphs.getBoundingBox(0, -1, true).getWidth();
     float boxWidth = textWidth + 8.0f; // Padding
     float boxHeight = 16.0f;
 
