@@ -8,15 +8,18 @@
 ColorSwatchGrid::ColorSwatchGrid() {
   initializeColorPalette();
   m_selectedIndex = 0;
-  // 4:3 aspect swatches + increased spacing = slightly wider grid
-  // Calculate: 14 cols × (4:3 ratio swatch) + spacing + padding
-  // With height=100, each swatch row ≈ 16px, so swatch width ≈ 21px
-  // Total width ≈ 14×21 + 13×4 (spacing) + 12 (padding) ≈ 350px
-  setSize(380, 100); // Adjusted for 4:3 swatches with 4px spacing
+  // 4:3 aspect swatches + 4px spacing, 4 rows (removed black row)
+  // Calculate optimal width to eliminate dead space:
+  // Height = 80px, padding = 6px × 2 = 12px
+  // Available height = 80 - 12 = 68px
+  // Swatch height = (68 - (3 × 4spacing)) / 4 rows = (68 - 12) / 4 = 14px
+  // Swatch width = 14 × 4/3 = 18.67 ≈ 19px (rounded up)
+  // Total width = 14swatches × 19px + 13spacing × 4px + 12padding = 266 + 52 + 12 = 330px
+  setSize(330, 80); // Tighter fit, no wasted horizontal space
 }
 
 void ColorSwatchGrid::initializeColorPalette() {
-  // Ableton-inspired color palette (5 rows × 14 columns)
+  // Ableton-inspired color palette (4 rows × 14 columns, removed mostly-black row 5)
   m_colorPalette = {// Row 1
                     juce::Colour(0xffff9eb3), juce::Colour(0xffff8030), juce::Colour(0xffc89633),
                     juce::Colour(0xffffe766), juce::Colour(0xffc8ff66), juce::Colour(0xff7fff66),
@@ -40,13 +43,7 @@ void ColorSwatchGrid::initializeColorPalette() {
                     juce::Colour(0xffffdd44), juce::Colour(0xffaacc44), juce::Colour(0xff66cc44),
                     juce::Colour(0xff44ccaa), juce::Colour(0xff44cccc), juce::Colour(0xff4499dd),
                     juce::Colour(0xff4477dd), juce::Colour(0xff8844dd), juce::Colour(0xffcc44cc),
-                    juce::Colour(0xffff44aa), juce::Colour(0xff888888),
-                    // Row 5
-                    juce::Colour(0xff000000), juce::Colour(0xff000000), juce::Colour(0xff000000),
-                    juce::Colour(0xff000000), juce::Colour(0xff000000), juce::Colour(0xff000000),
-                    juce::Colour(0xff000000), juce::Colour(0xff000000), juce::Colour(0xff000000),
-                    juce::Colour(0xff000000), juce::Colour(0xff000000), juce::Colour(0xff000000),
-                    juce::Colour(0xff000000), juce::Colour(0xff444444)};
+                    juce::Colour(0xffff44aa), juce::Colour(0xff888888)};
 }
 
 void ColorSwatchGrid::setSelectedColor(const juce::Colour& color) {
@@ -239,9 +236,13 @@ void ColorSwatchPicker::showColorPopup() {
     // Note: Don't call hideColorPopup() - CallOutBox manages its own lifetime
   };
 
-  // Create popup and show it below the button
+  // Create popup hovering over the button (centered on parent)
   auto bounds = getScreenBounds();
-  juce::Rectangle<int> popupBounds(bounds.getX(), bounds.getBottom() + 2, 380, 100);
+  int popupWidth = 330;                                 // Optimized width (no wasted space)
+  int popupHeight = 80;                                 // 4 rows instead of 5
+  int popupX = bounds.getCentreX() - (popupWidth / 2);  // Center horizontally to parent
+  int popupY = bounds.getCentreY() - (popupHeight / 2); // Center vertically (hover over button)
+  juce::Rectangle<int> popupBounds(popupX, popupY, popupWidth, popupHeight);
 
   m_isPopupVisible = true;
 

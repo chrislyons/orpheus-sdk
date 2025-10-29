@@ -26,7 +26,7 @@ public:
   void mouseDown(const juce::MouseEvent& event) override;
 
 private:
-  static constexpr int ROWS = 5;
+  static constexpr int ROWS = 4; // Reduced from 5 (removed mostly-black row)
   static constexpr int COLS = 14;
 
   std::vector<juce::Colour> m_colorPalette;

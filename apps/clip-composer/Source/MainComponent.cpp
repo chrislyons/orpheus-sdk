@@ -519,17 +519,21 @@ void MainComponent::onClipRightClicked(int buttonIndex) {
         DBG("Button " << buttonIndex << ": Color changed to " << newColor.toString());
       };
 
-      // Get button screen position to position popup below it
+      // Get button screen position to position popup hovering over it (centered)
       auto button = m_clipGrid->getButton(buttonIndex);
       juce::Rectangle<int> popupBounds;
       if (button) {
         auto buttonBounds = button->getScreenBounds();
-        popupBounds =
-            juce::Rectangle<int>(buttonBounds.getX(), buttonBounds.getBottom() + 2, 380, 100);
+        int popupWidth = 330; // Optimized width (no wasted space)
+        int popupHeight = 80; // 4 rows instead of 5
+        // Center popup OVER the button (not below it)
+        int popupX = buttonBounds.getCentreX() - (popupWidth / 2);
+        int popupY = buttonBounds.getCentreY() - (popupHeight / 2); // Hover over button
+        popupBounds = juce::Rectangle<int>(popupX, popupY, popupWidth, popupHeight);
       } else {
         // Fallback: center on screen
-        popupBounds = juce::Rectangle<int>(getScreenX() + getWidth() / 2 - 190,
-                                           getScreenY() + getHeight() / 2 - 50, 380, 100);
+        popupBounds = juce::Rectangle<int>(getScreenX() + getWidth() / 2 - 165,
+                                           getScreenY() + getHeight() / 2 - 40, 330, 80);
       }
 
       // Show popup (CallOutBox takes ownership and deletes grid when closed)

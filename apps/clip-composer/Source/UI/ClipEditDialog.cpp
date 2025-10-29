@@ -383,7 +383,7 @@ void ClipEditDialog::buildPhase1UI() {
   addAndMakeVisible(m_colorSwatchPicker.get());
 
   // Clip Group
-  m_groupLabel = std::make_unique<juce::Label>("groupLabel", "Clip Group:");
+  m_groupLabel = std::make_unique<juce::Label>("groupLabel", "Group:");
   m_groupLabel->setFont(juce::FontOptions("Inter", 14.0f, juce::Font::bold));
   addAndMakeVisible(m_groupLabel.get());
 
@@ -607,7 +607,7 @@ void ClipEditDialog::buildPhase2UI() {
   };
   addAndMakeVisible(m_stopOthersButton.get());
 
-  m_transportPositionLabel = std::make_unique<juce::Label>("posLabel", "00:00:00");
+  m_transportPositionLabel = std::make_unique<juce::Label>("posLabel", "00:00:00.00");
   m_transportPositionLabel->setFont(
       juce::FontOptions("Inter", 32.0f, juce::Font::bold)); // Issue #11: Enlarged for readability
   m_transportPositionLabel->setJustificationType(juce::Justification::centred);
@@ -1456,17 +1456,23 @@ void ClipEditDialog::resized() {
 
   navRow.removeFromLeft(SECTION_SPACING);
 
-  // Trim Out navigation (right side: CLR aligned with SET, then < > buttons)
-  if (m_trimOutClearButton && m_trimOutDecButton && m_trimOutIncButton) {
+  // Trim Out navigation (right side: < > buttons, then CLR aligned with SET above)
+  if (m_trimOutDecButton && m_trimOutIncButton && m_trimOutClearButton) {
     auto navRight = navRow.removeFromRight(SECTION_WIDTH);
-    // Calculate CLR position to align with SET (which starts at TIME_FIELD_WIDTH + GRID from right
-    // edge)
-    navRight.removeFromRight(TIME_FIELD_WIDTH + GRID);                       // Skip time field
-    m_trimOutClearButton->setBounds(navRight.removeFromRight(BUTTON_WIDTH)); // CLR aligned with SET
+    // Place buttons from right to left: Time field (skip), SET position (CLR here), space, >,
+    // space, < Row 2 layout: [........SET][GRID][.......TIME.......] Row 3 layout:
+    // [<][GRID][>][GRID][..CLR..] (aligned with SET)
+
+    // Skip time field width from the right
+    navRight.removeFromRight(TIME_FIELD_WIDTH);
     navRight.removeFromRight(GRID);
-    // Place < > buttons to the left of CLR
+    // Place CLR aligned with SET button above
+    m_trimOutClearButton->setBounds(navRight.removeFromRight(BUTTON_WIDTH));
+    navRight.removeFromRight(GRID);
+    // Place > button
     m_trimOutIncButton->setBounds(navRight.removeFromRight(NAV_BUTTON_WIDTH));
     navRight.removeFromRight(GRID);
+    // Place < button
     m_trimOutDecButton->setBounds(navRight.removeFromRight(NAV_BUTTON_WIDTH));
   }
 
