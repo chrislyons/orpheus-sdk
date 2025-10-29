@@ -205,11 +205,11 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
     break;
   }
 
-  // Use black text ONLY on extremely light backgrounds (>0.4), white otherwise
+  // Use black text ONLY on extremely light backgrounds (>0.8), white otherwise
   // This ensures readability while strongly favoring white text for dark mode aesthetic
   float brightness = bgColor.getBrightness();
   juce::Colour textColor =
-      brightness > 0.4f ? juce::Colours::black.withAlpha(0.95f) : juce::Colours::white;
+      brightness > 0.8f ? juce::Colours::black.withAlpha(0.95f) : juce::Colours::white;
   juce::Colour subtleTextColor = textColor.withAlpha(0.6f);
   juce::Colour prominentTextColor = textColor.withAlpha(0.95f);
 
