@@ -1148,7 +1148,7 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
       dialog->setVisible(false);
       delete dialog;
     };
-    dialog->setSize(400, 220);
+    dialog->setSize(500, 300); // Match AudioSettingsDialog's preferred size
     dialog->setCentrePosition(getWidth() / 2, getHeight() / 2);
     addAndMakeVisible(dialog);
     dialog->toFront(true);
