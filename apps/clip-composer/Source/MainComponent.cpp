@@ -24,6 +24,11 @@ MainComponent::MainComponent() {
   // Wire up left-click handler for triggering clips
   m_clipGrid->onButtonClicked = [this](int buttonIndex) { onClipTriggered(buttonIndex); };
 
+  // Wire up Ctrl+Opt+Cmd+Click handler for edit dialog
+  m_clipGrid->onButtonEditDialogRequested = [this](int buttonIndex) {
+    onClipDoubleClicked(buttonIndex);
+  };
+
   // Double-click does nothing - right-click is the ONLY way to open edit dialog
   // m_clipGrid->onButtonDoubleClicked = [this](int buttonIndex) { onClipDoubleClicked(buttonIndex);
   // };
@@ -734,6 +739,23 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
     dialog->setVisible(false);
     delete dialog;
     m_currentEditDialog = nullptr; // Clear reference to allow new dialog
+  };
+
+  // Real-time color update: Repaint button immediately when color changes (75fps)
+  dialog->onColorChanged = [this, buttonIndex](const juce::Colour& newColor) {
+    auto button = m_clipGrid->getButton(buttonIndex);
+    if (button) {
+      button->setClipColor(newColor); // Triggers immediate repaint (75fps grid refresh)
+    }
+
+    // CRITICAL: Persist color to SessionManager (prevents Edit Dialog from overwriting it)
+    if (m_sessionManager.hasClip(buttonIndex)) {
+      auto clipData = m_sessionManager.getClip(buttonIndex);
+      clipData.color = newColor;
+      m_sessionManager.setClip(buttonIndex, clipData);
+    }
+
+    DBG("Button " << buttonIndex << ": Color changed in real-time to " << newColor.toString());
   };
 
   // Show dialog as modal

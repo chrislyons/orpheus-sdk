@@ -528,12 +528,13 @@ void ClipButton::resized() {
 
 void ClipButton::mouseDown(const juce::MouseEvent& e) {
   if (e.mods.isLeftButtonDown()) {
-    // Check for Ctrl+Opt+Cmd+LeftClick to open right-click menu (Feature 1)
-    // This provides an alternative to right-click for opening the context menu
+    // Check for Ctrl+Opt+Cmd+LeftClick to open Edit Dialog directly (Feature 1)
+    // This bypasses the right-click menu and goes straight to the edit dialog
     if (e.mods.isCommandDown() && e.mods.isCtrlDown() && e.mods.isAltDown()) {
-      // Trigger right-click menu (works on both empty and loaded buttons)
-      if (onRightClick)
-        onRightClick(m_buttonIndex);
+      // Only trigger if clip is loaded (Edit Dialog requires a clip)
+      if (m_state != State::Empty && onEditDialogRequested) {
+        onEditDialogRequested(m_buttonIndex);
+      }
       return; // Don't process as drag or regular click
     }
 

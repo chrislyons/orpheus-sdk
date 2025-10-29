@@ -135,6 +135,7 @@ public:
   // Callbacks
   std::function<void(const ClipMetadata&)> onOkClicked;
   std::function<void()> onCancelClicked;
+  std::function<void(const juce::Colour&)> onColorChanged; // Real-time color update (75fps repaint)
 
   //==============================================================================
   void paint(juce::Graphics& g) override;

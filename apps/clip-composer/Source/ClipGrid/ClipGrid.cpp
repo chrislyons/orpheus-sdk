@@ -22,6 +22,11 @@ void ClipGrid::createButtons() {
     // Wire up callbacks
     button->onClick = [this](int index) { handleButtonLeftClick(index); };
     button->onRightClick = [this](int index) { handleButtonRightClick(index); };
+    button->onEditDialogRequested = [this](int index) {
+      if (onButtonEditDialogRequested) {
+        onButtonEditDialogRequested(index);
+      }
+    };
     // Note: onDoubleClick removed - clip buttons prioritize single-click for PLAY/STOP
     // Use right-click menu or Ctrl+Opt+Cmd+Click to access Edit Dialog
     button->onDragToButton = [this](int sourceIndex, int targetIndex) {

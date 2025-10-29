@@ -386,6 +386,11 @@ void ClipEditDialog::buildPhase1UI() {
   m_colorSwatchPicker = std::make_unique<ColorSwatchPicker>();
   m_colorSwatchPicker->onColorSelected = [this](const juce::Colour& color) {
     m_metadata.color = color;
+
+    // Real-time color update: Notify MainComponent to repaint button immediately (75fps)
+    if (onColorChanged) {
+      onColorChanged(color);
+    }
   };
   addAndMakeVisible(m_colorSwatchPicker.get());
 

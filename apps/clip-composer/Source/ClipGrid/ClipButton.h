@@ -93,6 +93,7 @@ public:
   // Callbacks
   std::function<void(int buttonIndex)> onClick;
   std::function<void(int buttonIndex)> onRightClick;
+  std::function<void(int buttonIndex)> onEditDialogRequested; // Ctrl+Opt+Cmd+Click shortcut
   std::function<void(int sourceButtonIndex, int targetButtonIndex)> onDragToButton;
 
   //==============================================================================
