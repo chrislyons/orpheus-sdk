@@ -74,19 +74,37 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           echo "Installing libsndfile via vcpkg..."
-          vcpkg install libsndfile:x64-windows --debug
 
-          # Verify installation
-          if ! vcpkg list | grep -q libsndfile; then
-            echo "ERROR: libsndfile installation failed"
+          # Detect vcpkg root (GitHub Actions has it pre-installed)
+          if [ -n "$VCPKG_INSTALLATION_ROOT" ]; then
+            echo "Using VCPKG_INSTALLATION_ROOT: $VCPKG_INSTALLATION_ROOT"
+            VCPKG_ROOT="$VCPKG_INSTALLATION_ROOT"
+          elif [ -d "C:/vcpkg" ]; then
+            echo "Found vcpkg at C:/vcpkg"
+            VCPKG_ROOT="C:/vcpkg"
+          else
+            echo "ERROR: vcpkg not found"
             exit 1
           fi
 
-          echo "libsndfile installed successfully"
-          vcpkg list | grep libsndfile
+          # Install libsndfile
+          "$VCPKG_ROOT/vcpkg" install libsndfile:x64-windows
+
+          # Verify installation
+          if ! "$VCPKG_ROOT/vcpkg" list | grep -q libsndfile; then
+            echo "ERROR: libsndfile installation failed"
+            echo "Installed packages:"
+            "$VCPKG_ROOT/vcpkg" list
+            exit 1
+          fi
+
+          echo "✓ libsndfile installed successfully"
+          "$VCPKG_ROOT/vcpkg" list | grep libsndfile
 
           # Set toolchain file for CMake
-          echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
+          TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          echo "CMAKE_TOOLCHAIN_FILE=$TOOLCHAIN_FILE" >> $GITHUB_ENV
+          echo "Using toolchain file: $TOOLCHAIN_FILE"
         shell: bash
 
       - name: Install CMake
@@ -100,26 +118,38 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -G "${{ matrix.generator }}" \
             ${{ matrix.os == 'windows-latest' && env.CMAKE_TOOLCHAIN_FILE && format('-DCMAKE_TOOLCHAIN_FILE={0}', env.CMAKE_TOOLCHAIN_FILE) || '' }} \
-            ${{ matrix.build_type == 'Debug' && matrix.sanitizers == 'ON' && '-DORP_ENABLE_SANITIZERS=ON' || '' }}
+            ${{ matrix.build_type == 'Debug' && matrix.sanitizers == 'ON' && '-DORP_ENABLE_SANITIZERS=ON' || '' }} 2>&1 | tee cmake_output.log
         shell: bash
 
       - name: Verify libsndfile detection
         run: |
-          echo "Checking CMake configuration for libsndfile..."
-          if grep -q "libsndfile not found" build/CMakeFiles/CMakeOutput.log 2>/dev/null || \
-             grep -q "libsndfile not found" build/CMakeFiles/CMakeError.log 2>/dev/null; then
-            echo "WARNING: libsndfile may not have been detected correctly"
-          fi
+          echo "Checking CMake output for libsndfile detection..."
 
-          # Check if audio_file_reader_libsndfile.cpp is being compiled
-          if [ -f "build/CMakeFiles/orpheus_audio_io.dir/DependInfo.cmake" ]; then
-            if grep -q "audio_file_reader_libsndfile.cpp" build/CMakeFiles/orpheus_audio_io.dir/DependInfo.cmake; then
-              echo "✓ libsndfile detected - audio file reading enabled"
-            else
-              echo "⚠ libsndfile NOT detected - audio file reading disabled (stub implementation)"
-              echo "This will cause transport tests to fail with NotReady error"
-              exit 1
-            fi
+          if grep -q "✓ libsndfile FOUND" cmake_output.log; then
+            echo "✓ SUCCESS: libsndfile detected - audio file reading enabled"
+          elif grep -q "✗ libsndfile NOT FOUND" cmake_output.log; then
+            echo "❌ FAILURE: libsndfile NOT detected - using stub implementation"
+            echo ""
+            echo "This will cause 8 transport tests to fail with NotReady error:"
+            echo "  - fade_processing_test"
+            echo "  - out_point_enforcement_test"
+            echo "  - multi_clip_stress_test"
+            echo "  - clip_gain_test"
+            echo "  - clip_loop_test"
+            echo "  - clip_metadata_test"
+            echo "  - clip_restart_test"
+            echo "  - clip_seek_test"
+            echo ""
+            echo "Debug info:"
+            echo "Platform: ${{ matrix.os }}"
+            echo "CMake toolchain file: ${CMAKE_TOOLCHAIN_FILE:-not set}"
+            grep -i "sndfile" cmake_output.log || echo "No sndfile mentions in CMake output"
+            exit 1
+          else
+            echo "⚠ WARNING: Could not determine libsndfile detection status"
+            echo "Checking for warning messages..."
+            grep -i "libsndfile not found" cmake_output.log || echo "No explicit 'not found' message"
+            exit 1
           fi
         shell: bash
 
