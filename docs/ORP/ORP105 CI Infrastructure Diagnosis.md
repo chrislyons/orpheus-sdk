@@ -509,6 +509,51 @@ Windows install step updated to use GitHub's pre-built binaries:
 - ✅ No compilation required (no build dependencies needed)
 - ✅ Officially supported method for GitHub Actions
 
+#### 8. Fixed CMake Toolchain File Not Being Passed (Additional Fix - Commit b621558c)
+
+**Problem:** After SourceForge fix, Windows builds still failing - libsndfile installed but CMake couldn't find it.
+
+**Root cause identified:**
+The workflow tried to reference `env.CMAKE_TOOLCHAIN_FILE` in a GitHub Actions expression:
+```yaml
+${{ matrix.os == 'windows-latest' && env.CMAKE_TOOLCHAIN_FILE && format('-DCMAKE_TOOLCHAIN_FILE={0}', env.CMAKE_TOOLCHAIN_FILE) || '' }}
+```
+
+**Issue:** Environment variables set via `$GITHUB_ENV` are only available in subsequent steps, not within the same step's conditional expressions. The CMake configuration step was never receiving the toolchain file path.
+
+**Solution:** Use bash conditionals instead of GitHub Actions expressions.
+
+**Updated Configure CMake step:**
+```yaml
+- name: Configure CMake
+  run: |
+    if [ "${{ matrix.os }}" == "windows-latest" ]; then
+      TOOLCHAIN_ARG="-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    else
+      TOOLCHAIN_ARG=""
+    fi
+
+    SANITIZER_ARG=""
+    if [ "${{ matrix.build_type }}" == "Debug" ] && [ "${{ matrix.sanitizers }}" == "ON" ]; then
+      SANITIZER_ARG="-DORP_ENABLE_SANITIZERS=ON"
+    fi
+
+    cmake -S . -B build \
+      -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+      -G "${{ matrix.generator }}" \
+      $TOOLCHAIN_ARG \
+      $SANITIZER_ARG \
+      2>&1 | tee cmake_output.log
+  shell: bash
+```
+
+**Impact:**
+- ✅ vcpkg toolchain file correctly passed to CMake on Windows
+- ✅ CMake can now find libsndfile installed via vcpkg
+- ✅ More readable workflow syntax
+- ✅ Consistent with bash scripting best practices
+- ✅ Easier to debug (explicit variable assignment)
+
 **Before:**
 ```json
 {
@@ -729,8 +774,10 @@ $ git push origin claude/investigate-ci-macos-windows-011CUxAwYCSDHBxBAqbpGW7o
 - `4c4fdde3` - Remove CMake build cache
 - `1693af7c` - Fix integration tests, add libsndfile verification
 - `c64ad5a6` - Improve libsndfile detection (Windows vcpkg, CMake output verification)
-- `1e3c6e5e` - Update ORP105 documentation
+- `1e3c6e5e` - Update ORP105 documentation (first update)
 - `86abdc76` - Fix Windows SourceForge 403 errors (use vcpkg binary cache)
+- `b3cea355` - Update ORP105 with SourceForge fix
+- `b621558c` - Fix CMake toolchain file not being passed on Windows
 
 **Verification Date:** Pending CI run (PR #161)
 **Next Review:** Post-v1.0 release (2026-Q1)
