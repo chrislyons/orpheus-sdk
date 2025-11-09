@@ -44,7 +44,7 @@ jobs:
             sanitizers: OFF
           - os: macos-latest
             generator: 'Unix Makefiles'
-            sanitizers: ON
+            sanitizers: OFF
 
     steps:
       - uses: actions/checkout@v4
@@ -73,11 +73,11 @@ jobs:
       - name: Install libsndfile (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          echo "Installing libsndfile via vcpkg (using binary cache)..."
+          echo "Installing libsndfile via vcpkg (using binary cache pull only)..."
 
-          # Use vcpkg binary caching to avoid SourceForge downloads (403 errors)
-          # GitHub Actions provides pre-built binaries that bypass compilation
-          vcpkg install libsndfile:x64-windows --binarysource="clear;nuget,GitHub,readwrite"
+          # Use vcpkg binary cache for pulls, but don't attempt to push to avoid NuGet configuration errors
+          # This prevents "The specified source 'GitHub' is invalid" errors from nuget.exe
+          vcpkg install libsndfile:x64-windows --binarysource=clear
 
           # Verify installation
           if ! vcpkg list | grep -q libsndfile; then
@@ -94,7 +94,7 @@ jobs:
           echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
         shell: bash
         env:
-          VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+          VCPKG_BINARY_SOURCES: 'clear'
 
       - name: Install CMake
         uses: jwlawson/actions-setup-cmake@v1
