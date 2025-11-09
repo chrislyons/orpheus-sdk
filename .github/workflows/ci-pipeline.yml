@@ -73,11 +73,11 @@ jobs:
       - name: Install libsndfile (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          echo "Installing libsndfile via vcpkg (using binary cache pull only)..."
+          echo "Installing libsndfile (core features only, no mp3)..."
 
-          # Use vcpkg binary cache for pulls, but don't attempt to push to avoid NuGet configuration errors
-          # This prevents "The specified source 'GitHub' is invalid" errors from nuget.exe
-          vcpkg install libsndfile:x64-windows --binarysource=clear
+          # Install only core features to avoid optional mp3lame dependency (SourceForge 403 errors)
+          # The [core] feature set provides WAV/FLAC/OGG support without mp3lame
+          vcpkg install "libsndfile[core]:x64-windows"
 
           # Verify installation
           if ! vcpkg list | grep -q libsndfile; then
@@ -93,8 +93,6 @@ jobs:
           # Set toolchain file for CMake
           echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
         shell: bash
-        env:
-          VCPKG_BINARY_SOURCES: 'clear'
 
       - name: Install CMake
         uses: jwlawson/actions-setup-cmake@v1
