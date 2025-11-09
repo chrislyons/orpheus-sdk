@@ -117,6 +117,7 @@ jobs:
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -G "${{ matrix.generator }}" \
+            -DORPHEUS_ENABLE_REALTIME=ON \
             $TOOLCHAIN_ARG \
             $SANITIZER_ARG \
             2>&1 | tee cmake_output.log
