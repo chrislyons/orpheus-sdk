@@ -398,6 +398,59 @@ ctest --test-dir build --output-on-failure
 - ✅ Clearer error messages for debugging
 - ✅ `--debug` flag on vcpkg provides verbose output for troubleshooting
 
+#### 6. Improved libsndfile Detection (Additional Fix - Commit c64ad5a6)
+
+**Problem:** After all previous fixes, tests were still failing (5 tests reported).
+
+**Root cause identified:**
+1. **Verification step was unreliable:** Checked build files that might not exist at verification time
+2. **Windows vcpkg path hardcoded:** Used `C:/vcpkg` instead of `VCPKG_INSTALLATION_ROOT` environment variable
+3. **No explicit CMake feedback:** Unclear whether libsndfile was actually detected
+
+**Changes made:**
+
+**A. Added explicit CMake status messages** (`src/core/audio_io/CMakeLists.txt`):
+```cmake
+if(SNDFILE_FOUND)
+    list(APPEND ORPHEUS_AUDIO_IO_SOURCES audio_file_reader_libsndfile.cpp)
+    message(STATUS "✓ libsndfile FOUND - audio file reading enabled")
+else()
+    list(APPEND ORPHEUS_AUDIO_IO_SOURCES create_audio_file_reader_stub.cpp)
+    message(STATUS "✗ libsndfile NOT FOUND - using stub implementation (audio file reading disabled)")
+endif()
+```
+
+**B. Improved verification to check CMake output** (`.github/workflows/ci-pipeline.yml`):
+- Redirect CMake output to file: `cmake ... 2>&1 | tee cmake_output.log`
+- Check for explicit status messages: `grep -q "✓ libsndfile FOUND"`
+- Fail with detailed error listing all 8 tests that will fail
+- Show debug info: platform, toolchain file, all sndfile mentions
+
+**C. Fixed Windows vcpkg integration:**
+```bash
+# Detect vcpkg root (GitHub Actions has it pre-installed)
+if [ -n "$VCPKG_INSTALLATION_ROOT" ]; then
+  VCPKG_ROOT="$VCPKG_INSTALLATION_ROOT"
+elif [ -d "C:/vcpkg" ]; then
+  VCPKG_ROOT="C:/vcpkg"
+else
+  echo "ERROR: vcpkg not found"
+  exit 1
+fi
+
+# Use detected path
+"$VCPKG_ROOT/vcpkg" install libsndfile:x64-windows
+TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+echo "CMAKE_TOOLCHAIN_FILE=$TOOLCHAIN_FILE" >> $GITHUB_ENV
+```
+
+**Impact:**
+- ✅ Uses standard GitHub Actions environment variable (`VCPKG_INSTALLATION_ROOT`)
+- ✅ CMake output explicitly shows detection status
+- ✅ Verification step checks actual CMake output (not build files)
+- ✅ Fails immediately with clear, actionable error message
+- ✅ Provides platform-specific debug information
+
 **Before:**
 ```json
 {
@@ -613,5 +666,11 @@ $ git push origin claude/investigate-ci-macos-windows-011CUxAwYCSDHBxBAqbpGW7o
 ---
 
 **Implementation Date:** 2025-11-09
-**Verification Date:** Pending CI run
+**Commits:**
+- `8c4acd59` - Remove interim-ci.yml, update package.json
+- `4c4fdde3` - Remove CMake build cache
+- `1693af7c` - Fix integration tests, add libsndfile verification
+- `c64ad5a6` - Improve libsndfile detection (Windows vcpkg, CMake output verification)
+
+**Verification Date:** Pending CI run (PR #161)
 **Next Review:** Post-v1.0 release (2026-Q1)
