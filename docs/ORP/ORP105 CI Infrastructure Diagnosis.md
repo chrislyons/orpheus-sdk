@@ -18,9 +18,11 @@
 - **Root Cause #7:** CMake toolchain file not passed correctly on Windows
 - **Root Cause #8:** Missing ORPHEUS_ENABLE_REALTIME flag (only ~14 tests built instead of 56-58)
 - **Root Cause #9:** macOS sanitizer overhead causing timing test failures
-- **Root Cause #10:** Windows vcpkg NuGet push errors (binary cache configuration)
+- **Root Cause #10:** Windows vcpkg attempts to use mp3lame (SourceForge 403 errors)
+- **Root Cause #11:** Windows SourceForge dependency - correct fix using libsndfile[core]
+- **Root Cause #12:** Windows MSVC compilation errors (M_PI_2 undefined, missing chrono include)
 - **Affected Platforms:** macOS, Windows, Ubuntu (all platforms)
-- **Fix Chain:** 11 commits addressing infrastructure, dependencies, configuration, and timing issues
+- **Fix Chain:** 17 commits addressing infrastructure, dependencies, configuration, timing, and portability
 - **Status:** Implemented and ready for verification
 
 ---
@@ -728,7 +730,73 @@ error: building mp3lame:x64-windows failed with: BUILD_FAILED
 **Evolution of fixes:**
 1. **Commit 86abdc76:** Used `--binarysource="clear;nuget,GitHub,readwrite"` → NuGet configuration errors
 2. **Commit c95d4915:** Changed to `--binarysource=clear` → Still hit SourceForge (forced source build)
-3. **This fix:** Use `libsndfile[core]` → Avoids mp3lame entirely
+3. **Commit 31a6848d:** Use `libsndfile[core]` → Avoids mp3lame entirely ✅
+
+#### 12. Windows MSVC Compilation Errors (Additional Fix - Commit 1019169a)
+
+**Problem:** After libsndfile[core] fix, Windows builds now fail at compilation stage.
+
+**Root cause identified:**
+```
+error C2065: 'M_PI_2': undeclared identifier (transport_controller.cpp:1303)
+error C2065: 'high_resolution_clock': undeclared identifier (gain_smoother_test.cpp:361)
+error C2039: 'now': is not a member of 'std::chrono' (gain_smoother_test.cpp:361)
+```
+
+**Issue #1: M_PI_2 not defined on MSVC**
+- POSIX defines M_PI_2 (π/2) in math.h
+- MSVC does not define it by default (requires `_USE_MATH_DEFINES` before including math.h)
+- Code uses M_PI_2 for equal-power fade curve: `std::sin(normalizedPosition * M_PI_2)`
+- Located in: `src/core/transport/transport_controller.cpp:1303`
+
+**Issue #2: Missing <chrono> include**
+- Test uses `std::chrono::high_resolution_clock::now()`
+- Header `<chrono>` not included in test file
+- Located in: `tests/routing/gain_smoother_test.cpp:361, 367`
+
+**Solution: Add portable M_PI_2 definition and chrono include**
+
+**Fix #1: transport_controller.cpp**
+```cpp
+// SPDX-License-Identifier: MIT
+#include "transport_controller.h"
+
+#include "session/session_graph.h"
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+
+// MSVC and some platforms don't define M_PI_2 by default
+#ifndef M_PI_2
+#define M_PI_2 1.57079632679489661923
+#endif
+
+namespace orpheus {
+  // ... rest of file
+```
+
+**Fix #2: gain_smoother_test.cpp**
+```cpp
+// SPDX-License-Identifier: MIT
+#include "../../src/core/routing/gain_smoother.h"
+
+#include <atomic>
+#include <chrono>  // <-- Added this line
+#include <cmath>
+#include <gtest/gtest.h>
+#include <thread>
+```
+
+**Impact:**
+- ✅ Portable across all platforms (Unix/Linux/macOS/Windows)
+- ✅ No functional changes (same behavior on all platforms)
+- ✅ Follows C++20 best practices (explicit includes)
+- ✅ Guards prevent redefinition warnings
+
+**Why this wasn't caught earlier:**
+- Tests passed on Ubuntu and macOS (POSIX platforms define M_PI_2)
+- CI only started running Windows builds after libsndfile installation fixed
+- MSVC has stricter requirements for standard library includes
 
 ---
 
@@ -846,11 +914,11 @@ TEST_F(CoreAudioDriverTest, CallbackIsInvoked) {
 - ✅ CMake cache poisoning
 - ✅ Integration test compatibility
 - ✅ libsndfile detection (all platforms)
-- ✅ Windows SourceForge bypass
+- ✅ Windows SourceForge bypass (libsndfile[core])
 - ✅ CMake toolchain file passing
 - ✅ ORPHEUS_ENABLE_REALTIME flag
 - ✅ macOS sanitizer overhead
-- ✅ Windows vcpkg configuration
+- ✅ Windows MSVC portability (M_PI_2, chrono)
 
 **Code Issues (SEPARATE FROM THIS PR):** ⚠️
 - ⚠️ `multi_clip_stress_test` callback accuracy (macOS only)
@@ -1104,8 +1172,9 @@ $ git push origin claude/investigate-ci-macos-windows-011CUxAwYCSDHBxBAqbpGW7o
 - `c95d4915` - Disable macOS sanitizers and fix Windows vcpkg binary cache (WRONG - still hit SourceForge)
 - `ff07645b` - Update ORP105 with macOS sanitizer and Windows vcpkg fixes
 - `151f7fce` - Add commit hashes to ORP105
-- `[pending]` - Fix Windows libsndfile installation using [core] feature (correct fix)
-- `[pending]` - Update ORP105 with libsndfile[core] fix and macOS test failure documentation
+- `31a6848d` - Fix Windows libsndfile installation using [core] feature (correct SourceForge fix)
+- `1019169a` - Fix Windows MSVC compilation errors (M_PI_2, chrono include)
+- `[pending]` - Update ORP105 with libsndfile[core] and Windows portability fixes
 
 **Verification Date:** Pending CI run (PR #161)
 **Next Review:** Post-v1.0 release (2026-Q1)
