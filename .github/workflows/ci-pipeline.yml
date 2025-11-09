@@ -103,11 +103,23 @@ jobs:
 
       - name: Configure CMake
         run: |
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            TOOLCHAIN_ARG="-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          else
+            TOOLCHAIN_ARG=""
+          fi
+
+          SANITIZER_ARG=""
+          if [ "${{ matrix.build_type }}" == "Debug" ] && [ "${{ matrix.sanitizers }}" == "ON" ]; then
+            SANITIZER_ARG="-DORP_ENABLE_SANITIZERS=ON"
+          fi
+
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -G "${{ matrix.generator }}" \
-            ${{ matrix.os == 'windows-latest' && env.CMAKE_TOOLCHAIN_FILE && format('-DCMAKE_TOOLCHAIN_FILE={0}', env.CMAKE_TOOLCHAIN_FILE) || '' }} \
-            ${{ matrix.build_type == 'Debug' && matrix.sanitizers == 'ON' && '-DORP_ENABLE_SANITIZERS=ON' || '' }} 2>&1 | tee cmake_output.log
+            $TOOLCHAIN_ARG \
+            $SANITIZER_ARG \
+            2>&1 | tee cmake_output.log
         shell: bash
 
       - name: Verify libsndfile detection
