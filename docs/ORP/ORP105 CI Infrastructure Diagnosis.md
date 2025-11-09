@@ -619,7 +619,7 @@ cmake -S . -B build \
 
 This was the final piece - all previous fixes were necessary but insufficient because the tests themselves weren't being built.
 
-#### 10. macOS Sanitizer Overhead Causing Timing Test Failures (Additional Fix - Commit TBD)
+#### 10. macOS Sanitizer Overhead Causing Timing Test Failures (Additional Fix - Commit c95d4915)
 
 **Problem:** After enabling ORPHEUS_ENABLE_REALTIME flag, macOS tests fail with timing accuracy issues.
 
@@ -659,7 +659,7 @@ From `.github/workflows/ci-pipeline.yml` line 45-47:
 
 **Note:** We still get AddressSanitizer coverage from Ubuntu Debug builds. macOS-specific memory issues would be caught by other means (crash logs, valgrind, local testing).
 
-#### 11. Windows vcpkg NuGet Push Errors (Additional Fix - Commit TBD)
+#### 11. Windows vcpkg NuGet Push Errors (Additional Fix - Commit c95d4915)
 
 **Problem:** After all previous fixes, Windows builds fail with NuGet configuration errors.
 
@@ -962,8 +962,8 @@ $ git push origin claude/investigate-ci-macos-windows-011CUxAwYCSDHBxBAqbpGW7o
 - `a2e63128` - Update ORP105 with toolchain fix
 - `69a6ef44` - Enable ORPHEUS_ENABLE_REALTIME flag to build all tests
 - `1680b748` - Update ORP105 with ORPHEUS_ENABLE_REALTIME flag fix
-- `[pending]` - Disable macOS sanitizers (timing test conflicts)
-- `[pending]` - Fix Windows vcpkg NuGet push errors (disable binary cache push)
+- `c95d4915` - Disable macOS sanitizers and fix Windows vcpkg binary cache
+- `ff07645b` - Update ORP105 with macOS sanitizer and Windows vcpkg fixes
 
 **Verification Date:** Pending CI run (PR #161)
 **Next Review:** Post-v1.0 release (2026-Q1)
