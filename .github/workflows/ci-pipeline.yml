@@ -73,39 +73,28 @@ jobs:
       - name: Install libsndfile (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          echo "Installing libsndfile via vcpkg..."
+          echo "Installing libsndfile via vcpkg (using binary cache)..."
 
-          # Detect vcpkg root (GitHub Actions has it pre-installed)
-          if [ -n "$VCPKG_INSTALLATION_ROOT" ]; then
-            echo "Using VCPKG_INSTALLATION_ROOT: $VCPKG_INSTALLATION_ROOT"
-            VCPKG_ROOT="$VCPKG_INSTALLATION_ROOT"
-          elif [ -d "C:/vcpkg" ]; then
-            echo "Found vcpkg at C:/vcpkg"
-            VCPKG_ROOT="C:/vcpkg"
-          else
-            echo "ERROR: vcpkg not found"
-            exit 1
-          fi
-
-          # Install libsndfile
-          "$VCPKG_ROOT/vcpkg" install libsndfile:x64-windows
+          # Use vcpkg binary caching to avoid SourceForge downloads (403 errors)
+          # GitHub Actions provides pre-built binaries that bypass compilation
+          vcpkg install libsndfile:x64-windows --binarysource="clear;nuget,GitHub,readwrite"
 
           # Verify installation
-          if ! "$VCPKG_ROOT/vcpkg" list | grep -q libsndfile; then
+          if ! vcpkg list | grep -q libsndfile; then
             echo "ERROR: libsndfile installation failed"
             echo "Installed packages:"
-            "$VCPKG_ROOT/vcpkg" list
+            vcpkg list
             exit 1
           fi
 
           echo "✓ libsndfile installed successfully"
-          "$VCPKG_ROOT/vcpkg" list | grep libsndfile
+          vcpkg list | grep libsndfile
 
           # Set toolchain file for CMake
-          TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-          echo "CMAKE_TOOLCHAIN_FILE=$TOOLCHAIN_FILE" >> $GITHUB_ENV
-          echo "Using toolchain file: $TOOLCHAIN_FILE"
+          echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
         shell: bash
+        env:
+          VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
 
       - name: Install CMake
         uses: jwlawson/actions-setup-cmake@v1
