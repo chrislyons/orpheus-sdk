@@ -48,15 +48,12 @@ MainComponent::MainComponent() {
   };
 
   // Wire up 75fps playback state sync (uses global clip index for multi-tab isolation)
-  // CRITICAL: Only return TRUE for actual Playing state, NOT Stopping (fading out)
-  // This prevents timer from resetting button to Playing during fade-out
-  m_clipGrid->isClipPlaying = [this](int buttonIndex) -> bool {
+  m_clipGrid->getClipState = [this](int buttonIndex) -> orpheus::PlaybackState {
     if (m_audioEngine) {
       int globalClipIndex = getGlobalClipIndex(buttonIndex);
-      auto state = m_audioEngine->getClipState(globalClipIndex);
-      return (state == orpheus::PlaybackState::Playing);
+      return m_audioEngine->getClipState(globalClipIndex);
     }
-    return false;
+    return orpheus::PlaybackState::Stopped;
   };
 
   // Wire up 75fps clip existence check (prevents orphaned states)
@@ -78,6 +75,30 @@ MainComponent::MainComponent() {
     fadeInEnabled = (clipData.fadeInSeconds > 0.0);
     fadeOutEnabled = (clipData.fadeOutSeconds > 0.0);
     stopOthersEnabled = m_stopOthersOnPlay[globalClipIndex];
+  };
+
+  // Wire up 75fps playback position tracking (for elapsed time display)
+  m_clipGrid->getClipPosition = [this](int buttonIndex) -> float {
+    if (!m_audioEngine || !m_sessionManager.hasClip(buttonIndex))
+      return 0.0f;
+
+    int globalClipIndex = getGlobalClipIndex(buttonIndex);
+    auto clipData = m_sessionManager.getClip(buttonIndex);
+
+    // Get current sample position (absolute)
+    int64_t currentSample = m_audioEngine->getClipPosition(globalClipIndex);
+
+    // Calculate trimmed duration in samples
+    int64_t trimmedSamples = clipData.trimOutSamples - clipData.trimInSamples;
+
+    // Normalize to 0.0-1.0 progress within trimmed region
+    if (trimmedSamples > 0) {
+      float progress = static_cast<float>(currentSample - clipData.trimInSamples) /
+                       static_cast<float>(trimmedSamples);
+      return juce::jlimit(0.0f, 1.0f, progress);
+    }
+
+    return 0.0f;
   };
 
   // Make this component capture keyboard focus
@@ -607,27 +628,19 @@ void MainComponent::onClipTriggered(int buttonIndex) {
   // Calculate global clip index (tab-aware: 0-383 for 8 tabs × 48 buttons)
   int globalClipIndex = getGlobalClipIndex(buttonIndex);
 
-  // CRITICAL: Check actual SDK playback state, NOT button visual state
-  // Button visual state can lag due to 75fps timer, especially during rapid clicks
-  orpheus::PlaybackState sdkState = orpheus::PlaybackState::Stopped;
-  if (m_audioEngine) {
-    sdkState = m_audioEngine->getClipState(globalClipIndex);
-  }
+  // Toggle play/stop based on current visual state
+  // Timer will sync visual state with SDK state at 75fps
+  auto currentState = button->getState();
 
-  // CRITICAL: Handle rapid-fire Voice 1/Voice 2 alternation correctly
-  // - Playing → STOP (starts fade-out)
-  // - Stopping → START (new voice while old fades)
-  // - Stopped → START (first voice)
-  if (sdkState == orpheus::PlaybackState::Playing) {
-    // Clip is playing - stop it (starts fade-out)
+  if (currentState == ClipButton::State::Playing) {
+    // Stop the clip
     if (m_audioEngine) {
       m_audioEngine->stopClip(globalClipIndex);
     }
     button->setState(ClipButton::State::Loaded);
     DBG("Button " + juce::String(buttonIndex) + " (global: " + juce::String(globalClipIndex) +
         "): Stopped via keyboard/click");
-  } else {
-    // Clip is stopped OR fading out - start it (activates next voice)
+  } else if (currentState == ClipButton::State::Loaded) {
     // Check if "stop others on play" mode is enabled for this button (use global index)
     if (m_stopOthersOnPlay[globalClipIndex]) {
       // Stop all other playing clips ON THIS TAB
@@ -648,14 +661,13 @@ void MainComponent::onClipTriggered(int buttonIndex) {
       }
     }
 
-    // Start the clip (will activate next voice if one is still fading)
+    // Start the clip
     if (m_audioEngine) {
       m_audioEngine->startClip(globalClipIndex);
     }
     button->setState(ClipButton::State::Playing);
     DBG("Button " + juce::String(buttonIndex) + " (global: " + juce::String(globalClipIndex) +
-        "): Started playing via keyboard/click" +
-        (sdkState == orpheus::PlaybackState::Stopping ? " (new voice while fading)" : ""));
+        "): Started playing via keyboard/click");
   }
 
   // CRITICAL: Restore keyboard focus to Edit Dialog if it's open
@@ -813,8 +825,58 @@ void MainComponent::onClipDoubleClicked(int buttonIndex) {
     m_currentEditDialog = nullptr; // Clear reference to allow new dialog
   };
 
-  dialog->onCancelClicked = [this, dialog]() {
-    // Close dialog without saving
+  dialog->onCancelClicked = [this, buttonIndex, globalClipIndex, dialog, metadata]() {
+    // CRITICAL: Restore original metadata on CANCEL (discard temporary edits)
+    // Edits are live during preview, but must be reverted if user cancels
+
+    // Restore SessionManager clip data
+    auto clipData = m_sessionManager.getClip(buttonIndex);
+    clipData.displayName = metadata.displayName.toStdString();
+    clipData.color = metadata.color;
+    clipData.clipGroup = metadata.clipGroup;
+    clipData.trimInSamples = metadata.trimInSamples;
+    clipData.trimOutSamples = metadata.trimOutSamples;
+    clipData.fadeInSeconds = metadata.fadeInSeconds;
+    clipData.fadeOutSeconds = metadata.fadeOutSeconds;
+    clipData.fadeInCurve = metadata.fadeInCurve.toStdString();
+    clipData.fadeOutCurve = metadata.fadeOutCurve.toStdString();
+    clipData.gainDb = metadata.gainDb;
+    clipData.loopEnabled = metadata.loopEnabled;
+    clipData.stopOthersEnabled = metadata.stopOthersEnabled;
+    m_sessionManager.setClip(buttonIndex, clipData);
+
+    // Restore SDK state (trim points, fades, loop mode)
+    if (m_audioEngine) {
+      m_audioEngine->updateClipMetadata(
+          globalClipIndex, metadata.trimInSamples, metadata.trimOutSamples, metadata.fadeInSeconds,
+          metadata.fadeOutSeconds, metadata.fadeInCurve, metadata.fadeOutCurve);
+      m_audioEngine->setClipLoopMode(globalClipIndex, metadata.loopEnabled);
+      m_loopEnabled[globalClipIndex] = metadata.loopEnabled;
+      m_stopOthersOnPlay[globalClipIndex] = metadata.stopOthersEnabled;
+    }
+
+    // Restore button visual state
+    auto button = m_clipGrid->getButton(buttonIndex);
+    if (button) {
+      button->setClipName(metadata.displayName);
+      button->setClipColor(metadata.color);
+      button->setClipGroup(metadata.clipGroup);
+      button->setLoopEnabled(metadata.loopEnabled);
+      button->setFadeInEnabled(metadata.fadeInSeconds > 0.0);
+      button->setFadeOutEnabled(metadata.fadeOutSeconds > 0.0);
+      button->setStopOthersEnabled(metadata.stopOthersEnabled);
+
+      // Restore trimmed duration
+      if (metadata.sampleRate > 0) {
+        int64_t trimmedSamples = metadata.trimOutSamples - metadata.trimInSamples;
+        double durationSeconds = static_cast<double>(trimmedSamples) / metadata.sampleRate;
+        button->setClipDuration(durationSeconds);
+      }
+    }
+
+    DBG("MainComponent: CANCEL - Restored original metadata for button " << buttonIndex);
+
+    // Close dialog
     dialog->setVisible(false);
     delete dialog;
     m_currentEditDialog = nullptr; // Clear reference to allow new dialog

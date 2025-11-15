@@ -165,10 +165,13 @@ void TabSwitcher::paint(juce::Graphics& g) {
     auto heartbeatCircle =
         juce::Rectangle<float>(xPos, yStart + lightSize + lightGap, lightSize, lightSize);
 
-    // Pulse animation (fade in/out based on heartbeat phase, 1Hz)
-    // Use sine squared to keep alpha always positive (ranges from 0.4 to 1.0)
-    float sinValue = std::sin((m_heartbeatPhase / 100.0f) * juce::MathConstants<float>::twoPi);
-    float pulseAlpha = 0.4f + 0.6f * (sinValue * sinValue); // Range: [0.4, 1.0]
+    // Pulse animation: Sawtooth with exponential decay (light fast, fade once per second)
+    // Phase 0-100 represents one full 1-second cycle
+    // Light instantly at phase 0, then exponentially decay to dim
+    float normalizedPhase = m_heartbeatPhase / 100.0f; // 0.0 to 1.0
+    float pulseAlpha =
+        0.2f +
+        0.7f * std::exp(-5.0f * normalizedPhase); // Exponential decay (0.2 dark → 0.9 bright)
 
     g.setColour(juce::Colours::cyan.withAlpha(pulseAlpha));
     g.fillEllipse(heartbeatCircle);

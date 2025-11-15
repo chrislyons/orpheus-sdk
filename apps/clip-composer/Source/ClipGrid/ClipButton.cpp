@@ -120,10 +120,14 @@ juce::String ClipButton::formatDuration(double seconds) const {
   int hours = totalSeconds / 3600;
   int minutes = (totalSeconds % 3600) / 60;
   int secs = totalSeconds % 60;
-  int hundredths = static_cast<int>((seconds - totalSeconds) * 100.0);
 
-  // OCC130 Sprint A: Always show HH:MM:SS.FF format (hundredths, not frames)
-  return juce::String::formatted("%02d:%02d:%02d.%02d", hours, minutes, secs, hundredths);
+  // Show MM:SS by default, HH:MM:SS only if >60 minutes
+  // No frames/hundredths shown on clip button faces
+  if (hours > 0) {
+    return juce::String::formatted("%02d:%02d:%02d", hours, minutes, secs);
+  } else {
+    return juce::String::formatted("%02d:%02d", minutes, secs);
+  }
 }
 
 void ClipButton::paint(juce::Graphics& g) {
@@ -235,11 +239,8 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
     auto numberFont = juce::FontOptions("HK Grotesk", 12.0f, juce::Font::bold);
     g.setFont(numberFont);
 
-    // Calculate text width using GlyphArrangement (replaces deprecated getStringWidth)
-    juce::GlyphArrangement glyphs;
-    glyphs.addLineOfText(juce::Font(numberFont), buttonNumber, 0.0f, 0.0f);
-    float textWidth = glyphs.getBoundingBox(0, -1, true).getWidth();
-    float boxWidth = textWidth + 6.0f; // Reduced padding: 8.0 -> 6.0
+    // Reserve 3 characters of width (e.g., "960") - fixed width for consistent layout
+    float boxWidth = 36.0f; // Fixed width for up to 3 digits
     float boxHeight = 16.0f;
 
     auto numberBox = topRow.removeFromLeft(boxWidth).withHeight(boxHeight);
@@ -265,14 +266,11 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
     // OCC130 Sprint A.4: Keyboard shortcut indicator (top-right corner)
     // Thin outline box, transparent background, adaptive color
     if (m_keyboardShortcut.isNotEmpty()) {
-      // Calculate box size (similar to clip number box)
+      // Reserve 3 characters of width (e.g., "F12") - fixed width for consistent layout
       auto hotkeyFont = juce::FontOptions("HK Grotesk", 12.0f, juce::Font::bold);
       g.setFont(hotkeyFont);
 
-      juce::GlyphArrangement hotkeyGlyphs;
-      hotkeyGlyphs.addLineOfText(juce::Font(hotkeyFont), m_keyboardShortcut, 0.0f, 0.0f);
-      float hotkeyTextWidth = hotkeyGlyphs.getBoundingBox(0, -1, true).getWidth();
-      float hotkeyBoxWidth = hotkeyTextWidth + 6.0f; // Same padding as clip number
+      float hotkeyBoxWidth = 36.0f; // Fixed width for up to 3 characters
       float hotkeyBoxHeight = 16.0f;
 
       auto hotkeyBox = topRow.removeFromRight(hotkeyBoxWidth).withHeight(hotkeyBoxHeight);
@@ -310,23 +308,32 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
                      3, // Allow up to 3 lines for name
                      0.85f);
 
-    // OCC130 Sprint A.2: Time display - ALWAYS show elapsed — remaining
-    // Larger font (18px, ~2x original 9px) for better readability
+    // OCC130 Sprint A.2: Time display - show elapsed — remaining when playing, total when stopped
+    // Font size: 15.0px (reduced ~15% from original 18px)
     auto durationArea = nameArea.removeFromBottom(22.0f); // Increased height for larger font
     if (m_durationSeconds > 0.0) {
-      g.setFont(juce::FontOptions("HK Grotesk", 18.0f, juce::Font::plain));
+      g.setFont(juce::FontOptions("HK Grotesk", 15.0f, juce::Font::plain));
 
-      // Always show elapsed — remaining (even when stopped)
-      double elapsed = m_state == State::Playing ? m_durationSeconds * m_playbackProgress : 0.0;
-      double remaining = m_durationSeconds - elapsed;
+      juce::String timeDisplay;
 
-      // Format: "00:00:00.00 — 00:03:30.45"
-      juce::String timeDisplay = formatDuration(elapsed) + " — " + formatDuration(remaining);
+      // Show different formats based on playback state
+      if (m_state == State::Playing || m_state == State::Stopping) {
+        // Playing/Stopping: show elapsed — remaining
+        // Elapsed = current playhead position within trimmed region (IN to OUT)
+        double elapsed = m_durationSeconds * m_playbackProgress;
+        double remaining = m_durationSeconds - elapsed;
 
-      // Color: green when playing, subtle when stopped
-      if (m_state == State::Playing) {
-        g.setColour(juce::Colour(0xff00ff00).withAlpha(0.9f));
+        // Format: "MM:SS — MM:SS" (HH:MM:SS if >60 min)
+        timeDisplay = formatDuration(elapsed) + " — " + formatDuration(remaining);
+
+        // Color: green when playing, orange when stopping
+        g.setColour(m_state == State::Playing ? juce::Colour(0xff00ff00).withAlpha(0.9f)
+                                              : juce::Colour(0xffff8800).withAlpha(0.9f));
       } else {
+        // Loaded/Empty: show total duration only
+        timeDisplay = formatDuration(m_durationSeconds);
+
+        // Color: subtle text
         g.setColour(subtleTextColor);
       }
 

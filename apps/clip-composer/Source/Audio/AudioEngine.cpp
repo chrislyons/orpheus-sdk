@@ -257,16 +257,17 @@ bool AudioEngine::startClip(int buttonIndex) {
   if (!m_transportController)
     return false;
 
-  // CRITICAL: Only restart if ACTUALLY playing, not if fading out (Stopping state)
-  // During rapid-fire clicks, SDK handles voice alternation internally:
-  // - Playing → restartClip() to restart from IN point
-  // - Stopping → startClip() to activate next voice while previous fades
-  // - Stopped → startClip() to activate first voice
-  auto playbackState = m_transportController->getClipState(handle);
+  // CRITICAL: Check if already playing - if so, RESTART from IN point (not resume)
+  // This ensures rapid clip button clicks always restart from the beginning
+  // Reference: Commit 693293f1 (perfect button behavior, no zigzag distortion)
+  // See: apps/clip-composer/docs/occ/OCC129 for complete technical explanation
+  bool isAlreadyPlaying = m_transportController->isClipPlaying(handle);
 
   orpheus::SessionGraphError result;
-  if (playbackState == orpheus::PlaybackState::Playing) {
+  if (isAlreadyPlaying) {
     // Already playing - use restartClip() to force restart from IN point
+    // This restarts ALL voices with a 5ms broadcast-safe crossfade
+    // Eliminates zigzag distortion by preventing overlapping voices with independent fades
     result = m_transportController->restartClip(handle);
     if (result != orpheus::SessionGraphError::OK) {
       DBG("AudioEngine: Failed to restart clip " << handle);
@@ -274,15 +275,13 @@ bool AudioEngine::startClip(int buttonIndex) {
     }
     DBG("AudioEngine: Restarted clip on button " << buttonIndex << " (was already playing)");
   } else {
-    // Not playing OR fading out - use startClip() (SDK will activate next voice)
+    // Not playing - use startClip() as normal
     result = m_transportController->startClip(handle);
     if (result != orpheus::SessionGraphError::OK) {
       DBG("AudioEngine: Failed to start clip " << handle);
       return false;
     }
-    DBG("AudioEngine: Started clip on button "
-        << buttonIndex
-        << (playbackState == orpheus::PlaybackState::Stopping ? " (new voice while fading)" : ""));
+    DBG("AudioEngine: Started clip on button " << buttonIndex);
   }
 
   return true;
