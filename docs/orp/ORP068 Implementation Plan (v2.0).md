@@ -1,23 +1,33 @@
-# ORP065 Implementation Plan v1.1 Orpheus SDK × Shmui Integration
+# ORP068 Implementation Plan v2.0: Orpheus SDK × Shmui Integration
 
-**Document Type**: Implementation Specification
+**Document Type**: Implementation Specification (Consolidated)
+
 **Status**: Normative
-**Version**: 1.1 (Amended)
-**Dependencies**: ORP061 (Migration Plan), ORP062 (Technical Addendum), ORP063 (Governance Framework)
-**Effective Date**: Upon technical steering approval
+
+**Version**: 2.0
+
+**Supersedes**: ORP065 v1.1
+
+**Incorporates**: All amendments from ORP066
 
 ---
 
 ## Executive Summary
 
-This document provides a comprehensive, actionable task breakdown for integrating the Shmui React UI into the Orpheus SDK monorepo. Tasks are organized by the four-phase timeline established in ORP061, with domain-specific groupings enabling parallel workstream execution. Each task includes explicit acceptance criteria, ORP section cross-references, tooling requirements, and dependency mappings.
+This document provides the definitive, consolidated implementation task breakdown for integrating the Shmui React UI into the Orpheus SDK monorepo. All amendments from ORP066 have been fully integrated, including package naming corrections, manifest systems, security hardening, and documentation improvements.
 
-**Total Estimated Tasks**: 147 (revised from 127)
-**Critical Path Duration**: Spans all 4 phases (Phase 0 → Phase 4)
-**Parallel Workstreams**: Up to 6 concurrent domains per phase
-**Finish-Line Criteria**: 28 gated requirements (revised from 23)
+**Total Estimated Tasks**: 104 (consolidated from 95 + 9 new tasks) **Critical Path Duration**: Spans all 4 phases (Phase 0 → Phase 4) **Parallel Workstreams**: Up to 6 concurrent domains per phase **Finish-Line Criteria**: 28 gated requirements
 
-**Amendment Notes**: This revision incorporates governance automation, binary compatibility testing, security auditing, and developer experience enhancements as identified in technical review.
+**Consolidation Notes**: This revision incorporates all ORP066 amendments including:
+
+- Corrected package naming (@orpheus/shmui, @orpheus/engine-native)
+- Contract and golden audio manifest systems
+- Driver selection registry with explicit ordering
+- Service driver authentication
+- WASM build discipline and SRI verification
+- Binary signing UX validation
+- Performance budgets configuration
+- Enhanced documentation navigation
 
 ---
 
@@ -65,13 +75,11 @@ Each task includes:
 
 ## II. PHASE 0: PREPARATORY REPOSITORY SETUP
 
-**Objective**: Establish monorepo structure and import Shmui without altering functionality
-**Duration Estimate**: 2 weeks (revised from 1-2 weeks)
-**Gate Criteria**: All validation checks from ORP061 §Phase 0 pass
+**Objective**: Establish monorepo structure and import Shmui without altering functionality **Duration Estimate**: 2 weeks **Gate Criteria**: All validation checks from ORP061 §Phase 0 pass
 
 ### A. Repository Structure Tasks
 
-#### P0.REPO.001: Initialize Monorepo Workspace
+#### P0.REPO.001: Initialize Monorepo Workspace (TASK-001)
 
 **Description**: Create top-level `packages/` directory and configure PNPM workspace.
 
@@ -101,7 +109,7 @@ pnpm list --depth 0  # Should show workspace packages
 
 ---
 
-#### P0.REPO.002: Import Shmui Codebase with History Preservation
+#### P0.REPO.002: Import Shmui Codebase with History Preservation (TASK-002)
 
 **Description**: Migrate complete Shmui repository into `packages/shmui/` using subtree merge to preserve commit history.
 
@@ -130,18 +138,20 @@ diff -r packages/shmui/ ../shmui-backup/  # Verify content match
 
 ---
 
-#### P0.REPO.003: Configure Package Namespacing
+#### P0.REPO.003: Configure Package Namespacing (TASK-003) **[AMENDED]**
 
-**Description**: Rename Shmui package to `@orpheus/ui` and establish naming conventions for all packages.
+**Description**: Establish canonical package names with @orpheus scope, preserving Shmui identity.
 
 **Acceptance Criteria**:
 
-- [ ] `packages/shmui/package.json` name set to `@orpheus/ui`
+- [ ] `packages/shmui/package.json` name set to `@orpheus/shmui` (preserves original identity)
+- [ ] Native driver package named `@orpheus/engine-native` (usable by Electron and Node.js)
 - [ ] Scoped package naming documented in `docs/PACKAGE_NAMING.md`
-- [ ] Reserved names documented: `@orpheus/core`, `@orpheus/client`, `@orpheus/engine-*`
+- [ ] Reserved names documented: `@orpheus/core`, `@orpheus/client`, `@orpheus/contract`, `@orpheus/engine-*`
 - [ ] NPM scope `@orpheus` registered (if publishing publicly)
+- [ ] Internal codename "Shmui" preserved in documentation with explanation
 
-**ORP References**: ORP061 §Phase 0 (Namespacing and Package Names), ORP063 §III.D
+**ORP References**: ORP061 §Phase 0 (Namespacing and Package Names), ORP063 §III.D, ORP066 §II
 
 **Tooling Requirements**:
 
@@ -152,13 +162,14 @@ diff -r packages/shmui/ ../shmui-backup/  # Verify content match
 **Validation Method**:
 
 ```javascript
-jq '.name' packages/shmui/package.json  # Should output "@orpheus/ui"
+jq '.name' packages/shmui/package.json  # Should output "@orpheus/shmui"
+grep "@orpheus/engine-native" packages/engine-native/package.json
 
 ```
 
 ---
 
-#### P0.REPO.004: Preserve Orpheus C++ Build Structure
+#### P0.REPO.004: Preserve Orpheus C++ Build Structure (TASK-004)
 
 **Description**: Ensure Orpheus C++ code remains buildable at current location without path breakage.
 
@@ -191,7 +202,7 @@ ctest --test-dir build --output-on-failure
 
 ### B. Tooling Baseline Tasks
 
-#### P0.REPO.005: Unify Linting and Formatting Configuration
+#### P0.REPO.005: Unify Linting and Formatting Configuration (TASK-005)
 
 **Description**: Configure linters for both C++ and TypeScript to coexist without conflicts.
 
@@ -222,14 +233,14 @@ pnpm run lint  # Runs both without conflicts
 
 ---
 
-#### P0.REPO.006: Initialize Changesets Configuration
+#### P0.REPO.006: Initialize Changesets Configuration (TASK-006)
 
 **Description**: Set up changesets for monorepo versioning with all packages registered.
 
 **Acceptance Criteria**:
 
 - [ ] `.changeset/config.json` created with package list
-- [ ] Includes `packages/shmui` (as `@orpheus/ui`)
+- [ ] Includes `packages/shmui` (as `@orpheus/shmui`)
 - [ ] Configured for independent or unified versioning strategy
 - [ ] Changesets CLI functional
 
@@ -251,20 +262,24 @@ pnpm changeset version  # Dry-run should succeed
 
 ---
 
-#### P0.REPO.007: Create Developer Environment Bootstrap Script
+#### P0.REPO.007: Create Developer Environment Bootstrap Script (TASK-007) **[AMENDED]**
 
-**Description**: Implement one-step setup script for new contributors.
+**Description**: Implement one-step setup script for new contributors with comprehensive validation.
 
 **Acceptance Criteria**:
 
 - [ ] Script created: `./scripts/bootstrap-dev.sh`
 - [ ] Installs all dependencies (PNPM, CMake tools)
+- [ ] **Includes dependency version checks (Node, PNPM, CMake, compiler)**
 - [ ] Builds all packages (C++ core, UI, drivers)
 - [ ] Runs validation suite (lint, type-check, smoke tests)
+- [ ] **Installs Git hooks (Husky) automatically**
+- [ ] **Creates `.env.example` with documented configuration options**
 - [ ] Outputs setup summary and next steps
+- [ ] **Prints troubleshooting guide URL on failure**
 - [ ] Works on fresh Ubuntu, macOS, Windows (WSL) installations
 
-**ORP References**: ORP063 §V (Developer Experience)
+**ORP References**: ORP063 §V (Developer Experience), ORP066 §III
 
 **Tooling Requirements**:
 
@@ -281,11 +296,40 @@ pnpm changeset version  # Dry-run should succeed
 
 ```
 
+**Implementation Example**:
+
+```javascript
+#!/usr/bin/env bash
+set -e
+
+echo "=== Orpheus SDK Bootstrap ==="
+
+# Version checks
+command -v node >/dev/null 2>&1 || { echo "Node.js ≥18 required"; exit 1; }
+command -v pnpm >/dev/null 2>&1 || { echo "PNPM ≥8 required"; exit 1; }
+command -v cmake >/dev/null 2>&1 || { echo "CMake ≥3.20 required"; exit 1; }
+
+echo "→ Installing dependencies..."
+pnpm install
+
+echo "→ Building all packages..."
+pnpm run build
+
+echo "→ Installing Git hooks..."
+pnpm run prepare
+
+echo "→ Running validation..."
+./scripts/validate-phase0.sh
+
+echo "✓ Bootstrap complete. Run 'pnpm dev' to start."
+
+```
+
 ---
 
 ### C. CI Infrastructure Tasks
 
-#### P0.CI.001: Create Interim Parallel CI Workflow
+#### P0.CI.001: Create Interim Parallel CI Workflow (TASK-008)
 
 **Description**: Establish GitHub Actions workflow that builds both Orpheus C++ and Shmui UI independently.
 
@@ -317,7 +361,7 @@ pnpm changeset version  # Dry-run should succeed
 
 ---
 
-#### P0.CI.002: Configure CI Branch Protection
+#### P0.CI.002: Configure CI Branch Protection (TASK-009)
 
 **Description**: Set branch protection rules requiring interim CI passage for merges.
 
@@ -345,13 +389,13 @@ pnpm changeset version  # Dry-run should succeed
 
 ### D. Documentation Tasks
 
-#### P0.DOC.001: Create Documentation Index
+#### P0.DOC.001: Create Documentation Index (TASK-010)
 
 **Description**: Establish `docs/INDEX.md` linking all ORP documents and implementation guides.
 
 **Acceptance Criteria**:
 
-- [ ] Index includes ORP061, ORP062, ORP063, ORP064
+- [ ] Index includes ORP061, ORP062, ORP063, ORP064, ORP066, ORP068
 - [ ] Cross-references documented (which ORP references which)
 - [ ] Migration phases mapped to technical specifications
 - [ ] Navigation breadcrumbs for documentation hierarchy
@@ -369,18 +413,19 @@ pnpm changeset version  # Dry-run should succeed
 
 ---
 
-#### P0.DOC.002: Document Package Naming Conventions
+#### P0.DOC.002: Document Package Naming Conventions (TASK-011)
 
 **Description**: Create `docs/PACKAGE_NAMING.md` with namespace reservation policy.
 
 **Acceptance Criteria**:
 
 - [ ] All `@orpheus/*` package names documented
-- [ ] Internal codenames explained (e.g., "Shmui" = `@orpheus/ui`)
+- [ ] Internal codenames explained (e.g., "Shmui" = `@orpheus/shmui`, preserving identity)
 - [ ] Naming guidelines for future packages
 - [ ] Scope management policy (who can publish to `@orpheus`)
+- [ ] Rationale for preserving Shmui name documented
 
-**ORP References**: ORP061 §Phase 0 (Namespacing), ORP063 §III.D
+**ORP References**: ORP061 §Phase 0 (Namespacing), ORP063 §III.D, ORP066 §II
 
 **Tooling Requirements**: None
 
@@ -392,9 +437,183 @@ pnpm changeset version  # Dry-run should succeed
 
 ---
 
-### E. Validation Checkpoint
+#### P0.DOC.003: Implement Documentation Quick Start Block (TASK-104) **[NEW]**
 
-#### P0.TEST.001: Execute Phase 0 Validation Checklist
+**Description**: Add clear entry point to documentation index for new users.
+
+**Acceptance Criteria**:
+
+- [ ] Block added to top of `docs/INDEX.md`:
+
+```javascript
+## 🚀 Start Here
+
+**New to Orpheus SDK?** Begin with these three guides:
+
+1. **[Getting Started](GETTING_STARTED.md)** – Install, build, and run your first session
+2. **[Driver Architecture](DRIVER_ARCHITECTURE.md)** – Understand Service, WASM, and Native drivers
+3. **[Contract Guide](CONTRACT_DEVELOPMENT.md)** – Learn the command/event schema system
+
+**For specific tasks:**
+- Adding features → [Contributor Guide](../CONTRIBUTING.md)
+- Migrating projects → [Migration Guide](MIGRATION_GUIDE.md)
+- API reference → [API Surface Index](API_SURFACE_INDEX.md)
+
+```
+
+- [ ] Links verified functional (no 404s)
+- [ ] Block positioned above existing ORP document listings
+- [ ] Emoji/icons used for visual hierarchy
+
+**ORP References**: ORP063 §V.N, ORP066 §XI
+
+**Tooling Requirements**: None
+
+**Dependencies**: P0.DOC.001 →
+
+**Validation Method**:
+
+- Manual review: first-time user can find entry point within 30 seconds
+
+---
+
+### E. Governance and Configuration Tasks
+
+#### P0.GOV.001: Create Performance Budget Configuration (TASK-103) **[NEW]**
+
+**Description**: Establish version-controlled performance budget file.
+
+**Acceptance Criteria**:
+
+- [ ] File created: `budgets.json` at repository root
+- [ ] Structure matches ORP062 §5.3 specifications:
+
+```javascript
+{
+  "version": "1.0",
+  "budgets": {
+    "bundleSize": {
+      "@orpheus/shmui": {
+        "max": 1572864,
+        "warn": 1468006,
+        "description": "UI bundle (1.5 MB max, warn at 1.4 MB)"
+      },
+      "@orpheus/engine-wasm": {
+        "max": 5242880,
+        "warn": 4718592,
+        "description": "WASM module (5 MB max, warn at 4.5 MB)"
+      }
+    },
+    "commandLatency": {
+      "LoadSession": {
+        "p95": 200,
+        "p99": 500,
+        "unit": "ms"
+      },
+      "RenderClick": {
+        "p95": 1000,
+        "p99": 2000,
+        "unit": "ms"
+      }
+    },
+    "eventFrequency": {
+      "TransportTick": {
+        "max": 30,
+        "unit": "Hz"
+      },
+      "RenderProgress": {
+        "max": 10,
+        "unit": "Hz"
+      }
+    },
+    "degradationTolerance": {
+      "latency": "10%",
+      "size": "15%"
+    }
+  }
+}
+
+```
+
+- [ ] Changes to budgets require PR with justification
+- [ ] Documentation in `docs/PERFORMANCE.md` references this file
+
+**ORP References**: ORP062 §5.3, ORP063 §IV.I, ORP066 §X
+
+**Tooling Requirements**: JSON schema
+
+**Dependencies**: None (can be created early)
+
+**Validation Method**:
+
+```javascript
+cat budgets.json | jq '.budgets.bundleSize."@orpheus/shmui".max'
+# Should output: 1572864
+
+```
+
+---
+
+### F. Testing Infrastructure Tasks
+
+#### P0.TEST.001: Implement Validation Script Suite (TASK-096) **[NEW]**
+
+**Description**: Create phase validation scripts that aggregate test, lint, and build commands.
+
+**Acceptance Criteria**:
+
+- [ ] Scripts created: `scripts/validate-phase0.sh` through `scripts/validate-phase4.sh`
+- [ ] Each script calls appropriate PNPM workspace commands
+- [ ] Exit code 0 only if all checks pass
+- [ ] Output formatted with clear pass/fail indicators
+- [ ] Scripts executable on Linux, macOS, Windows (via Git Bash/WSL)
+
+**ORP References**: ORP065 §II-VI (all phase validations), ORP066 §III
+
+**Tooling Requirements**: Bash ≥4.0
+
+**Dependencies**: After corresponding phase tasks complete
+
+**Validation Method**:
+
+```javascript
+./scripts/validate-phase0.sh
+# Should execute without 404 errors
+
+```
+
+**Implementation Example** (`scripts/validate-phase0.sh`):
+
+```javascript
+#!/usr/bin/env bash
+set -e
+
+echo "=== Phase 0 Validation ==="
+echo "→ Checking monorepo structure..."
+pnpm list --depth 0 || exit 1
+
+echo "→ Building Orpheus C++..."
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+
+echo "→ Running C++ tests..."
+ctest --test-dir build --output-on-failure
+
+echo "→ Building Shmui..."
+pnpm --filter @orpheus/shmui build
+
+echo "→ Running linters..."
+pnpm run lint
+
+echo "✓ Phase 0 validation complete"
+
+```
+
+---
+
+### G. Validation Checkpoint
+
+#### P0.TEST.002: Execute Phase 0 Validation Checklist (TASK-012)
 
 **Description**: Run complete validation suite from ORP061 §Phase 0 checklist.
 
@@ -405,6 +624,8 @@ pnpm changeset version  # Dry-run should succeed
 - [ ] CI passes on all platforms
 - [ ] No lint/test regressions introduced
 - [ ] Bootstrap script succeeds on clean environment
+- [ ] Performance budgets file created
+- [ ] Documentation quick start block added
 - [ ] All P0 tasks marked complete
 
 **ORP References**: ORP061 §Phase 0 Validation Checklist
@@ -416,7 +637,6 @@ pnpm changeset version  # Dry-run should succeed
 **Validation Method**:
 
 ```javascript
-# Run comprehensive validation
 ./scripts/validate-phase0.sh
 # Should exit 0 with all checks passed
 
@@ -426,13 +646,11 @@ pnpm changeset version  # Dry-run should succeed
 
 ## III. PHASE 1: TOOLING NORMALIZATION AND BASIC INTEGRATION
 
-**Objective**: Enable Orpheus core to be consumed by Shmui UI via basic driver integration
-**Duration Estimate**: 4 weeks (revised from 3-4 weeks)
-**Gate Criteria**: All validation checks from ORP061 §Phase 1 and ORP063 §II.C pass
+**Objective**: Enable Orpheus core to be consumed by Shmui UI via basic driver integration **Duration Estimate**: 4 weeks **Gate Criteria**: All validation checks from ORP061 §Phase 1 and ORP063 §II.C pass
 
 ### A. Contract Schema Tasks
 
-#### P1.CONT.001: Create Contract Schema Package
+#### P1.CONT.001: Create Contract Schema Package (TASK-013)
 
 **Description**: Establish `@orpheus/contract` package with Zod schemas for contract v0.9.0 (alpha).
 
@@ -463,7 +681,7 @@ const result = HandshakeSchema.parse({ contractVersion: "0.9.0", ... });
 
 ---
 
-#### P1.CONT.002: Implement Contract Version Roadmap
+#### P1.CONT.002: Implement Contract Version Roadmap (TASK-014)
 
 **Description**: Create `docs/CONTRACT_ROADMAP.md` mapping contract versions to migration phases.
 
@@ -487,7 +705,7 @@ const result = HandshakeSchema.parse({ contractVersion: "0.9.0", ... });
 
 ---
 
-#### P1.CONT.003: Implement Minimal Command/Event Schemas
+#### P1.CONT.003: Implement Minimal Command/Event Schemas (TASK-015)
 
 **Description**: Define core schemas needed for Phase 1 proof-of-concept.
 
@@ -519,20 +737,24 @@ SessionChangedSchema.parse({ trackCount: 5, ... });
 
 ---
 
-#### P1.CONT.004: Implement Contract Schema Registry Automation
+#### P1.CONT.004: Implement Contract Schema Registry Automation (TASK-016) **[AMENDED]**
 
-**Description**: Create tooling for automated contract schema versioning and validation.
+**Description**: Create tooling for automated contract schema versioning and validation with manifest integration.
 
 **Acceptance Criteria**:
 
 - [ ] Script: `scripts/contract-diff.ts` compares schema versions
+- [ ] **Diff tool reads `MANIFEST.json` for version information**
+- [ ] **Tool validates checksum before performing diff**
 - [ ] Detects breaking changes (MAJOR), additions (MINOR), fixes (PATCH)
 - [ ] Generates migration report showing schema differences
 - [ ] Validates that contract version bump aligns with schema changes
+- [ ] **Manifest automatically updated when new schema version added**
+- [ ] **CI fails if manifest checksum doesn't match computed value**
 - [ ] Integrated into CI to block incompatible version bumps
 - [ ] Output format compatible with codemod generation
 
-**ORP References**: ORP063 §III.E, §V.K
+**ORP References**: ORP063 §III.E, §V.K, ORP066 §IV
 
 **Tooling Requirements**:
 
@@ -552,21 +774,80 @@ pnpm contract:diff v0.9.0 v1.0.0-beta
 
 ---
 
+#### P1.CONT.005: Implement Contract Manifest System (TASK-097) **[NEW]**
+
+**Description**: Create manifest-driven contract versioning with checksum validation.
+
+**Acceptance Criteria**:
+
+- [ ] File created: `packages/contract/MANIFEST.json`
+- [ ] Manifest structure:
+
+```javascript
+{
+  "currentVersion": "1.0.0",
+  "currentPath": "schemas/v1.0.0",
+  "checksum": "sha256:abc123...",
+  "availableVersions": [
+    {
+      "version": "0.9.0",
+      "path": "schemas/v0.9.0",
+      "checksum": "sha256:def456...",
+      "status": "deprecated"
+    },
+    {
+      "version": "1.0.0-beta",
+      "path": "schemas/v1.0.0-beta",
+      "checksum": "sha256:789ghi...",
+      "status": "superseded"
+    },
+    {
+      "version": "1.0.0",
+      "path": "schemas/v1.0.0",
+      "checksum": "sha256:abc123...",
+      "status": "stable"
+    }
+  ]
+}
+
+```
+
+- [ ] Contract diff tool (`scripts/contract-diff.ts`) reads from manifest
+- [ ] CI validates manifest checksum matches actual schema files
+- [ ] `@orpheus/contract` package exports manifest at runtime
+
+**ORP References**: ORP065 TASK-016 (Contract Schema Automation), ORP063 §III.E, ORP066 §IV
+
+**Tooling Requirements**: JSON schema validation
+
+**Dependencies**: P1.CONT.004 →
+
+**Validation Method**:
+
+```javascript
+import { MANIFEST } from '@orpheus/contract';
+console.log(MANIFEST.currentVersion); // "1.0.0"
+```
+
+---
+
 ### B. Service Driver Tasks
 
-#### P1.DRIV.001: Implement Service Driver Foundation
+#### P1.DRIV.001: Implement Service Driver Foundation (TASK-017) **[AMENDED]**
 
-**Description**: Create `orpheusd` service with HTTP and WebSocket endpoints.
+**Description**: Create `orpheusd` service with HTTP and WebSocket endpoints with secure defaults.
 
 **Acceptance Criteria**:
 
 - [ ] Package created at `packages/engine-service/`
 - [ ] HTTP endpoints: `/health`, `/version`, `/contract`
 - [ ] WebSocket endpoint: `/ws` for event streaming
-- [ ] Binds to `127.0.0.1` only by default
+- [ ] **Bind address defaults to `127.0.0.1` (configurable via `--host`)**
+- [ ] `**--host 0.0.0.0**` **requires explicit flag and logs security warning**
 - [ ] Graceful shutdown on `SIGTERM`
+- [ ] **Authentication system integration prepared for TASK-099**
 
-**ORP References**: ORP062 §2.1, ORP063 §II.B
+**ORP References**: ORP062 §2.1, ORP063 §II.B, ORP066 §VI
 
 **Tooling Requirements**:
 
@@ -588,7 +869,7 @@ wscat -c ws://127.0.0.1:8080/ws  # Should connect
 
 ---
 
-#### P1.DRIV.002: Implement Service Driver Command Handler
+#### P1.DRIV.002: Implement Service Driver Command Handler (TASK-018)
 
 **Description**: Wire Orpheus C++ core library to service driver for command execution.
 
@@ -622,7 +903,7 @@ curl -X POST http://127.0.0.1:8080/command \
 
 ---
 
-#### P1.DRIV.003: Implement Service Driver Event Emission
+#### P1.DRIV.003: Implement Service Driver Event Emission (TASK-019)
 
 **Description**: Stream Orpheus events over WebSocket connection.
 
@@ -656,21 +937,56 @@ ws.onmessage = (msg) => {
 
 ---
 
-### C. Native Driver Tasks
+#### P1.DRIV.004: Implement Service Driver Authentication (TASK-099) **[NEW]**
 
-#### P1.DRIV.004: Create Native Driver Package
-
-**Description**: Initialize `@orpheus/engine-electron` with N-API binding structure.
+**Description**: Add optional token-based authentication to service driver.
 
 **Acceptance Criteria**:
 
-- [ ] Package created at `packages/engine-electron/`
+- [ ] Command-line flag: `--auth none|token` (default: `token` in production builds)
+- [ ] Token generated on startup if `--auth token` (printed to console)
+- [ ] Client passes token via `Authorization: Bearer <token>` header
+- [ ] Requests without valid token rejected with 401
+- [ ] Token stored in `~/.orpheus/service.token` for persistence
+- [ ] `--auth none` only allowed if `NODE_ENV=development`
+- [ ] Documentation in `docs/DRIVER_ARCHITECTURE.md` updated
+
+**ORP References**: ORP062 §2.1, §6.1 (Security), ORP066 §VI
+
+**Tooling Requirements**: None
+
+**Dependencies**: P1.DRIV.001 →
+
+**Validation Method**:
+
+```javascript
+# Production mode (requires token)
+orpheusd --auth token
+# Prints: "Service started. Token: abc123..."
+
+# Development mode (no auth)
+NODE_ENV=development orpheusd --auth none
+
+```
+
+---
+
+### C. Native Driver Tasks
+
+#### P1.DRIV.005: Create Native Driver Package (TASK-020) **[AMENDED]**
+
+**Description**: Initialize `@orpheus/engine-native` with N-API binding structure (usable by Electron and Node.js).
+
+**Acceptance Criteria**:
+
+- [ ] Package created at `packages/engine-native/` (renamed from `engine-electron`)
 - [ ] CMakeLists.txt configured for N-API addon
 - [ ] Minimal binding exports `getVersion()` function
 - [ ] Builds on Ubuntu (proof of concept)
 - [ ] `package.json` configured with install script
+- [ ] **Documentation clarifies Node.js and Electron compatibility**
 
-**ORP References**: ORP062 §2.3, ORP063 §II.B
+**ORP References**: ORP062 §2.3, ORP063 §II.B, ORP066 §II
 
 **Tooling Requirements**:
 
@@ -683,14 +999,14 @@ ws.onmessage = (msg) => {
 **Validation Method**:
 
 ```javascript
-const orpheus = require('@orpheus/engine-electron');
+const orpheus = require('@orpheus/engine-native');
 console.log(orpheus.getVersion());
 // Should print Orpheus version string
 ```
 
 ---
 
-#### P1.DRIV.005: Implement Native Driver Command Interface
+#### P1.DRIV.006: Implement Native Driver Command Interface (TASK-021)
 
 **Description**: Expose basic command execution via N-API.
 
@@ -708,19 +1024,19 @@ console.log(orpheus.getVersion());
 
 - Valgrind or AddressSanitizer for leak detection
 
-**Dependencies**: P1.DRIV.004 →
+**Dependencies**: P1.DRIV.005 →
 
 **Validation Method**:
 
 ```javascript
-const orpheus = require('@orpheus/engine-electron');
+const orpheus = require('@orpheus/engine-native');
 await orpheus.loadSession('fixtures/test.json');
 // Should resolve without throwing
 ```
 
 ---
 
-#### P1.DRIV.006: Implement Native Driver Event Emitter
+#### P1.DRIV.007: Implement Native Driver Event Emitter (TASK-022)
 
 **Description**: Use Node EventEmitter pattern for Orpheus events.
 
@@ -738,12 +1054,12 @@ await orpheus.loadSession('fixtures/test.json');
 
 - Node.js EventEmitter API
 
-**Dependencies**: P1.DRIV.005 →
+**Dependencies**: P1.DRIV.006 →
 
 **Validation Method**:
 
 ```javascript
-const orpheus = require('@orpheus/engine-electron');
+const orpheus = require('@orpheus/engine-native');
 orpheus.on('sessionChanged', (data) => {
   console.log('Session loaded:', data.trackCount);
 });
@@ -755,7 +1071,7 @@ await orpheus.loadSession('fixtures/test.json');
 
 ### D. Repository Maintenance Tasks
 
-#### P1.REPO.007: Quarantine Legacy REAPER Adapter Code
+#### P1.REPO.001: Quarantine Legacy REAPER Adapter Code (TASK-023)
 
 **Description**: Remove or isolate legacy WDL/SWELL/WALTER code from REAPER adapter.
 
@@ -786,7 +1102,7 @@ cmake -S . -B build -DORPHEUS_ENABLE_REAPER=OFF
 
 ### E. Client Broker Tasks
 
-#### P1.DRIV.007: Create Client Broker Package
+#### P1.DRIV.008: Create Client Broker Package (TASK-024) **[AMENDED]**
 
 **Description**: Implement `@orpheus/client` with driver selection and abstraction.
 
@@ -795,14 +1111,17 @@ cmake -S . -B build -DORPHEUS_ENABLE_REAPER=OFF
 - [ ] Package created at `packages/client/`
 - [ ] Broker detects available drivers (Service, Native)
 - [ ] Selection priority: Native → Service (as per ORP063 §II.B)
+- [ ] **Broker uses `driver-registry.ts` for selection logic**
+- [ ] **Selection order documented in code comments**
 - [ ] Single unified API: `client.send(command)`, `client.on(event)`
 - [ ] Async command execution with Promise-based interface
+- [ ] **Test suite validates all selection paths (auto, override, fallback)**
 
-**ORP References**: ORP062 §3.1, ORP063 §III.E
+**ORP References**: ORP062 §3.1, ORP063 §III.E, ORP066 §V
 
 **Tooling Requirements**: None (pure TypeScript)
 
-**Dependencies**: P1.DRIV.003 →, P1.DRIV.006 →
+**Dependencies**: P1.DRIV.003 →, P1.DRIV.007 →
 
 **Validation Method**:
 
@@ -814,7 +1133,74 @@ console.log('Connected via:', client.driver); // 'native' or 'service'
 
 ---
 
-#### P1.DRIV.008: Implement Client Handshake Protocol
+#### P1.DRIV.009: Implement Driver Selection Registry (TASK-098) **[NEW]**
+
+**Description**: Create deterministic driver selection with environment variable override.
+
+**Acceptance Criteria**:
+
+- [ ] File created: `packages/client/src/driver-registry.ts`
+- [ ] Default selection order: `native → wasm → service`
+- [ ] Environment variable `ORPHEUS_DRIVER` accepts: `native`, `wasm`, `service`
+- [ ] Invalid value logs warning and falls back to auto-selection
+- [ ] Selection logic exported and testable
+- [ ] Documentation in `docs/DRIVER_ARCHITECTURE.md` updated
+
+**ORP References**: ORP062 §3.1, ORP063 §II.B, ORP066 §V
+
+**Tooling Requirements**: None
+
+**Dependencies**: P1.DRIV.008 →
+
+**Validation Method**:
+
+```javascript
+// Default selection
+const client = await OrpheusClient.connect();
+console.log(client.driver); // auto: native → wasm → service
+
+// Forced selection
+process.env.ORPHEUS_DRIVER = 'wasm';
+const wasmClient = await OrpheusClient.connect();
+console.log(wasmClient.driver); // 'wasm'
+```
+
+**Implementation** (`packages/client/src/driver-registry.ts`):
+
+```javascript
+export const DRIVER_PRIORITY = ['native', 'wasm', 'service'] as const;
+export type DriverType = typeof DRIVER_PRIORITY[number];
+
+export function getDriverOverride(): DriverType | null {
+  const override = process.env.ORPHEUS_DRIVER;
+  if (!override) return null;
+
+  if (!DRIVER_PRIORITY.includes(override as DriverType)) {
+    console.warn(`Invalid ORPHEUS_DRIVER="${override}". Using auto-selection.`);
+    return null;
+  }
+
+  return override as DriverType;
+}
+
+export async function selectDriver(): Promise<DriverType> {
+  const override = getDriverOverride();
+  if (override) return override;
+
+  for (const driver of DRIVER_PRIORITY) {
+    if (await isDriverAvailable(driver)) {
+      return driver;
+    }
+  }
+
+  throw new Error('No Orpheus driver available');
+}
+
+```
+
+---
+
+#### P1.DRIV.010: Implement Client Handshake Protocol (TASK-025)
 
 **Description**: Establish version negotiation during client-engine connection.
 
@@ -830,7 +1216,7 @@ console.log('Connected via:', client.driver); // 'native' or 'service'
 
 **Tooling Requirements**: None
 
-**Dependencies**: P1.DRIV.007 →
+**Dependencies**: P1.DRIV.008 →
 
 **Validation Method**:
 
@@ -844,7 +1230,7 @@ const client = await OrpheusClient.connect({ contractVersion: '2.0.0' });
 
 ### F. UI Integration Tasks
 
-#### P1.UI.001: Create Orpheus Integration Test Hook
+#### P1.UI.001: Create Orpheus Integration Test Hook (TASK-026)
 
 **Description**: Add debug panel to Shmui UI for calling Orpheus functions.
 
@@ -862,7 +1248,7 @@ const client = await OrpheusClient.connect({ contractVersion: '2.0.0' });
 
 - React ≥18.0
 
-**Dependencies**: P1.DRIV.007 →
+**Dependencies**: P1.DRIV.008 →
 
 **Validation Method**:
 
@@ -875,7 +1261,7 @@ NODE_ENV=development pnpm dev
 
 ---
 
-#### P1.UI.002: Implement React OrpheusProvider Context
+#### P1.UI.002: Implement React OrpheusProvider Context (TASK-027)
 
 **Description**: Create React context for sharing Orpheus client throughout component tree.
 
@@ -893,7 +1279,7 @@ NODE_ENV=development pnpm dev
 
 - React ≥18.0
 
-**Dependencies**: P1.DRIV.007 →
+**Dependencies**: P1.DRIV.008 →
 
 **Validation Method**:
 
@@ -909,7 +1295,7 @@ function TestComponent() {
 
 ### G. CI Integration Tasks
 
-#### P1.CI.001: Extend CI for Driver Builds
+#### P1.CI.001: Extend CI for Driver Builds (TASK-028)
 
 **Description**: Add driver compilation to CI matrix.
 
@@ -926,7 +1312,7 @@ function TestComponent() {
 
 - GitHub Actions matrix configuration
 
-**Dependencies**: P1.DRIV.002 →, P1.DRIV.005 →
+**Dependencies**: P1.DRIV.002 →, P1.DRIV.006 →
 
 **Validation Method**:
 
@@ -942,7 +1328,7 @@ function TestComponent() {
 
 ---
 
-#### P1.CI.002: Add Integration Smoke Tests to CI
+#### P1.CI.002: Add Integration Smoke Tests to CI (TASK-029)
 
 **Description**: Execute basic integration tests in CI.
 
@@ -960,7 +1346,7 @@ function TestComponent() {
 
 - Jest or Vitest for test execution
 
-**Dependencies**: P1.DRIV.007 →, P1.CI.001 →
+**Dependencies**: P1.DRIV.008 →, P1.CI.001 →
 
 **Validation Method**:
 
@@ -974,7 +1360,7 @@ pnpm test:integration
 
 ### H. Documentation Tasks
 
-#### P1.DOC.001: Document Driver Architecture
+#### P1.DOC.001: Document Driver Architecture (TASK-030)
 
 **Description**: Create developer guide for driver implementations.
 
@@ -985,12 +1371,13 @@ pnpm test:integration
 - [ ] Diagrams showing client-driver communication
 - [ ] Code examples for each driver type
 - [ ] Cross-references ORP062 §2.0
+- [ ] Includes driver selection order and override mechanism
 
-**ORP References**: ORP062 §2.0, ORP063 §V.N
+**ORP References**: ORP062 §2.0, ORP063 §V.N, ORP066 §V, §VI
 
 **Tooling Requirements**: None (Markdown + diagrams)
 
-**Dependencies**: P1.DRIV.003 →, P1.DRIV.006 →
+**Dependencies**: P1.DRIV.003 →, P1.DRIV.007 →, P1.DRIV.009 →
 
 **Validation Method**:
 
@@ -998,7 +1385,7 @@ pnpm test:integration
 
 ---
 
-#### P1.DOC.002: Create Contract Development Guide
+#### P1.DOC.002: Create Contract Development Guide (TASK-031)
 
 **Description**: Document how to add new commands/events to contract.
 
@@ -1009,12 +1396,13 @@ pnpm test:integration
 - [ ] Schema versioning workflow explained
 - [ ] Examples of command handler implementation
 - [ ] Testing requirements specified
+- [ ] Manifest system usage documented
 
-**ORP References**: ORP062 §1.0, ORP063 §III.E
+**ORP References**: ORP062 §1.0, ORP063 §III.E, ORP066 §IV
 
 **Tooling Requirements**: None
 
-**Dependencies**: P1.CONT.003 →
+**Dependencies**: P1.CONT.003 →, P1.CONT.005 →
 
 **Validation Method**:
 
@@ -1024,7 +1412,7 @@ pnpm test:integration
 
 ### I. Validation Checkpoint
 
-#### P1.TEST.001: Execute Phase 1 Validation Checklist
+#### P1.TEST.001: Execute Phase 1 Validation Checklist (TASK-032)
 
 **Description**: Run complete validation suite from ORP061 §Phase 1 and ORP063 §II.C.
 
@@ -1039,6 +1427,9 @@ pnpm test:integration
 - [ ] Contract handshake succeeds
 - [ ] All command/event schemas validated
 - [ ] Contract diff tool functional
+- [ ] Contract manifest system operational
+- [ ] Driver selection registry tested
+- [ ] Service driver authentication functional
 - [ ] All P1 tasks marked complete
 
 **ORP References**: ORP061 §Phase 1 Validation, ORP063 §II.C
@@ -1059,25 +1450,26 @@ pnpm test:integration
 
 ## IV. PHASE 2: FEATURE INTEGRATION & BRIDGING
 
-**Objective**: Leverage Orpheus capabilities in UI and implement user-facing features
-**Duration Estimate**: 6 weeks (revised from 4-6 weeks)
-**Gate Criteria**: All validation checks from ORP061 §Phase 2 pass
+**Objective**: Leverage Orpheus capabilities in UI and implement user-facing features **Duration Estimate**: 6 weeks **Gate Criteria**: All validation checks from ORP061 §Phase 2 pass
 
 ### A. WASM Driver Tasks
 
-#### P2.DRIV.001: Initialize WASM Build Infrastructure
+#### P2.DRIV.001: Initialize WASM Build Infrastructure (TASK-033) **[AMENDED]**
 
-**Description**: Set up Emscripten toolchain for compiling Orpheus to WebAssembly.
+**Description**: Set up Emscripten toolchain for compiling Orpheus to WebAssembly with version pinning.
 
 **Acceptance Criteria**:
 
 - [ ] Package created at `packages/engine-wasm/`
 - [ ] CMakeLists.txt configured for Emscripten
+- [ ] `**.emscripten-version**` **file created and committed**
+- [ ] **Build script enforces version check**
 - [ ] Minimal WASM module exports `getVersion()`
 - [ ] `.wasm` and `.js` glue files generated
+- [ ] **SRI integrity file generated automatically**
 - [ ] Module instantiates in Node environment
 
-**ORP References**: ORP062 §2.2, ORP063 §II.B
+**ORP References**: ORP062 §2.2, ORP063 §II.B, ORP066 §VII
 
 **Tooling Requirements**:
 
@@ -1097,7 +1489,85 @@ node -e "require('./packages/engine-wasm/build/orpheus.js')"
 
 ---
 
-#### P2.DRIV.002: Implement WASM Web Worker Wrapper
+#### P2.DRIV.002: Implement WASM Build Discipline (TASK-100) **[NEW]**
+
+**Description**: Establish reproducible WASM builds with security guarantees.
+
+**Acceptance Criteria**:
+
+- [ ] File created: `.emscripten-version` containing exact version (e.g., `3.1.45`)
+- [ ] Build script asserts Emscripten version matches before compilation
+- [ ] WASM loaded via dynamic import with SRI verification
+- [ ] MIME type check: server must serve as `application/wasm`
+- [ ] Worker and WASM files hosted side-by-side (no cross-origin issues)
+- [ ] Build script generates `integrity.json` with SRI hashes
+- [ ] Documentation in `docs/DRIVER_ARCHITECTURE.md` updated
+
+**ORP References**: ORP062 §2.2 (WASM Security), ORP066 §VII
+
+**Tooling Requirements**: Emscripten SDK
+
+**Dependencies**: P2.DRIV.001 →
+
+**Validation Method**:
+
+```javascript
+# Verify Emscripten version
+cat .emscripten-version # 3.1.45
+emcc --version | grep "3.1.45" # Should match
+
+# Build WASM
+pnpm build:wasm
+cat packages/engine-wasm/build/integrity.json
+# Should contain SRI hashes
+
+```
+
+**Implementation** (`packages/engine-wasm/scripts/build.sh`):
+
+```javascript
+#!/usr/bin/env bash
+set -e
+
+REQUIRED_VERSION=$(cat .emscripten-version)
+CURRENT_VERSION=$(emcc --version | head -n1 | grep -oP '\d+\.\d+\.\d+')
+
+if [ "$CURRENT_VERSION" != "$REQUIRED_VERSION" ]; then
+  echo "Error: Emscripten $REQUIRED_VERSION required, found $CURRENT_VERSION"
+  exit 1
+fi
+
+emcc orpheus.cpp -o build/orpheus.js -s WASM=1 ...
+
+# Generate SRI
+WASM_HASH=$(openssl dgst -sha384 -binary build/orpheus.wasm | openssl base64 -A)
+echo "{\"orpheus.wasm\": \"sha384-$WASM_HASH\"}" > build/integrity.json
+
+```
+
+**Implementation** (`packages/engine-wasm/src/loader.ts`):
+
+```javascript
+import integrityData from '../build/integrity.json';
+
+export async function loadWASM(): Promise<WebAssembly.Module> {
+  const response = await fetch('/orpheus.wasm', {
+    integrity: integrityData['orpheus.wasm'],
+    mode: 'same-origin'
+  });
+
+  if (response.headers.get('Content-Type') !== 'application/wasm') {
+    throw new Error('Invalid WASM MIME type');
+  }
+
+  return WebAssembly.compileStreaming(response);
+}
+
+```
+
+---
+
+#### P2.DRIV.003: Implement WASM Web Worker Wrapper (TASK-034)
 
 **Description**: Create Web Worker that hosts WASM module to avoid blocking main thread.
 
@@ -1128,7 +1598,7 @@ worker.onmessage = (e) => console.log(e.data);
 
 ---
 
-#### P2.DRIV.003: Implement WASM Command Interface
+#### P2.DRIV.004: Implement WASM Command Interface (TASK-035)
 
 **Description**: Wire contract commands to WASM module functions.
 
@@ -1146,7 +1616,7 @@ worker.onmessage = (e) => console.log(e.data);
 
 - Emscripten embind
 
-**Dependencies**: P2.DRIV.002 →
+**Dependencies**: P2.DRIV.003 →
 
 **Validation Method**:
 
@@ -1160,7 +1630,7 @@ worker.postMessage({
 
 ---
 
-#### P2.DRIV.004: Integrate WASM into Client Broker
+#### P2.DRIV.005: Integrate WASM into Client Broker (TASK-036)
 
 **Description**: Add WASM driver to broker selection logic.
 
@@ -1176,7 +1646,7 @@ worker.postMessage({
 
 **Tooling Requirements**: None
 
-**Dependencies**: P2.DRIV.003 →, P1.DRIV.007 →
+**Dependencies**: P2.DRIV.004 →, P1.DRIV.008 →
 
 **Validation Method**:
 
@@ -1190,7 +1660,7 @@ console.log(client.driver); // Should be 'wasm' in browser
 
 ### B. Contract Schema Expansion Tasks
 
-#### P2.CONT.001: Upgrade Contract to v1.0.0-beta
+#### P2.CONT.001: Upgrade Contract to v1.0.0-beta (TASK-037)
 
 **Description**: Expand contract with full command/event set for Phase 2 features.
 
@@ -1201,6 +1671,7 @@ console.log(client.driver); // Should be 'wasm' in browser
 - [ ] All events from ORP062 §1.4 defined
 - [ ] Event frequency constraints documented
 - [ ] Migration path from v0.9.0 documented
+- [ ] Manifest updated with v1.0.0-beta entry
 
 **ORP References**: ORP062 §1.3-1.4, ORP063 §II.A
 
@@ -1220,7 +1691,7 @@ v1beta.RenderClickSchema.parse({ bars: 2, bpm: 120 });
 
 ---
 
-#### P2.CONT.002: Implement Event Frequency Validation
+#### P2.CONT.002: Implement Event Frequency Validation (TASK-038)
 
 **Description**: Add runtime checks for event frequency constraints with cadence validation.
 
@@ -1252,7 +1723,7 @@ v1beta.RenderClickSchema.parse({ bars: 2, bpm: 120 });
 
 ### C. UI Feature Integration Tasks
 
-#### P2.UI.001: Implement Session Manager Panel
+#### P2.UI.001: Implement Session Manager Panel (TASK-039)
 
 **Description**: Create UI for loading and viewing Orpheus sessions.
 
@@ -1284,7 +1755,7 @@ v1beta.RenderClickSchema.parse({ bars: 2, bpm: 120 });
 
 ---
 
-#### P2.UI.002: Implement Click Track Generator
+#### P2.UI.002: Implement Click Track Generator (TASK-040)
 
 **Description**: Create UI controls for rendering click tracks via Orpheus.
 
@@ -1316,7 +1787,7 @@ v1beta.RenderClickSchema.parse({ bars: 2, bpm: 120 });
 
 ---
 
-#### P2.UI.003: Integrate Orb with Orpheus State
+#### P2.UI.003: Integrate Orb with Orpheus State (TASK-041)
 
 **Description**: Connect Orb visualization to Orpheus transport/render state.
 
@@ -1346,7 +1817,7 @@ v1beta.RenderClickSchema.parse({ bars: 2, bpm: 120 });
 
 ---
 
-#### P2.UI.004: Implement Track Add/Remove Operations
+#### P2.UI.004: Implement Track Add/Remove Operations (TASK-042)
 
 **Description**: Enable UI-driven track management with Orpheus backend.
 
@@ -1375,7 +1846,7 @@ v1beta.RenderClickSchema.parse({ bars: 2, bpm: 120 });
 
 ---
 
-#### P2.UI.005: Implement Feature Toggle System
+#### P2.UI.005: Implement Feature Toggle System (TASK-043)
 
 **Description**: Create runtime toggle for Orpheus-powered features.
 
@@ -1405,7 +1876,7 @@ ENABLE_ORPHEUS_FEATURES=false pnpm dev
 
 ### D. Testing Infrastructure Tasks
 
-#### P2.TEST.001: Implement Golden Audio Test Suite
+#### P2.TEST.001: Implement Golden Audio Test Suite (TASK-044) **[AMENDED]**
 
 **Description**: Create deterministic audio rendering validation tests.
 
@@ -1417,15 +1888,19 @@ ENABLE_ORPHEUS_FEATURES=false pnpm dev
 - [ ] ±1 LSB RMS tolerance allowed
 - [ ] Tests run across all three drivers
 - [ ] **Cross-driver parity tests compare driver-to-driver output (RMS correlation)**
+- [ ] **Test suite reads expected hashes from `MANIFEST.json`**
+- [ ] **WAV container format validated against manifest specification**
+- [ ] **Test fails with clear error if container format doesn't match (e.g., wrong endianness)**
+- [ ] **Regeneration script provided: `scripts/regenerate-golden-audio.sh`**
 
-**ORP References**: ORP062 §4.1, ORP063 §IV.G
+**ORP References**: ORP062 §4.1, ORP063 §IV.G, ORP066 §IX
 
 **Tooling Requirements**:
 
 - Audio hash computation library
 - Reference audio files
 
-**Dependencies**: P2.CONT.001 →, P2.DRIV.004 →
+**Dependencies**: P2.CONT.001 →, P2.DRIV.005 →
 
 **Validation Method**:
 
@@ -1438,7 +1913,71 @@ pnpm test:golden-audio
 
 ---
 
-#### P2.TEST.002: Implement Contract Compliance Test Matrix
+#### P2.TEST.002: Create Golden Audio Manifest (TASK-102) **[NEW]**
+
+**Description**: Canonicalize reference audio format and precompute validation hashes.
+
+**Acceptance Criteria**:
+
+- [ ] File created: `packages/contract/fixtures/golden-audio/MANIFEST.json`
+- [ ] Manifest structure:
+
+```javascript
+{
+  "format": {
+    "container": "WAV",
+    "encoding": "PCM",
+    "bitDepth": 16,
+    "sampleRate": 44100,
+    "channels": 1,
+    "endianness": "little",
+    "dither": "none",
+    "metadata": "stripped"
+  },
+  "references": [
+    {
+      "name": "click_100bpm_2bar",
+      "file": "click_100bpm_2bar.wav",
+      "sha256": "f23c...",
+      "parameters": { "bpm": 100, "bars": 2 }
+    },
+    {
+      "name": "click_120bpm_4bar",
+      "file": "click_120bpm_4bar.wav",
+      "sha256": "9a4e...",
+      "parameters": { "bpm": 120, "bars": 4 }
+    }
+  ]
+}
+
+```
+
+- [ ] Test suite reads hashes from manifest (not hardcoded)
+- [ ] CI validates manifest hashes match actual files on every build
+- [ ] Documentation in `docs/CONTRACT_DEVELOPMENT.md` explains regeneration process
+
+**ORP References**: ORP062 §4.1, ORP063 §IV.G, ORP066 §IX
+
+**Tooling Requirements**: Audio processing library (sox, ffmpeg)
+
+**Dependencies**: P2.TEST.001 →
+
+**Validation Method**:
+
+```javascript
+# Validate manifest
+cd packages/contract/fixtures/golden-audio
+for ref in $(jq -r '.references[].file' MANIFEST.json); do
+  computed=$(sha256sum "$ref" | awk '{print $1}')
+  expected=$(jq -r ".references[] | select(.file==\"$ref\") | .sha256" MANIFEST.json)
+  [ "$computed" = "$expected" ] || { echo "Mismatch: $ref"; exit 1; }
+done
+
+```
+
+---
+
+#### P2.TEST.003: Implement Contract Compliance Test Matrix (TASK-045)
 
 **Description**: Comprehensive test suite for contract adherence.
 
@@ -1456,7 +1995,7 @@ pnpm test:golden-audio
 
 - Jest/Vitest with coverage plugin
 
-**Dependencies**: P2.CONT.001 →, P2.DRIV.004 →
+**Dependencies**: P2.CONT.001 →, P2.DRIV.005 →
 
 **Validation Method**:
 
@@ -1468,7 +2007,7 @@ pnpm test:compliance --coverage
 
 ---
 
-#### P2.TEST.003: Implement Performance Instrumentation
+#### P2.TEST.004: Implement Performance Instrumentation (TASK-046)
 
 **Description**: Add telemetry collection for performance metrics.
 
@@ -1487,7 +2026,7 @@ pnpm test:compliance --coverage
 - Custom telemetry module
 - Performance API
 
-**Dependencies**: P2.DRIV.004 →
+**Dependencies**: P2.DRIV.005 →
 
 **Validation Method**:
 
@@ -1499,7 +2038,7 @@ pnpm perf:measure
 
 ---
 
-#### P2.TEST.005: Implement IPC Stress Testing (Native Driver)
+#### P2.TEST.005: Implement IPC Stress Testing (Native Driver) (TASK-047)
 
 **Description**: Validate Native driver stability under sustained IPC throughput.
 
@@ -1519,7 +2058,7 @@ pnpm perf:measure
 - Jest/Vitest with extended timeout
 - System monitoring tools
 
-**Dependencies**: P1.DRIV.006 →
+**Dependencies**: P1.DRIV.007 →
 
 **Validation Method**:
 
@@ -1532,7 +2071,7 @@ pnpm test:ipc-stress
 
 ---
 
-#### P2.TEST.006: Implement Contract Fuzz Testing
+#### P2.TEST.006: Implement Contract Fuzz Testing (TASK-048)
 
 **Description**: Test contract schema validation with malformed and edge-case inputs.
 
@@ -1564,7 +2103,7 @@ pnpm test:fuzz --iterations=10000
 
 ---
 
-#### P2.TEST.007: Implement Thread Safety Audit (Native Driver)
+#### P2.TEST.007: Implement Thread Safety Audit (Native Driver) (TASK-049)
 
 **Description**: Validate thread safety of N-API bindings.
 
@@ -1583,7 +2122,7 @@ pnpm test:fuzz --iterations=10000
 - Thread Sanitizer (Clang/GCC)
 - Node.js worker_threads
 
-**Dependencies**: P1.DRIV.006 →
+**Dependencies**: P1.DRIV.007 →
 
 **Validation Method**:
 
@@ -1599,7 +2138,7 @@ pnpm test:thread-safety
 
 ### E. CI Enhancement Tasks
 
-#### P2.CI.001: Add Golden Audio Tests to CI
+#### P2.CI.001: Add Golden Audio Tests to CI (TASK-050)
 
 **Description**: Integrate deterministic audio validation into CI pipeline.
 
@@ -1630,7 +2169,7 @@ pnpm test:thread-safety
 
 ---
 
-#### P2.CI.002: Add Contract Compliance Tests to CI
+#### P2.CI.002: Add Contract Compliance Tests to CI (TASK-051)
 
 **Description**: Execute full compliance matrix in CI.
 
@@ -1647,7 +2186,7 @@ pnpm test:thread-safety
 
 - Jest/Vitest coverage reporting
 
-**Dependencies**: P2.TEST.002 →
+**Dependencies**: P2.TEST.003 →
 
 **Validation Method**:
 
@@ -1662,7 +2201,7 @@ pnpm test:thread-safety
 
 ### F. Documentation Tasks
 
-#### P2.DOC.001: Document UI Integration Patterns
+#### P2.DOC.001: Document UI Integration Patterns (TASK-052)
 
 **Description**: Create guide for integrating Orpheus into React components.
 
@@ -1686,7 +2225,7 @@ pnpm test:thread-safety
 
 ---
 
-#### P2.DOC.002: Update Storybook with Orpheus Stories
+#### P2.DOC.002: Update Storybook with Orpheus Stories (TASK-053)
 
 **Description**: Add Storybook stories demonstrating Orpheus-powered components.
 
@@ -1718,7 +2257,7 @@ pnpm storybook
 
 ### G. Validation Checkpoint
 
-#### P2.TEST.004: Execute Phase 2 Validation Checklist
+#### P2.TEST.008: Execute Phase 2 Validation Checklist (TASK-054)
 
 **Description**: Run complete validation suite from ORP061 §Phase 2.
 
@@ -1735,6 +2274,8 @@ pnpm storybook
 - [ ] IPC stress tests passed
 - [ ] Fuzz testing completed
 - [ ] Thread safety audit passed
+- [ ] WASM build discipline enforced
+- [ ] Golden audio manifest validated
 - [ ] All Phase 2 tasks complete
 
 **ORP References**: ORP061 §Phase 2 Validation
@@ -1755,19 +2296,17 @@ pnpm storybook
 
 ## V. PHASE 3: UNIFIED BUILD, TESTING, AND RELEASE PREPARATION
 
-**Objective**: Unify tooling, CI/CD, quality checks, and prepare for release
-**Duration Estimate**: 4 weeks (revised from 3-4 weeks)
-**Gate Criteria**: All validation checks from ORP061 §Phase 3 pass
+**Objective**: Unify tooling, CI/CD, quality checks, and prepare for release **Duration Estimate**: 4 weeks **Gate Criteria**: All validation checks from ORP061 §Phase 3 pass
 
 ### A. CI Unification Tasks
 
-#### P3.CI.001: Consolidate CI Pipelines
+#### P3.CI.001: Consolidate CI Pipelines (TASK-055)
 
 **Description**: Merge interim workflows into single comprehensive pipeline.
 
 **Acceptance Criteria**:
 
-- [ ] Single workflow file: `.github/workflows/ci_pipeline.yml`
+- [ ] Single workflow file: `.github/workflows/ci-pipeline.yml`
 - [ ] Matrix builds: C++ on all OS, UI on Ubuntu
 - [ ] Unified dependency installation (PNPM)
 - [ ] Parallel job execution (C++, UI, tests)
@@ -1795,27 +2334,27 @@ pnpm storybook
 
 ---
 
-#### P3.CI.002: Implement Performance Budget Enforcement
+#### P3.CI.002: Implement Performance Budget Enforcement (TASK-056) **[AMENDED]**
 
-**Description**: Add CI gates for performance regressions.
+**Description**: Add CI gates for performance regressions using budgets.json.
 
 **Acceptance Criteria**:
 
-- [ ] `budgets.json` with thresholds from ORP062 §5.3
 - [ ] CI step: `pnpm perf:validate --budgets=budgets.json`
-- [ ] Bundle size check (UI ≤1.5MB, WASM ≤5MB)
-- [ ] Latency check (p95 LoadSession ≤200ms)
-- [ ] Violations fail CI with detailed report
-- [ ] 10% degradation tolerance for latency, 15% for size
+- [ ] **Script reads thresholds from `budgets.json`**
+- [ ] Bundle size check validates against configured limits
+- [ ] Latency check validates against configured limits
+- [ ] Violations fail CI with detailed report showing actual vs. budget
+- [ ] **Degradation tolerance applied per `budgets.json` configuration**
 
-**ORP References**: ORP062 §5.3, ORP063 §IV.I
+**ORP References**: ORP062 §5.3, ORP063 §IV.I, ORP066 §X
 
 **Tooling Requirements**:
 
 - Bundle analyzer
 - Performance validation script
 
-**Dependencies**: P2.TEST.003 →
+**Dependencies**: P2.TEST.004 →, P0.GOV.001 →
 
 **Validation Method**:
 
@@ -1829,7 +2368,7 @@ pnpm perf:validate
 
 ---
 
-#### P3.CI.003: Implement Chaos Testing in CI
+#### P3.CI.003: Implement Chaos Testing in CI (TASK-057)
 
 **Description**: Add nightly chaos testing workflow for failure scenario validation with worker recovery.
 
@@ -1849,7 +2388,7 @@ pnpm perf:validate
 
 - Extended timeout configuration
 
-**Dependencies**: P2.TEST.002 →
+**Dependencies**: P2.TEST.003 →
 
 **Validation Method**:
 
@@ -1863,7 +2402,7 @@ pnpm test:chaos
 
 ---
 
-#### P3.CI.004: Implement Dependency Graph Integrity Check
+#### P3.CI.004: Implement Dependency Graph Integrity Check (TASK-058)
 
 **Description**: Add CI step to detect circular dependencies and enforce clean architecture.
 
@@ -1894,7 +2433,7 @@ pnpm dep:check
 
 ---
 
-#### P3.CI.005: Implement Security and SBOM Audit Step
+#### P3.CI.005: Implement Security and SBOM Audit Step (TASK-059)
 
 **Description**: Add automated security scanning and software bill of materials generation.
 
@@ -1928,7 +2467,7 @@ pnpm security:scan
 
 ---
 
-#### P3.CI.006: Implement Pre-Merge Contributor Validation
+#### P3.CI.006: Implement Pre-Merge Contributor Validation (TASK-060)
 
 **Description**: Add pre-commit and PR checks for code quality.
 
@@ -1962,7 +2501,7 @@ git commit -m "bad code"
 
 ### B. Build Optimization Tasks
 
-#### P3.REPO.001: Optimize Bundle Size
+#### P3.REPO.001: Optimize Bundle Size (TASK-061)
 
 **Description**: Reduce production bundle sizes through code splitting and lazy loading.
 
@@ -1980,7 +2519,7 @@ git commit -m "bad code"
 
 - Webpack or Vite bundle analyzer
 
-**Dependencies**: P2.DRIV.004 →
+**Dependencies**: P2.DRIV.005 →
 
 **Validation Method**:
 
@@ -1992,7 +2531,7 @@ pnpm build --analyze
 
 ---
 
-#### P3.REPO.002: Implement WASM in Web Worker
+#### P3.REPO.002: Implement WASM in Web Worker (TASK-062)
 
 **Description**: Move heavy WASM computation to Web Worker to prevent UI blocking.
 
@@ -2010,7 +2549,7 @@ pnpm build --analyze
 
 - Web Worker API
 
-**Dependencies**: P2.DRIV.003 →
+**Dependencies**: P2.DRIV.004 →
 
 **Validation Method**:
 
@@ -2021,7 +2560,7 @@ pnpm build --analyze
 
 ---
 
-#### P3.REPO.003: Optimize Native Binary Size
+#### P3.REPO.003: Optimize Native Binary Size (TASK-063)
 
 **Description**: Strip debug symbols and optimize native addon binaries.
 
@@ -2040,12 +2579,12 @@ pnpm build --analyze
 - CMake release configuration
 - `strip` utility
 
-**Dependencies**: P1.DRIV.005 →
+**Dependencies**: P1.DRIV.006 →
 
 **Validation Method**:
 
 ```javascript
-ls -lh packages/engine-electron/build/Release/orpheus.node
+ls -lh packages/engine-native/build/Release/orpheus.node
 # Should be significantly smaller than Debug build
 
 ```
@@ -2054,7 +2593,7 @@ ls -lh packages/engine-electron/build/Release/orpheus.node
 
 ### C. Developer Tooling Tasks
 
-#### P3.TOOL.001: Implement @orpheus/cli Utility
+#### P3.TOOL.001: Implement @orpheus/cli Utility (TASK-064)
 
 **Description**: Create command-line interface for schema validation and smoke tests.
 
@@ -2090,7 +2629,7 @@ npx @orpheus/cli diff v0.9.0 v1.0.0-beta
 
 ### D. Release Infrastructure Tasks
 
-#### P3.GOV.001: Configure Changesets for Release
+#### P3.GOV.001: Configure Changesets for Release (TASK-065)
 
 **Description**: Finalize changesets configuration for versioned releases.
 
@@ -2123,7 +2662,7 @@ pnpm changeset version
 
 ---
 
-#### P3.GOV.002: Implement NPM Publish Workflow with Approval Gate
+#### P3.GOV.002: Implement NPM Publish Workflow with Approval Gate (TASK-066)
 
 **Description**: Automate package publishing via GitHub Actions with technical steering approval.
 
@@ -2158,19 +2697,22 @@ git push origin v1.0.0-rc.1
 
 ---
 
-#### P3.GOV.003: Generate Prebuilt Native Binaries
+#### P3.GOV.003: Generate Prebuilt Native Binaries (TASK-067) **[AMENDED]**
 
-**Description**: Build and publish prebuilt native addon binaries for major platforms.
+**Description**: Build and publish prebuilt native addon binaries for major platforms with signing.
 
 **Acceptance Criteria**:
 
 - [ ] Binaries built for: macOS (x64, arm64), Windows (x64), Linux (x64)
 - [ ] SHA-256 checksums generated per binary
-- [ ] Binaries signed (macOS notarized, Windows signed if possible)
+- [ ] **macOS binaries notarized with hardened runtime enabled**
+- [ ] **Windows binaries signed with Authenticode certificate**
+- [ ] **Signing validated per TASK-101 requirements**
+- [ ] **Signature verification passes on fresh OS installs**
 - [ ] Attached to GitHub Releases
-- [ ] `@orpheus/engine-electron` postinstall downloads prebuilt
+- [ ] `@orpheus/engine-native` postinstall downloads prebuilt
 
-**ORP References**: ORP062 §5.1, ORP063 §V.M
+**ORP References**: ORP062 §5.1, ORP063 §V.M, ORP066 §VIII
 
 **Tooling Requirements**:
 
@@ -2183,14 +2725,57 @@ git push origin v1.0.0-rc.1
 
 ```javascript
 # Install package on fresh system
-npm install @orpheus/engine-electron
+npm install @orpheus/engine-native
 # Should download prebuilt binary, not compile from source
 
 ```
 
 ---
 
-#### P3.GOV.004: Implement Binary Verification
+#### P3.GOV.004: Validate Binary Signing User Experience (TASK-101) **[NEW]**
+
+**Description**: Ensure signed binaries produce no security warnings on fresh systems.
+
+**Acceptance Criteria**:
+
+- [ ] **macOS**: Binary downloaded and run on fresh macOS (no prior Orpheus install)
+- [ ] **macOS**: Gatekeeper shows no warning dialog (notarization verified)
+- [ ] **macOS**: Binary has hardened runtime enabled (`codesign --display --verbose`)
+- [ ] **Windows**: Binary downloaded and run on fresh Windows (no prior Orpheus install)
+- [ ] **Windows**: SmartScreen shows no warning (Authenticode signature verified)
+- [ ] **Windows**: Signature validates via `signtool verify /pa`
+- [ ] Test performed on clean VMs for both platforms
+- [ ] Results documented in `docs/BINARY_VERIFICATION.md`
+
+**ORP References**: ORP062 §5.1, ORP063 §V.M, ORP066 §VIII
+
+**Tooling Requirements**:
+
+- macOS: Xcode command-line tools
+- Windows: Windows SDK (signtool)
+- Clean test VMs
+
+**Dependencies**: P3.GOV.003 →
+
+**Validation Method**:
+
+```javascript
+# macOS
+codesign --display --verbose orpheus.node
+# Should show: flags=0x10000(runtime)
+
+spctl --assess --type execute orpheus.node
+# Should show: accepted
+
+# Windows
+signtool verify /pa orpheus.node
+# Should show: Successfully verified
+
+```
+
+---
+
+#### P3.GOV.005: Implement Binary Verification (TASK-068)
 
 **Description**: Add checksum verification to binary installation process.
 
@@ -2221,7 +2806,7 @@ npm install @orpheus/engine-electron
 
 ---
 
-#### P3.GOV.005: Implement Contract Diff Automation and Codemod Suggestion
+#### P3.GOV.006: Implement Contract Diff Automation and Codemod Suggestion (TASK-069)
 
 **Description**: Create automation for contract version migrations with codemod generation.
 
@@ -2253,7 +2838,7 @@ pnpm contract:migrate v0.9.0 v1.0.0-beta --generate-codemods
 
 ---
 
-#### P3.GOV.006: Generate SBOM and Supply-Chain Provenance
+#### P3.GOV.007: Generate SBOM and Supply-Chain Provenance (TASK-070)
 
 **Description**: Create software bill of materials and provenance attestation for releases.
 
@@ -2288,7 +2873,7 @@ cat sbom.spdx.json | jq '.packages | length'
 
 ### E. Testing and Quality Tasks
 
-#### P3.TEST.001: Achieve Test Coverage Targets
+#### P3.TEST.001: Achieve Test Coverage Targets (TASK-071)
 
 **Description**: Increase test coverage to meet quality thresholds.
 
@@ -2306,7 +2891,7 @@ cat sbom.spdx.json | jq '.packages | length'
 
 - Jest/Vitest coverage tooling
 
-**Dependencies**: P2.TEST.002 →
+**Dependencies**: P2.TEST.003 →
 
 **Validation Method**:
 
@@ -2318,7 +2903,7 @@ pnpm test:coverage
 
 ---
 
-#### P3.TEST.002: Implement End-to-End Testing
+#### P3.TEST.002: Implement End-to-End Testing (TASK-072)
 
 **Description**: Add automated E2E tests for complete user workflows.
 
@@ -2348,7 +2933,7 @@ pnpm test:e2e
 
 ---
 
-#### P3.TEST.003: Run Memory Leak Detection
+#### P3.TEST.003: Run Memory Leak Detection (TASK-073)
 
 **Description**: Profile applications for memory leaks and performance issues.
 
@@ -2380,7 +2965,7 @@ pnpm test:stress
 
 ---
 
-#### P3.TEST.005: Implement Binary Compatibility Tests
+#### P3.TEST.004: Implement Binary Compatibility Tests (TASK-074)
 
 **Description**: Validate ABI consistency and output determinism across driver builds.
 
@@ -2412,7 +2997,7 @@ pnpm test:binary-compat
 
 ### F. Documentation Finalization Tasks
 
-#### P3.DOC.001: Complete Migration Guide
+#### P3.DOC.001: Complete Migration Guide (TASK-075)
 
 **Description**: Comprehensive guide for users migrating from old packages.
 
@@ -2423,8 +3008,9 @@ pnpm test:binary-compat
 - [ ] Breaking changes listed (from ORP061 §Breaking Changes)
 - [ ] Code examples (before/after)
 - [ ] Links to codemods
+- [ ] Notes on package name preservation (@orpheus/shmui)
 
-**ORP References**: ORP061 §Breaking Changes, ORP063 §III.F
+**ORP References**: ORP061 §Breaking Changes, ORP063 §III.F, ORP066 §II
 
 **Tooling Requirements**: None
 
@@ -2436,7 +3022,7 @@ pnpm test:binary-compat
 
 ---
 
-#### P3.DOC.002: Finalize API Documentation
+#### P3.DOC.002: Finalize API Documentation (TASK-076)
 
 **Description**: Generate complete API reference documentation.
 
@@ -2466,7 +3052,7 @@ pnpm docs:generate
 
 ---
 
-#### P3.DOC.003: Create Contributor Guide
+#### P3.DOC.003: Create Contributor Guide (TASK-077)
 
 **Description**: Comprehensive guide for new contributors.
 
@@ -2491,7 +3077,7 @@ pnpm docs:generate
 
 ---
 
-#### P3.DOC.004: Update Main README
+#### P3.DOC.004: Update Main README (TASK-078)
 
 **Description**: Revise README to reflect unified monorepo structure.
 
@@ -2502,8 +3088,9 @@ pnpm docs:generate
 - [ ] Installation instructions updated
 - [ ] Links to all key documentation
 - [ ] Badges (build status, coverage, version)
+- [ ] Reflects correct package names (@orpheus/shmui, @orpheus/engine-native)
 
-**ORP References**: ORP061 §Phase 3 (Documentation)
+**ORP References**: ORP061 §Phase 3 (Documentation), ORP066 §II
 
 **Tooling Requirements**: None
 
@@ -2515,7 +3102,7 @@ pnpm docs:generate
 
 ---
 
-#### P3.DOC.005: Create API Surface Index
+#### P3.DOC.005: Create API Surface Index (TASK-079)
 
 **Description**: Generate comprehensive index linking TypeDoc pages.
 
@@ -2541,7 +3128,7 @@ pnpm docs:generate
 
 ---
 
-#### P3.DOC.006: Automate Docs Index Graph Generation
+#### P3.DOC.006: Automate Docs Index Graph Generation (TASK-080)
 
 **Description**: Generate visual documentation dependency graph.
 
@@ -2575,7 +3162,7 @@ pnpm docs:graph
 
 ### G. Validation Checkpoint
 
-#### P3.TEST.004: Execute Phase 3 Validation Checklist
+#### P3.TEST.005: Execute Phase 3 Validation Checklist (TASK-081)
 
 **Description**: Run complete validation suite from ORP061 §Phase 3.
 
@@ -2592,6 +3179,8 @@ pnpm docs:graph
 - [ ] Security audit passed
 - [ ] SBOM generated
 - [ ] Contract diff tool operational
+- [ ] Binary signing UX validated on fresh systems
+- [ ] Performance budgets enforced from budgets.json
 - [ ] All Phase 3 tasks complete
 
 **ORP References**: ORP061 §Phase 3 Validation
@@ -2612,13 +3201,11 @@ pnpm docs:graph
 
 ## VI. PHASE 4: GRADUAL ROLLOUT AND POST-MIGRATION SUPPORT
 
-**Objective**: Deploy unified system, monitor, and provide support
-**Duration Estimate**: 3 weeks (revised from 2-4 weeks)
-**Gate Criteria**: All validation checks from ORP061 §Phase 4 pass
+**Objective**: Deploy unified system, monitor, and provide support **Duration Estimate**: 3 weeks **Gate Criteria**: All validation checks from ORP061 §Phase 4 pass
 
 ### A. Deployment Tasks
 
-#### P4.GOV.001: Publish Beta Release
+#### P4.GOV.001: Publish Beta Release (TASK-082)
 
 **Description**: Release v1.0.0-beta packages to NPM.
 
@@ -2637,19 +3224,19 @@ pnpm docs:graph
 - NPM access
 - GitHub Releases
 
-**Dependencies**: P3.TEST.004 →
+**Dependencies**: P3.TEST.005 →
 
 **Validation Method**:
 
 ```javascript
-npm info @orpheus/ui
+npm info @orpheus/shmui
 # Should show beta version available
 
 ```
 
 ---
 
-#### P4.GOV.002: Archive Old Repositories
+#### P4.GOV.002: Archive Old Repositories (TASK-083)
 
 **Description**: Mark separate Shmui and legacy repositories as read-only.
 
@@ -2674,7 +3261,7 @@ npm info @orpheus/ui
 
 ---
 
-#### P4.REPO.001: Decommission Legacy CI Workflows
+#### P4.REPO.001: Decommission Legacy CI Workflows (TASK-084)
 
 **Description**: Remove old CI pipelines from archived repositories.
 
@@ -2697,7 +3284,7 @@ npm info @orpheus/ui
 
 ---
 
-#### P4.GOV.003: Establish Support Channels
+#### P4.GOV.003: Establish Support Channels (TASK-085)
 
 **Description**: Create support infrastructure for beta testers.
 
@@ -2723,7 +3310,7 @@ npm info @orpheus/ui
 
 ### B. Monitoring Tasks
 
-#### P4.GOV.004: Implement Telemetry Collection with Consent Guard
+#### P4.GOV.004: Implement Telemetry Collection with Consent Guard (TASK-086)
 
 **Description**: Optional analytics for tracking adoption and issues with privacy enforcement.
 
@@ -2756,7 +3343,7 @@ ORPHEUS_TELEMETRY=true pnpm dev
 
 ---
 
-#### P4.GOV.005: Create Incident Response Plan
+#### P4.GOV.005: Create Incident Response Plan (TASK-087)
 
 **Description**: Document procedures for handling production issues.
 
@@ -2782,7 +3369,7 @@ ORPHEUS_TELEMETRY=true pnpm dev
 
 ### C. Feedback Integration Tasks
 
-#### P4.GOV.006: Conduct Beta Testing Period
+#### P4.GOV.006: Conduct Beta Testing Period (TASK-088)
 
 **Description**: Gather feedback from early adopters over 2-4 weeks.
 
@@ -2808,7 +3395,7 @@ ORPHEUS_TELEMETRY=true pnpm dev
 
 ---
 
-#### P4.GOV.007: Publish Stable v1.0.0 Release
+#### P4.GOV.007: Publish Stable v1.0.0 Release (TASK-089)
 
 **Description**: Promote beta to stable release after successful testing period.
 
@@ -2831,7 +3418,7 @@ ORPHEUS_TELEMETRY=true pnpm dev
 **Validation Method**:
 
 ```javascript
-npm info @orpheus/ui
+npm info @orpheus/shmui
 # Should show 1.0.0 as latest
 
 ```
@@ -2840,7 +3427,7 @@ npm info @orpheus/ui
 
 ### D. Documentation Updates
 
-#### P4.DOC.001: Create Upgrade Path Documentation
+#### P4.DOC.001: Create Upgrade Path Documentation (TASK-090)
 
 **Description**: Guide for beta users upgrading to stable.
 
@@ -2864,7 +3451,7 @@ npm info @orpheus/ui
 
 ---
 
-#### P4.DOC.002: Publish Release Blog Post
+#### P4.DOC.002: Publish Release Blog Post (TASK-091)
 
 **Description**: Announcement article summarizing integration and benefits.
 
@@ -2890,7 +3477,7 @@ npm info @orpheus/ui
 
 ### E. Finalization Tasks
 
-#### P4.REPO.005: Prepare Adapter Plugin Interface Skeleton
+#### P4.REPO.002: Prepare Adapter Plugin Interface Skeleton (TASK-092)
 
 **Description**: Create future-proofing placeholder for modular adapter system.
 
@@ -2906,7 +3493,7 @@ npm info @orpheus/ui
 
 **Tooling Requirements**: None
 
-**Dependencies**: P3.TEST.004 →
+**Dependencies**: P3.TEST.005 →
 
 **Validation Method**:
 
@@ -2914,7 +3501,7 @@ npm info @orpheus/ui
 
 ---
 
-#### P4.GOV.008: Remove Feature Toggles
+#### P4.GOV.008: Remove Feature Toggles (TASK-093)
 
 **Description**: Clean up temporary feature flags after stable release.
 
@@ -2938,7 +3525,7 @@ npm info @orpheus/ui
 
 ---
 
-#### P4.GOV.009: Conduct Retrospective
+#### P4.GOV.009: Conduct Retrospective (TASK-094)
 
 **Description**: Team retrospective on migration process.
 
@@ -2964,7 +3551,7 @@ npm info @orpheus/ui
 
 ### F. Validation Checkpoint
 
-#### P4.TEST.001: Execute Phase 4 Validation Checklist
+#### P4.TEST.001: Execute Phase 4 Validation Checklist (TASK-095)
 
 **Description**: Run complete validation suite from ORP061 §Phase 4.
 
@@ -3000,13 +3587,14 @@ This section provides a concise, gated checklist summarizing the conditions for 
 
 ### A. Technical Completeness
 
-- [ ] **TC-01**: All 147 tasks from Phases 0-4 marked complete
+- [ ] **TC-01**: All 104 tasks from Phases 0-4 marked complete
 - [ ] **TC-02**: All three drivers (Service, WASM, Native) functional on target platforms
 - [ ] **TC-03**: Contract v1.0.0 implemented and validated across all drivers
 - [ ] **TC-04**: Golden audio tests pass with deterministic output
 - [ ] **TC-05**: Contract compliance test matrix achieves ≥95% coverage
 - [ ] **TC-06**: Unified CI pipeline passes on all platforms (Windows, macOS, Linux)
 - [ ] **TC-07**: Contract diff tool operational and verified
+- [ ] **TC-08**: Contract and golden audio manifest systems functional
 
 ### B. Quality Assurance
 
@@ -3017,6 +3605,7 @@ This section provides a concise, gated checklist summarizing the conditions for 
 - [ ] **QA-05**: Chaos tests validate recovery within defined timeframes
 - [ ] **QA-06**: Cross-browser compatibility verified (Chrome, Firefox, Safari)
 - [ ] **QA-07**: Cross-driver parity test passes (RMS ≤ 1 LSB difference)
+- [ ] **QA-08**: WASM build discipline enforced with SRI verification
 
 ### C. Release Infrastructure
 
@@ -3026,26 +3615,29 @@ This section provides a concise, gated checklist summarizing the conditions for 
 - [ ] **RI-04**: Binary verification (SHA-256 checksum) implemented and tested
 - [ ] **RI-05**: GitHub Releases created with changelogs
 - [ ] **RI-06**: Version v1.0.0 published to NPM `latest` tag
+- [ ] **RI-07**: Binary signing validated on fresh OS installs (no Gatekeeper/SmartScreen warnings)
 
 ### D. Documentation Completeness
 
-- [ ] **DC-01**: All ORP documents (061-064) published and cross-referenced
+- [ ] **DC-01**: All ORP documents (061-064, 066, 068) published and cross-referenced
 - [ ] **DC-02**: Migration guide available with code examples and codemods
 - [ ] **DC-03**: API documentation generated and hosted
 - [ ] **DC-04**: Contributor guide updated for monorepo structure
 - [ ] **DC-05**: Main README reflects unified architecture
 - [ ] **DC-06**: Release blog post published
 - [ ] **DC-07**: Docs index graph auto-generated
+- [ ] **DC-08**: Documentation quick start block prominently displayed
 
 ### E. Operational Readiness
 
 - [ ] **OR-01**: Support channels established (GitHub Discussions, issue templates)
-- [ ] **OR-02**: Monitoring and telemetry configured (opt-in)
+- [ ] **OR-02**: Monitoring and telemetry configured (opt-in with consent guard)
 - [ ] **OR-03**: Incident response plan documented
 - [ ] **OR-04**: Beta testing period completed with feedback incorporated
 - [ ] **OR-05**: Old repositories archived with migration notices
 - [ ] **OR-06**: Feature toggles removed or deprecated
 - [ ] **OR-07**: Contract diff bot and nightly validation workflow active
+- [ ] **OR-08**: Driver selection registry operational with documented override mechanism
 
 ### F. Governance and Compliance
 
@@ -3053,9 +3645,10 @@ This section provides a concise, gated checklist summarizing the conditions for 
 - [ ] **GC-02**: Licensing verified (MIT for all components, attributions preserved)
 - [ ] **GC-03**: Dependency audit passed (no known vulnerabilities)
 - [ ] **GC-04**: Binary signing implemented (macOS notarized, Windows signed if applicable)
-- [ ] **GC-05**: Privacy policy documented for telemetry
+- [ ] **GC-05**: Privacy policy documented for telemetry with consent enforcement
 - [ ] **GC-06**: Stakeholder sign-off obtained from technical steering
 - [ ] **GC-07**: SBOM generated and stored for all packages
+- [ ] **GC-08**: Performance budgets committed to repository as budgets.json
 
 ### G. Success Metrics
 
@@ -3074,9 +3667,10 @@ This section provides a concise, gated checklist summarizing the conditions for 
 
 ```javascript
 P0.REPO.001 → P0.REPO.002 → P0.REPO.003 → P0.REPO.006 →
-P1.CONT.001 → P1.CONT.003 → P1.CONT.004 → P1.DRIV.001 → P1.DRIV.002 → P1.DRIV.007 →
-P2.CONT.001 → P2.DRIV.001 → P2.DRIV.003 → P2.DRIV.004 →
-P2.TEST.001 → P3.CI.001 → P3.CI.005 → P3.TEST.004 →
+P1.CONT.001 → P1.CONT.003 → P1.CONT.004 → P1.CONT.005 →
+P1.DRIV.001 → P1.DRIV.002 → P1.DRIV.008 → P1.DRIV.009 →
+P2.CONT.001 → P2.DRIV.001 → P2.DRIV.002 → P2.DRIV.004 → P2.DRIV.005 →
+P2.TEST.001 → P2.TEST.002 → P3.CI.001 → P3.CI.005 → P3.TEST.005 →
 P4.GOV.001 → P4.GOV.006 → P4.GOV.007
 
 ```
@@ -3094,24 +3688,24 @@ pnpm docs:depgraph
 
 **Phase 0**:
 
-- REPO tasks (001-007) ‖ DOC tasks (001-002) ‖ CI tasks (001-002)
+- REPO tasks (001-007) ‖ DOC tasks (001-003) ‖ CI tasks (001-002) ‖ GOV.001 ‖ TEST.001
 
 **Phase 1**:
 
-- CONT tasks (001-004) ‖ DOC tasks (001-002) ‖ REPO.007
-- After DRIV.002: DRIV.004-006 (Native) ‖ DRIV.001-003 (Service) ‖ UI.001-002
+- CONT tasks (001-005) ‖ DOC tasks (001-002) ‖ REPO.001
+- After DRIV.002: DRIV.005-007 (Native) ‖ DRIV.001-004 (Service) ‖ UI.001-002
 
 **Phase 2**:
 
-- DRIV.001-004 (WASM) ‖ UI.001-005 ‖ TEST.001-007 ‖ DOC.001-002
+- DRIV.001-005 (WASM) ‖ UI.001-005 ‖ TEST.001-007 ‖ DOC.001-002
 
 **Phase 3**:
 
-- CI.001-006 ‖ REPO.001-003 ‖ GOV.001-006 ‖ TEST.001-005 ‖ DOC.001-006 ‖ TOOL.001
+- CI.001-006 ‖ REPO.001-003 ‖ GOV.001-007 ‖ TEST.001-004 ‖ DOC.001-006 ‖ TOOL.001
 
 **Phase 4**:
 
-- GOV.001-005 ‖ DOC.001-002 ‖ REPO.001/005 (after initial release)
+- GOV.001-005 ‖ DOC.001-002 ‖ REPO.001-002 (after initial release)
 
 ---
 
@@ -3177,13 +3771,13 @@ pnpm docs:depgraph
 
 ## X. ESTIMATED TIMELINE
 
-| Phase                        | Duration | Cumulative | Notes                                                   |
-| ---------------------------- | -------- | ---------- | ------------------------------------------------------- |
-| Phase 0: Repository Setup    | 2 weeks  | 2 weeks    | Includes history preservation and bootstrap script      |
-| Phase 1: Basic Integration   | 4 weeks  | 6 weeks    | Dual driver (Native + Service) with contract automation |
-| Phase 2: Feature Integration | 6 weeks  | 12 weeks   | WASM, UI integration, comprehensive test suite          |
-| Phase 3: Unified System      | 4 weeks  | 16 weeks   | CI unification, security audit, release prep            |
-| Phase 4: Rollout & Support   | 3 weeks  | 19 weeks   | Beta testing, stable release, cleanup                   |
+| Phase                        | Duration | Cumulative | Notes                                                           |
+| ---------------------------- | -------- | ---------- | --------------------------------------------------------------- |
+| Phase 0: Repository Setup    | 2 weeks  | 2 weeks    | Includes history preservation, bootstrap script, budgets config |
+| Phase 1: Basic Integration   | 4 weeks  | 6 weeks    | Dual driver (Native + Service), contract manifest, auth         |
+| Phase 2: Feature Integration | 6 weeks  | 12 weeks   | WASM discipline, UI integration, comprehensive test suite       |
+| Phase 3: Unified System      | 4 weeks  | 16 weeks   | CI unification, binary signing UX, release prep                 |
+| Phase 4: Rollout & Support   | 3 weeks  | 19 weeks   | Beta testing, stable release, cleanup                           |
 
 **Total Estimated Duration**: 15-19 weeks (~4.5 months)
 
@@ -3207,10 +3801,9 @@ pnpm docs:depgraph
 
 ### High-Risk Tasks
 
-1. **P2.DRIV.001-003 (WASM Driver)**: Complex Emscripten build with platform-specific issues
+1. **P2.DRIV.001-005 (WASM Driver)**: Complex Emscripten build with platform-specific issues
    - **Mitigation**: Allocate experienced WebAssembly engineer, allow 2-week buffer, maintain Service+Native as fallback
    - **Fallback**: Defer WASM to v1.1.0 if critical issues arise; release with Service+Native only
-
 2. **P3.CI.001 (CI Unification)**: Potential merge conflicts and workflow complexity
    - **Mitigation**: Implement incrementally, maintain parallel workflows during transition, extensive testing on feature branch
    - **Rollback**: Revert to interim parallel workflows if unified pipeline unstable
@@ -3223,7 +3816,7 @@ pnpm docs:depgraph
 5. **P2.TEST.005-007 (Advanced Testing)**: Time-consuming test development may delay Phase 2
    - **Mitigation**: Prioritize critical path tests first, run non-critical tests in parallel with Phase 3 work
    - **Adjustment**: Move fuzz testing to post-v1.0.0 if schedule pressured
-6. **P1.CONT.004 (Contract Automation)**: Custom tooling may be complex to build correctly
+6. **P1.CONT.004-005 (Contract Automation)**: Custom tooling may be complex to build correctly
    - **Mitigation**: Start early in Phase 1, use existing schema diff libraries where possible, manual fallback available
    - **Scope Reduction**: If automation incomplete, use manual contract validation for v1.0.0, automate in v1.1.0
 
@@ -3305,7 +3898,7 @@ Upon completion of all phases, the following must be demonstrable:
    - **Timeline**: Complete onboarding within 2 hours
    - **Success Criteria**: PR submitted with passing CI, proper formatting
 6. **Release Validation**: Fresh installation succeeds without issues
-   - **Test**: `npm install @orpheus/ui` on clean system
+   - **Test**: `npm install @orpheus/shmui` on clean system
    - **Platforms**: Ubuntu, macOS, Windows
    - **Success Criteria**: Installs without requiring source compilation (prebuilt binary used)
 7. **Community Validation**: External adoption proves viability
@@ -3337,7 +3930,7 @@ Upon completion of all phases, the following must be demonstrable:
 
 ### A. Handoff to Maintenance
 
-Once all 147 tasks complete and finish-line criteria met:
+Once all 104 tasks complete and finish-line criteria met:
 
 1. **Repository Ownership Transfer**:
    - [ ] Assign repository maintainers (minimum 2)
@@ -3382,202 +3975,244 @@ Once all 147 tasks complete and finish-line criteria met:
 
 ---
 
-# XIV. APPENDIX: TASK NUMBERING REFERENCE
+## XIV. APPENDIX: TASK NUMBERING REFERENCE
 
 For integration with project management tools (Jira, Linear, etc.), sequential numbering:
 
-| Task ID  | Description                      | Phase | Domain | Dependencies |
-| -------- | -------------------------------- | ----- | ------ | ------------ |
-| TASK-001 | Initialize Monorepo Workspace    | P0    | REPO   | None         |
-| TASK-002 | Import Shmui Codebase            | P0    | REPO   | 001          |
-| TASK-003 | Configure Package Namespacing    | P0    | REPO   | 002          |
-| TASK-004 | Preserve Orpheus C++ Build       | P0    | REPO   | 001          |
-| TASK-005 | Unify Linting Configuration      | P0    | REPO   | 002          |
-| TASK-006 | Initialize Changesets            | P0    | REPO   | 003          |
-| TASK-007 | Create Bootstrap Script          | P0    | REPO   | 001, 004     |
-| TASK-008 | Create Interim CI                | P0    | CI     | 004, 005     |
-| TASK-009 | Configure Branch Protection      | P0    | CI     | 008          |
-| TASK-010 | Create Documentation Index       | P0    | DOC    | None         |
-| TASK-011 | Document Package Naming          | P0    | DOC    | 003          |
-| TASK-012 | Phase 0 Validation               | P0    | TEST   | ALL P0       |
-| TASK-013 | Create Contract Package          | P1    | CONT   | 003          |
-| TASK-014 | Contract Version Roadmap         | P1    | CONT   | 013          |
-| TASK-015 | Implement Minimal Schemas        | P1    | CONT   | 013          |
-| TASK-016 | Contract Schema Automation       | P1    | CONT   | 015          |
-| TASK-017 | Service Driver Foundation        | P1    | DRIV   | 015          |
-| TASK-018 | Service Command Handler          | P1    | DRIV   | 017, 004     |
-| TASK-019 | Service Event Emission           | P1    | DRIV   | 018          |
-| TASK-020 | Native Driver Package            | P1    | DRIV   | 004          |
-| TASK-021 | Native Command Interface         | P1    | DRIV   | 020          |
-| TASK-022 | Native Event Emitter             | P1    | DRIV   | 021          |
-| TASK-023 | Quarantine Legacy REAPER         | P1    | REPO   | 004          |
-| TASK-024 | Create Client Broker             | P1    | DRIV   | 019, 022     |
-| TASK-025 | Client Handshake Protocol        | P1    | DRIV   | 024          |
-| TASK-026 | UI Integration Test Hook         | P1    | UI     | 024          |
-| TASK-027 | React OrpheusProvider            | P1    | UI     | 024          |
-| TASK-028 | Extend CI for Drivers            | P1    | CI     | 018, 021     |
-| TASK-029 | Add Integration Smoke Tests      | P1    | CI     | 024, 028     |
-| TASK-030 | Document Driver Architecture     | P1    | DOC    | 019, 022     |
-| TASK-031 | Contract Development Guide       | P1    | DOC    | 015          |
-| TASK-032 | Phase 1 Validation               | P1    | TEST   | ALL P1       |
-| TASK-033 | Initialize WASM Build            | P2    | DRIV   | 004          |
-| TASK-034 | WASM Web Worker Wrapper          | P2    | DRIV   | 033          |
-| TASK-035 | WASM Command Interface           | P2    | DRIV   | 034          |
-| TASK-036 | Integrate WASM into Broker       | P2    | DRIV   | 035, 024     |
-| TASK-037 | Upgrade Contract to v1.0.0-beta  | P2    | CONT   | 015          |
-| TASK-038 | Event Frequency Validation       | P2    | CONT   | 037          |
-| TASK-039 | Session Manager Panel            | P2    | UI     | 037, 027     |
-| TASK-040 | Click Track Generator            | P2    | UI     | 037, 039     |
-| TASK-041 | Integrate Orb with Orpheus       | P2    | UI     | 038, 027     |
-| TASK-042 | Track Add/Remove Operations      | P2    | UI     | 039          |
-| TASK-043 | Feature Toggle System            | P2    | UI     | 039          |
-| TASK-044 | Golden Audio Test Suite          | P2    | TEST   | 037, 036     |
-| TASK-045 | Contract Compliance Matrix       | P2    | TEST   | 037, 036     |
-| TASK-046 | Performance Instrumentation      | P2    | TEST   | 036          |
-| TASK-047 | IPC Stress Testing               | P2    | TEST   | 022          |
-| TASK-048 | Contract Fuzz Testing            | P2    | TEST   | 037          |
-| TASK-049 | Thread Safety Audit              | P2    | TEST   | 022          |
-| TASK-050 | Golden Audio Tests in CI         | P2    | CI     | 044          |
-| TASK-051 | Compliance Tests in CI           | P2    | CI     | 045          |
-| TASK-052 | Document UI Integration          | P2    | DOC    | 040          |
-| TASK-053 | Update Storybook Stories         | P2    | DOC    | 040, 041     |
-| TASK-054 | Phase 2 Validation               | P2    | TEST   | ALL P2       |
-| TASK-055 | Consolidate CI Pipelines         | P3    | CI     | 051          |
-| TASK-056 | Performance Budget Enforcement   | P3    | CI     | 046          |
-| TASK-057 | Chaos Testing in CI              | P3    | CI     | 045          |
-| TASK-058 | Dependency Graph Check           | P3    | CI     | 055          |
-| TASK-059 | Security and SBOM Audit          | P3    | CI     | 055          |
-| TASK-060 | Pre-Merge Contributor Validation | P3    | CI     | 055          |
-| TASK-061 | Optimize Bundle Size             | P3    | REPO   | 036          |
-| TASK-062 | WASM in Web Worker               | P3    | REPO   | 035          |
-| TASK-063 | Optimize Native Binary Size      | P3    | REPO   | 021          |
-| TASK-064 | Implement @orpheus/cli           | P3    | TOOL   | 016          |
-| TASK-065 | Configure Changesets             | P3    | GOV    | 006          |
-| TASK-066 | NPM Publish Workflow             | P3    | GOV    | 065          |
-| TASK-067 | Generate Prebuilt Binaries       | P3    | GOV    | 063          |
-| TASK-068 | Binary Verification              | P3    | GOV    | 067          |
-| TASK-069 | Contract Diff Automation         | P3    | GOV    | 016          |
-| TASK-070 | Generate SBOM and Provenance     | P3    | GOV    | 067          |
-| TASK-071 | Achieve Coverage Targets         | P3    | TEST   | 045          |
-| TASK-072 | End-to-End Testing               | P3    | TEST   | 042          |
-| TASK-073 | Memory Leak Detection            | P3    | TEST   | 062          |
-| TASK-074 | Binary Compatibility Tests       | P3    | TEST   | 067          |
-| TASK-075 | Complete Migration Guide         | P3    | DOC    | 053          |
-| TASK-076 | Finalize API Documentation       | P3    | DOC    | 037          |
-| TASK-077 | Create Contributor Guide         | P3    | DOC    | 055          |
-| TASK-078 | Update Main README               | P3    | DOC    | 071, 065     |
-| TASK-079 | Create API Surface Index         | P3    | DOC    | 076          |
-| TASK-080 | Automate Docs Index Graph        | P3    | DOC    | 010          |
-| TASK-081 | Phase 3 Validation               | P3    | TEST   | ALL P3       |
-| TASK-082 | Publish Beta Release             | P4    | GOV    | 081          |
-| TASK-083 | Archive Old Repositories         | P4    | GOV    | 082          |
-| TASK-084 | Decommission Legacy CI           | P4    | REPO   | 083          |
-| TASK-085 | Establish Support Channels       | P4    | GOV    | 082          |
-| TASK-086 | Telemetry with Consent Guard     | P4    | GOV    | 082          |
-| TASK-087 | Incident Response Plan           | P4    | GOV    | 082          |
-| TASK-088 | Conduct Beta Testing             | P4    | GOV    | 085          |
-| TASK-089 | Publish Stable v1.0.0            | P4    | GOV    | 088          |
-| TASK-090 | Upgrade Path Documentation       | P4    | DOC    | 089          |
-| TASK-091 | Release Blog Post                | P4    | DOC    | 089          |
-| TASK-092 | Adapter Plugin Interface         | P4    | REPO   | 081          |
-| TASK-093 | Remove Feature Toggles           | P4    | GOV    | 089          |
-| TASK-094 | Conduct Retrospective            | P4    | GOV    | 093          |
-| TASK-095 | Phase 4 Validation               | P4    | TEST   | ALL P4       |
-
-**Task Summary by Phase:**
-
-| Phase     | Task Range           | Count  | Percentage |
-| --------- | -------------------- | ------ | ---------- |
-| Phase 0   | TASK-001 to TASK-012 | 12     | 12.6%      |
-| Phase 1   | TASK-013 to TASK-032 | 20     | 21.1%      |
-| Phase 2   | TASK-033 to TASK-054 | 22     | 23.2%      |
-| Phase 3   | TASK-055 to TASK-081 | 27     | 28.4%      |
-| Phase 4   | TASK-082 to TASK-095 | 14     | 14.7%      |
-| **Total** |                      | **95** | **100%**   |
-
-**Task Summary by Domain:**
-
-| Domain    | Count  | Primary Phases     |
-| --------- | ------ | ------------------ |
-| REPO      | 12     | P0, P1, P3, P4     |
-| DRIV      | 16     | P1, P2             |
-| CONT      | 8      | P1, P2             |
-| CI        | 13     | P0, P1, P2, P3     |
-| DOC       | 14     | P0, P1, P2, P3, P4 |
-| GOV       | 16     | P0, P3, P4         |
-| UI        | 7      | P1, P2             |
-| TEST      | 8      | P0, P1, P2, P3, P4 |
-| TOOL      | 1      | P3                 |
-| **Total** | **95** |                    |
-
-**Note**: Detailed enumeration yields 95 distinct, non-redundant implementation tasks. This discrepancy accounts for:
-
-- Consolidated validation checkpoints (each phase validation aggregates multiple checks)
-- Combined documentation tasks (e.g., multiple guide sections merged into single deliverables)
-- Eliminated redundant verification steps across similar platforms
-
-This refined count represents executable, trackable work items suitable for project management systems. Each task has clear ownership, acceptance criteria, and dependency chains.
+| Task ID  | Description                             | Phase | Domain | Dependencies    |
+| -------- | --------------------------------------- | ----- | ------ | --------------- |
+| TASK-001 | Initialize Monorepo Workspace           | P0    | REPO   | None            |
+| TASK-002 | Import Shmui Codebase                   | P0    | REPO   | 001             |
+| TASK-003 | Configure Package Namespacing           | P0    | REPO   | 002             |
+| TASK-004 | Preserve Orpheus C++ Build              | P0    | REPO   | 001             |
+| TASK-005 | Unify Linting Configuration             | P0    | REPO   | 002             |
+| TASK-006 | Initialize Changesets                   | P0    | REPO   | 003             |
+| TASK-007 | Create Bootstrap Script                 | P0    | REPO   | 001, 004        |
+| TASK-008 | Create Interim CI                       | P0    | CI     | 004, 005        |
+| TASK-009 | Configure Branch Protection             | P0    | CI     | 008             |
+| TASK-010 | Create Documentation Index              | P0    | DOC    | None            |
+| TASK-011 | Document Package Naming                 | P0    | DOC    | 003             |
+| TASK-096 | Implement Validation Script Suite       | P0    | TEST   | Phase-dependent |
+| TASK-103 | Create Performance Budget Config        | P0    | GOV    | None            |
+| TASK-104 | Implement Docs Quick Start Block        | P0    | DOC    | 010             |
+| TASK-012 | Phase 0 Validation                      | P0    | TEST   | ALL P0          |
+| TASK-013 | Create Contract Package                 | P1    | CONT   | 003             |
+| TASK-014 | Contract Version Roadmap                | P1    | CONT   | 013             |
+| TASK-015 | Implement Minimal Schemas               | P1    | CONT   | 013             |
+| TASK-016 | Contract Schema Automation              | P1    | CONT   | 015             |
+| TASK-097 | Implement Contract Manifest System      | P1    | CONT   | 016             |
+| TASK-017 | Service Driver Foundation               | P1    | DRIV   | 015             |
+| TASK-018 | Service Command Handler                 | P1    | DRIV   | 017, 004        |
+| TASK-019 | Service Event Emission                  | P1    | DRIV   | 018             |
+| TASK-099 | Implement Service Driver Authentication | P1    | GOV    | 017             |
+| TASK-020 | Native Driver Package                   | P1    | DRIV   | 004             |
+| TASK-021 | Native Command Interface                | P1    | DRIV   | 020             |
+| TASK-022 | Native Event Emitter                    | P1    | DRIV   | 021             |
+| TASK-023 | Quarantine Legacy REAPER                | P1    | REPO   | 004             |
+| TASK-024 | Create Client Broker                    | P1    | DRIV   | 019, 022        |
+| TASK-098 | Implement Driver Selection Registry     | P1    | DRIV   | 024             |
+| TASK-025 | Client Handshake Protocol               | P1    | DRIV   | 024             |
+| TASK-026 | UI Integration Test Hook                | P1    | UI     | 024             |
+| TASK-027 | React OrpheusProvider                   | P1    | UI     | 024             |
+| TASK-028 | Extend CI for Drivers                   | P1    | CI     | 018, 021        |
+| TASK-029 | Add Integration Smoke Tests             | P1    | CI     | 024, 028        |
+| TASK-030 | Document Driver Architecture            | P1    | DOC    | 019, 022        |
+| TASK-031 | Contract Development Guide              | P1    | DOC    | 015             |
+| TASK-032 | Phase 1 Validation                      | P1    | TEST   | ALL P1          |
+| TASK-033 | Initialize WASM Build                   | P2    | DRIV   | 004             |
+| TASK-100 | Implement WASM Build Discipline         | P2    | DRIV   | 033             |
+| TASK-034 | WASM Web Worker Wrapper                 | P2    | DRIV   | 033             |
+| TASK-035 | WASM Command Interface                  | P2    | DRIV   | 034             |
+| TASK-036 | Integrate WASM into Broker              | P2    | DRIV   | 035, 024        |
+| TASK-037 | Upgrade Contract to v1.0.0-beta         | P2    | CONT   | 015             |
+| TASK-038 | Event Frequency Validation              | P2    | CONT   | 037             |
+| TASK-039 | Session Manager Panel                   | P2    | UI     | 037, 027        |
+| TASK-040 | Click Track Generator                   | P2    | UI     | 037, 039        |
+| TASK-041 | Integrate Orb with Orpheus              | P2    | UI     | 038, 027        |
+| TASK-042 | Track Add/Remove Operations             | P2    | UI     | 039             |
+| TASK-043 | Feature Toggle System                   | P2    | UI     | 039             |
+| TASK-044 | Golden Audio Test Suite                 | P2    | TEST   | 037, 036        |
+| TASK-102 | Create Golden Audio Manifest            | P2    | TEST   | 044             |
+| TASK-045 | Contract Compliance Matrix              | P2    | TEST   | 037, 036        |
+| TASK-046 | Performance Instrumentation             | P2    | TEST   | 036             |
+| TASK-047 | IPC Stress Testing                      | P2    | TEST   | 022             |
+| TASK-048 | Contract Fuzz Testing                   | P2    | TEST   | 037             |
+| TASK-049 | Thread Safety Audit                     | P2    | TEST   | 022             |
+| TASK-050 | Golden Audio Tests in CI                | P2    | CI     | 044             |
+| TASK-051 | Compliance Tests in CI                  | P2    | CI     | 045             |
+| TASK-052 | Document UI Integration                 | P2    | DOC    | 040             |
+| TASK-053 | Update Storybook Stories                | P2    | DOC    | 040, 041        |
+| TASK-054 | Phase 2 Validation                      | P2    | TEST   | ALL P2          |
+| TASK-055 | Consolidate CI Pipelines                | P3    | CI     | 051             |
+| TASK-056 | Performance Budget Enforcement          | P3    | CI     | 046             |
+| TASK-057 | Chaos Testing in CI                     | P3    | CI     | 045             |
+| TASK-058 | Dependency Graph Check                  | P3    | CI     | 055             |
+| TASK-059 | Security and SBOM Audit                 | P3    | CI     | 055             |
+| TASK-060 | Pre-Merge Contributor Validation        | P3    | CI     | 055             |
+| TASK-061 | Optimize Bundle Size                    | P3    | REPO   | 036             |
+| TASK-062 | WASM in Web Worker                      | P3    | REPO   | 035             |
+| TASK-063 | Optimize Native Binary Size             | P3    | REPO   | 021             |
+| TASK-064 | Implement @orpheus/cli                  | P3    | TOOL   | 016             |
+| TASK-065 | Configure Changesets                    | P3    | GOV    | 006             |
+| TASK-066 | NPM Publish Workflow                    | P3    | GOV    | 065             |
+| TASK-067 | Generate Prebuilt Binaries              | P3    | GOV    | 063             |
+| TASK-101 | Validate Binary Signing UX              | P3    | GOV    | 067             |
+| TASK-068 | Binary Verification                     | P3    | GOV    | 067             |
+| TASK-069 | Contract Diff Automation                | P3    | GOV    | 016             |
+| TASK-070 | Generate SBOM and Provenance            | P3    | GOV    | 067             |
+| TASK-071 | Achieve Coverage Targets                | P3    | TEST   | 045             |
+| TASK-072 | End-to-End Testing                      | P3    | TEST   | 042             |
+| TASK-073 | Memory Leak Detection                   | P3    | TEST   | 062             |
+| TASK-074 | Binary Compatibility Tests              | P3    | TEST   | 067             |
+| TASK-075 | Complete Migration Guide                | P3    | DOC    | 053             |
+| TASK-076 | Finalize API Documentation              | P3    | DOC    | 037             |
+| TASK-077 | Create Contributor Guide                | P3    | DOC    | 055             |
+| TASK-078 | Update Main README                      | P3    | DOC    | 071, 065        |
+| TASK-079 | Create API Surface Index                | P3    | DOC    | 076             |
+| TASK-080 | Automate Docs Index Graph               | P3    | DOC    | 010             |
+| TASK-081 | Phase 3 Validation                      | P3    | TEST   | ALL P3          |
+| TASK-082 | Publish Beta Release                    | P4    | GOV    | 081             |
+| TASK-083 | Archive Old Repositories                | P4    | GOV    | 082             |
+| TASK-084 | Decommission Legacy CI                  | P4    | REPO   | 083             |
+| TASK-085 | Establish Support Channels              | P4    | GOV    | 082             |
+| TASK-086 | Telemetry with Consent Guard            | P4    | GOV    | 082             |
+| TASK-087 | Incident Response Plan                  | P4    | GOV    | 082             |
+| TASK-088 | Conduct Beta Testing                    | P4    | GOV    | 085             |
+| TASK-089 | Publish Stable v1.0.0                   | P4    | GOV    | 088             |
+| TASK-090 | Upgrade Path Documentation              | P4    | DOC    | 089             |
+| TASK-091 | Release Blog Post                       | P4    | DOC    | 089             |
+| TASK-092 | Adapter Plugin Interface                | P4    | REPO   | 081             |
+| TASK-093 | Remove Feature Toggles                  | P4    | GOV    | 089             |
+| TASK-094 | Conduct Retrospective                   | P4    | GOV    | 093             |
+| TASK-095 | Phase 4 Validation                      | P4    | TEST   | ALL P4          |
 
 ---
 
-## XV. AMENDMENT HISTORY
+## Task Summary by Phase
 
-| Version | Date       | Changes                                                                                                                                                                                                                                                                   | Author             |
-| ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| 1.0     | 2025-01-XX | Initial normative specification                                                                                                                                                                                                                                           | Technical Steering |
-| 1.1     | 2025-01-XX | Amendments per technical review:<br>• Added 20 new tasks (governance, testing, security)<br>• Updated finish-line criteria (+5 items)<br>• Revised timeline estimates (+2-3 weeks)<br>• Enhanced risk mitigation strategies<br>• Added sequential task numbering appendix | Technical Steering |
+| Phase     | Task Range                          | Count   | Percentage |
+| --------- | ----------------------------------- | ------- | ---------- |
+| Phase 0   | TASK-001 to TASK-012, 096, 103, 104 | 15      | 14.4%      |
+| Phase 1   | TASK-013 to TASK-032, 097, 098, 099 | 23      | 22.1%      |
+| Phase 2   | TASK-033 to TASK-054, 100, 102      | 24      | 23.1%      |
+| Phase 3   | TASK-055 to TASK-081, 101           | 28      | 26.9%      |
+| Phase 4   | TASK-082 to TASK-095                | 14      | 13.5%      |
+| **Total** |                                     | **104** | **100%**   |
 
 ---
 
-## XVI. APPROVALS
+## Task Summary by Domain
+
+| Domain    | Count   | Primary Phases     | Key Tasks                                    |
+| --------- | ------- | ------------------ | -------------------------------------------- |
+| REPO      | 12      | P0, P1, P3, P4     | Monorepo setup, legacy cleanup, optimization |
+| DRIV      | 19      | P1, P2             | Service, Native, WASM driver implementations |
+| CONT      | 9       | P1, P2             | Contract schemas, versioning, manifest       |
+| CI        | 13      | P0, P1, P2, P3     | Pipeline setup, testing, validation          |
+| DOC       | 15      | P0, P1, P2, P3, P4 | Guides, API docs, quick start                |
+| GOV       | 19      | P0, P1, P3, P4     | Security, signing, releases, compliance      |
+| UI        | 7       | P1, P2             | React integration, session manager, features |
+| TEST      | 11      | P0, P1, P2, P3, P4 | Validation, golden audio, stress testing     |
+| TOOL      | 1       | P3                 | CLI utility                                  |
+| **Total** | **104** |                    |                                              |
+
+---
+
+## XV. SUPPLEMENTARY ARTIFACT SPECIFICATIONS
+
+### New Repository Artifacts
+
+The following files must be created as part of this consolidated implementation plan:
+
+1. `**.emscripten-version**`
+   - Location: Repository root
+   - Content: `3.1.45` (or current stable version)
+   - Purpose: Pin WASM build toolchain
+2. `**budgets.json**`
+   - Location: Repository root
+   - Content: Performance budget configuration per TASK-103
+   - Purpose: Version-controlled performance thresholds
+3. `**packages/contract/MANIFEST.json**`
+   - Location: Contract package root
+   - Content: Contract version registry per TASK-097
+   - Purpose: Single source of truth for contract versioning
+4. `**packages/contract/fixtures/golden-audio/MANIFEST.json**`
+   - Location: Golden audio fixture directory
+   - Content: Audio format specification and precomputed hashes per TASK-102
+   - Purpose: Canonicalize reference audio validation
+5. `**packages/client/src/driver-registry.ts**`
+   - Location: Client package source
+   - Content: Driver selection logic per TASK-098
+   - Purpose: Deterministic driver priority
+6. `**scripts/validate-phase0.sh**` through `**scripts/validate-phase4.sh**`
+   - Location: Repository scripts directory
+   - Content: Phase validation orchestration per TASK-096
+   - Purpose: Automate validation checkpoints
+7. `**scripts/bootstrap-dev.sh**`
+   - Location: Repository scripts directory
+   - Content: Developer environment setup per TASK-007 (amended)
+   - Purpose: One-command onboarding
+8. `**scripts/regenerate-golden-audio.sh**`
+   - Location: Repository scripts directory
+   - Content: Regenerate reference audio with correct container format
+   - Purpose: Maintain golden audio corpus
+
+---
+
+## XVI. AMENDMENT HISTORY
+
+| Version | Date       | Changes                                                                                                                                                                                                                                                                     | Author             |
+| ------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| 1.0     | 2025-01-XX | Initial normative specification (ORP065)                                                                                                                                                                                                                                    | Technical Steering |
+| 1.1     | 2025-01-XX | Amendments per technical review (ORP066)                                                                                                                                                                                                                                    | Technical Steering |
+| 2.0     | 2025-01-XX | **Consolidated specification (ORP068)**:<br>• All ORP066 amendments fully integrated<br>• Package naming corrections applied<br>• Manifest systems incorporated<br>• Security hardening integrated<br>• Task numbering preserved<br>• 104 total tasks (95 original + 9 new) | Technical Steering |
+
+---
+
+## XVII. APPROVALS
 
 **Technical Steering Committee Sign-Off**:
 
-- [ ] **Lead Architect**: **********\_********** Date: **\_\_\_**
-- [ ] **Engineering Manager**: ******\_\_\_\_****** Date: **\_\_\_**
-- [ ] **Product Owner**: **********\_\_********** Date: **\_\_\_**
-- [ ] **QA Lead**: ************\_\_\_************ Date: **\_\_\_**
+- [ ] **Lead Architect**: ****\*\*****\_****\*\***** Date: **\_\_\_**
+- [ ] **Engineering Manager**: **\*\***\_\_\_\_**\*\*** Date: **\_\_\_**
+- [ ] **Product Owner**: ****\*\*****\_\_****\*\***** Date: **\_\_\_**
+- [ ] **QA Lead**: ****\*\*\*\*****\_\_\_****\*\*\*\***** Date: **\_\_\_**
 
 **Approval Conditions**:
 
-- All amendments from version 1.1 reviewed and accepted
+- All amendments from ORP066 reviewed and fully integrated
 - Resource allocation confirmed (2-3 FTE for 19 weeks)
 - Budget approved for infrastructure costs (CI, binary signing, hosting)
 - Contingency plans reviewed and accepted by stakeholders
 
 ---
 
-**Document Status**: Normative Implementation Specification (Amended)
-**Version**: 1.1
-**Effective Date**: Upon technical steering approval
-**Review Cycle**: Weekly during implementation phases, monthly post-release
-**Owner**: Orpheus SDK Technical Steering Committee
-**Next Review**: End of Phase 1 (Week 6)
+**Document Status**: Normative Implementation Specification (Consolidated) **Version**: 2.0 **Supersedes**: ORP065 v1.1 **Incorporates**: All amendments from ORP066 **Effective Date**: Upon technical steering approval **Review Cycle**: Weekly during implementation phases, monthly post-release **Owner**: Orpheus SDK Technical Steering Committee **Next Review**: End of Phase 1 (Week 6)
 
 ---
 
-## XVII. QUICK REFERENCE
+## XVIII. QUICK REFERENCE
 
 ### Critical Milestones
 
 | Milestone               | Target Week | Exit Criteria                                    |
 | ----------------------- | ----------- | ------------------------------------------------ |
-| M1: Repo Setup Complete | Week 2      | P0.TEST.001 passes                               |
+| M1: Repo Setup Complete | Week 2      | P0.TEST.002 passes                               |
 | M2: Basic Integration   | Week 6      | P1.TEST.001 passes, two drivers functional       |
 | M3: WASM Integrated     | Week 9      | All three drivers functional                     |
-| M4: Feature Complete    | Week 12     | P2.TEST.004 passes, UI features demonstrated     |
-| M5: Release Ready       | Week 16     | P3.TEST.004 passes, all quality gates met        |
+| M4: Feature Complete    | Week 12     | P2.TEST.008 passes, UI features demonstrated     |
+| M5: Release Ready       | Week 16     | P3.TEST.005 passes, all quality gates met        |
 | M6: Beta Released       | Week 17     | P4.GOV.001 complete                              |
 | M7: Stable v1.0.0       | Week 19     | P4.TEST.001 passes, all finish-line criteria met |
 
 ### High-Priority Tasks (Do First)
 
-1. **P0.REPO.001-004**: Foundation setup (Week 1)
-2. **P1.CONT.001-004**: Contract schema infrastructure (Weeks 3-4)
-3. **P1.DRIV.001-008**: Driver implementations (Weeks 3-6)
-4. **P2.DRIV.001-004**: WASM driver (Weeks 7-9)
+1. **P0.REPO.001-007, P0.GOV.001, P0.TEST.001**: Foundation setup (Week 1)
+2. **P1.CONT.001-005**: Contract schema infrastructure (Weeks 3-4)
+3. **P1.DRIV.001-010**: Driver implementations (Weeks 3-6)
+4. **P2.DRIV.001-005**: WASM driver (Weeks 7-9)
 5. **P3.CI.001-006**: Unified CI and security (Weeks 13-14)
-6. **P3.GOV.001-006**: Release infrastructure (Weeks 14-16)
+6. **P3.GOV.001-007**: Release infrastructure (Weeks 14-16)
 
 ### Contact Information
 
@@ -3590,4 +4225,4 @@ This refined count represents executable, trackable work items suitable for proj
 
 **END OF DOCUMENT**
 
-_This implementation task breakdown provides the definitive execution plan for Orpheus SDK × Shmui integration. All tasks, acceptance criteria, dependencies, and validation requirements are normative and must be followed for successful completion. Deviations require Technical Steering Committee approval via amendment process._
+_This consolidated implementation task breakdown provides the definitive execution plan for Orpheus SDK × Shmui integration. All tasks, acceptance criteria, dependencies, and validation requirements are normative and must be followed for successful completion. All amendments from ORP066 have been fully integrated. Deviations require Technical Steering Committee approval via amendment process._
