@@ -327,27 +327,32 @@ bool MainComponent::keyPressed(const juce::KeyPress& key) {
         // Load the clip from clipboard
         loadClipToButton(playboxIndex, juce::String(m_clipboardData.filePath));
 
-        // Copy all metadata
-        auto clipData = m_sessionManager.getClip(playboxIndex);
-        clipData.displayName = m_clipboardData.displayName;
-        clipData.color = m_clipboardData.color;
-        clipData.clipGroup = m_clipboardData.clipGroup;
-        clipData.trimInSamples = m_clipboardData.trimInSamples;
-        clipData.trimOutSamples = m_clipboardData.trimOutSamples;
-        clipData.fadeInSeconds = m_clipboardData.fadeInSeconds;
-        clipData.fadeOutSeconds = m_clipboardData.fadeOutSeconds;
-        clipData.fadeInCurve = m_clipboardData.fadeInCurve;
-        clipData.fadeOutCurve = m_clipboardData.fadeOutCurve;
-        clipData.gainDb = m_clipboardData.gainDb;
-        clipData.loopEnabled = m_clipboardData.loopEnabled;
-        clipData.stopOthersEnabled = m_clipboardData.stopOthersEnabled;
-        m_sessionManager.setClip(playboxIndex, clipData);
+        // Only proceed if clip was successfully loaded (user didn't cancel copy/link dialog)
+        if (m_sessionManager.hasClip(playboxIndex)) {
+          // Copy all metadata
+          auto clipData = m_sessionManager.getClip(playboxIndex);
+          clipData.displayName = m_clipboardData.displayName;
+          clipData.color = m_clipboardData.color;
+          clipData.clipGroup = m_clipboardData.clipGroup;
+          clipData.trimInSamples = m_clipboardData.trimInSamples;
+          clipData.trimOutSamples = m_clipboardData.trimOutSamples;
+          clipData.fadeInSeconds = m_clipboardData.fadeInSeconds;
+          clipData.fadeOutSeconds = m_clipboardData.fadeOutSeconds;
+          clipData.fadeInCurve = m_clipboardData.fadeInCurve;
+          clipData.fadeOutCurve = m_clipboardData.fadeOutCurve;
+          clipData.gainDb = m_clipboardData.gainDb;
+          clipData.loopEnabled = m_clipboardData.loopEnabled;
+          clipData.stopOthersEnabled = m_clipboardData.stopOthersEnabled;
+          m_sessionManager.setClip(playboxIndex, clipData);
 
-        // Update button visually
-        updateButtonFromClip(playboxIndex);
+          // Update button visually
+          updateButtonFromClip(playboxIndex);
 
-        DBG("MainComponent: Pasted clip \"" << m_clipboardData.displayName << "\" to button "
-                                            << playboxIndex);
+          DBG("MainComponent: Pasted clip \"" << m_clipboardData.displayName << "\" to button "
+                                              << playboxIndex);
+        } else {
+          DBG("MainComponent: Clip paste cancelled (user declined copy/link dialog)");
+        }
       } else {
         DBG("MainComponent: No clip in clipboard to paste");
       }
@@ -1116,7 +1121,7 @@ void MainComponent::loadClipToButton(int buttonIndex, const juce::String& filePa
     // Ask user if they want to copy the file
     int result = juce::AlertWindow::showYesNoCancelBox(
         juce::AlertWindow::QuestionIcon, "Copy Audio File?",
-        "Would you like to copy this audio file to your project folder?\n\n" +
+        juce::String("Would you like to copy this audio file to your project folder?\n\n") +
             "This ensures your session remains portable even if the original file is moved.\n\n" +
             "File: " + sourceFile.getFileName(),
         "Copy to Project", "Link to Original", "Cancel");
@@ -1145,8 +1150,8 @@ void MainComponent::loadClipToButton(int buttonIndex, const juce::String& filePa
         DBG("MainComponent: Copied audio file to project folder: " << finalPath);
       } else {
         juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon, "Copy Failed",
-                                               "Failed to copy audio file to project folder.\n" +
-                                                   "Using original file location instead.",
+                                               "Failed to copy audio file to project folder.\n"
+                                               "Using original file location instead.",
                                                "OK");
       }
     }

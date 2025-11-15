@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 #include "SessionManager.h"
+#include <algorithm> // For std::transform
+#include <cctype>    // For std::isupper, std::isspace, std::isalpha, std::toupper
 #include <juce_audio_formats/juce_audio_formats.h>
 
 //==============================================================================
