@@ -8,8 +8,8 @@
 
 //==============================================================================
 MainComponent::MainComponent() {
-  // Set Inter font as default for all components
-  setLookAndFeel(&m_interLookAndFeel);
+  // Set HK Grotesk font as default for all components
+  setLookAndFeel(&m_hkGroteskLookAndFeel);
 
   // Create tab switcher (8 tabs for MAX_CLIP_BUTTONS total clips)
   m_tabSwitcher = std::make_unique<TabSwitcher>();
@@ -80,13 +80,9 @@ MainComponent::MainComponent() {
   // Make this component capture keyboard focus
   setWantsKeyboardFocus(true);
 
-  // Create transport controls
-  m_transportControls = std::make_unique<TransportControls>();
-  addAndMakeVisible(m_transportControls.get());
-
-  // Wire up transport control callbacks
-  m_transportControls->onStopAll = [this]() { onStopAll(); };
-  m_transportControls->onPanic = [this]() { onPanic(); };
+  // OCC130 Sprint B: Wire up transport control callbacks (now in TabSwitcher)
+  m_tabSwitcher->onStopAll = [this]() { onStopAll(); };
+  m_tabSwitcher->onPanic = [this]() { onPanic(); };
 
   // Set window size (1400×900 for better screen fit)
   setSize(1400, 900);
@@ -159,16 +155,10 @@ void MainComponent::resized() {
   grabKeyboardFocus(); // Ensure we get keyboard events
   auto bounds = getLocalBounds();
 
-  // Tab switcher at top (40px)
+  // OCC130 Sprint B: Merged tab switcher + transport controls at top (40px)
   auto tabArea = bounds.removeFromTop(40);
   if (m_tabSwitcher) {
-    m_tabSwitcher->setBounds(tabArea.reduced(10, 0)); // 10px horizontal margin
-  }
-
-  // Transport controls at bottom (60px)
-  auto transportArea = bounds.removeFromBottom(60);
-  if (m_transportControls) {
-    m_transportControls->setBounds(transportArea);
+    m_tabSwitcher->setBounds(tabArea); // Full width (no horizontal margin)
   }
 
   // Main content area
@@ -187,8 +177,8 @@ void MainComponent::resized() {
 
 //==============================================================================
 void MainComponent::timerCallback() {
-  // Update latency display in transport controls
-  if (m_transportControls && m_audioEngine) {
+  // OCC130 Sprint B: Update latency/performance info in merged TabSwitcher
+  if (m_tabSwitcher && m_audioEngine) {
     uint32_t latencySamples = m_audioEngine->getLatencySamples();
     uint32_t sampleRate = m_audioEngine->getSampleRate();
     uint32_t bufferSize = m_audioEngine->getBufferSize();
@@ -197,7 +187,7 @@ void MainComponent::timerCallback() {
     // So divide by 2 to get one-way latency
     double latencyMs = ((latencySamples / 2.0) / static_cast<double>(sampleRate)) * 1000.0;
 
-    m_transportControls->setLatencyInfo(latencyMs, bufferSize, sampleRate);
+    m_tabSwitcher->setLatencyInfo(latencyMs, bufferSize, sampleRate);
 
     // OCC109 v0.2.2: Update CPU and memory display (1Hz refresh rate)
     // CRITICAL: JUCE doesn't provide getCpuUsage() or getMemoryUsageInMegabytes()
@@ -214,14 +204,14 @@ void MainComponent::timerCallback() {
       // SDK will provide per-thread CPU metrics for audio vs UI threads
       float cpuPercent = 0.0f; // TODO: Integrate SDK PerformanceMonitor (ORP110 Feature 3)
 
-      m_transportControls->setPerformanceInfo(cpuPercent, memoryMB);
+      m_tabSwitcher->setPerformanceInfo(cpuPercent, memoryMB);
     } else {
       // Fallback if mach API fails
-      m_transportControls->setPerformanceInfo(0.0f, 0);
+      m_tabSwitcher->setPerformanceInfo(0.0f, 0);
     }
 #else
     // Non-macOS platforms: Placeholder
-    m_transportControls->setPerformanceInfo(0.0f, 0);
+    m_tabSwitcher->setPerformanceInfo(0.0f, 0);
 #endif
   }
 }
@@ -442,7 +432,7 @@ juce::String MainComponent::getKeyboardShortcutForButton(int buttonIndex) const 
 
 //==============================================================================
 void MainComponent::onClipRightClicked(int buttonIndex) {
-  // Show context menu (inherits Inter font from LookAndFeel)
+  // Show context menu (inherits HK Grotesk font from LookAndFeel)
   juce::PopupMenu menu;
 
   bool hasClip = m_sessionManager.hasClip(buttonIndex);
@@ -476,8 +466,8 @@ void MainComponent::onClipRightClicked(int buttonIndex) {
     menu.addItem(6, "Load Multiple Audio Files...");
   }
 
-  // Ensure menu uses Orpheus/Inter aesthetic (inherited from MainComponent's LookAndFeel)
-  menu.setLookAndFeel(&m_interLookAndFeel);
+  // Ensure menu uses HK Grotesk aesthetic (inherited from MainComponent's LookAndFeel)
+  menu.setLookAndFeel(&m_hkGroteskLookAndFeel);
 
   menu.showMenuAsync(juce::PopupMenu::Options(), [this, buttonIndex, hasClip,
                                                   globalClipIndex](int result) {
