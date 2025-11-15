@@ -32,7 +32,8 @@ TabSwitcher::TabSwitcher() {
   addAndMakeVisible(m_panicButton.get());
 
   // OCC130 Sprint B: Start heartbeat animation timer (1Hz pulse)
-  startTimer(1000); // 1 second intervals for heartbeat pulse
+  // Timer fires every 10ms, phase increments 0→100 in 1 second (100 steps × 10ms = 1000ms)
+  startTimer(10); // 10ms intervals for smooth 1Hz pulse animation
 
   setSize(800, TAB_HEIGHT);
 }
@@ -164,9 +165,10 @@ void TabSwitcher::paint(juce::Graphics& g) {
     auto heartbeatCircle =
         juce::Rectangle<float>(xPos, yStart + lightSize + lightGap, lightSize, lightSize);
 
-    // Pulse animation (fade in/out based on heartbeat phase)
-    float pulseAlpha =
-        0.3f + 0.6f * std::sin((m_heartbeatPhase / 100.0f) * juce::MathConstants<float>::twoPi);
+    // Pulse animation (fade in/out based on heartbeat phase, 1Hz)
+    // Use sine squared to keep alpha always positive (ranges from 0.4 to 1.0)
+    float sinValue = std::sin((m_heartbeatPhase / 100.0f) * juce::MathConstants<float>::twoPi);
+    float pulseAlpha = 0.4f + 0.6f * (sinValue * sinValue); // Range: [0.4, 1.0]
 
     g.setColour(juce::Colours::cyan.withAlpha(pulseAlpha));
     g.fillEllipse(heartbeatCircle);
