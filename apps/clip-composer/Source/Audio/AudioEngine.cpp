@@ -257,12 +257,15 @@ bool AudioEngine::startClip(int buttonIndex) {
   if (!m_transportController)
     return false;
 
-  // CRITICAL: Check if already playing - if so, RESTART from IN point (not resume)
-  // This ensures rapid clip button clicks always restart from the beginning
-  bool isAlreadyPlaying = m_transportController->isClipPlaying(handle);
+  // CRITICAL: Only restart if ACTUALLY playing, not if fading out (Stopping state)
+  // During rapid-fire clicks, SDK handles voice alternation internally:
+  // - Playing → restartClip() to restart from IN point
+  // - Stopping → startClip() to activate next voice while previous fades
+  // - Stopped → startClip() to activate first voice
+  auto playbackState = m_transportController->getClipState(handle);
 
   orpheus::SessionGraphError result;
-  if (isAlreadyPlaying) {
+  if (playbackState == orpheus::PlaybackState::Playing) {
     // Already playing - use restartClip() to force restart from IN point
     result = m_transportController->restartClip(handle);
     if (result != orpheus::SessionGraphError::OK) {
@@ -271,13 +274,15 @@ bool AudioEngine::startClip(int buttonIndex) {
     }
     DBG("AudioEngine: Restarted clip on button " << buttonIndex << " (was already playing)");
   } else {
-    // Not playing - use startClip() as normal
+    // Not playing OR fading out - use startClip() (SDK will activate next voice)
     result = m_transportController->startClip(handle);
     if (result != orpheus::SessionGraphError::OK) {
       DBG("AudioEngine: Failed to start clip " << handle);
       return false;
     }
-    DBG("AudioEngine: Started clip on button " << buttonIndex);
+    DBG("AudioEngine: Started clip on button "
+        << buttonIndex
+        << (playbackState == orpheus::PlaybackState::Stopping ? " (new voice while fading)" : ""));
   }
 
   return true;

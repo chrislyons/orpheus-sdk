@@ -48,10 +48,13 @@ MainComponent::MainComponent() {
   };
 
   // Wire up 75fps playback state sync (uses global clip index for multi-tab isolation)
+  // CRITICAL: Only return TRUE for actual Playing state, NOT Stopping (fading out)
+  // This prevents timer from resetting button to Playing during fade-out
   m_clipGrid->isClipPlaying = [this](int buttonIndex) -> bool {
     if (m_audioEngine) {
       int globalClipIndex = getGlobalClipIndex(buttonIndex);
-      return m_audioEngine->isClipPlaying(globalClipIndex);
+      auto state = m_audioEngine->getClipState(globalClipIndex);
+      return (state == orpheus::PlaybackState::Playing);
     }
     return false;
   };
@@ -604,18 +607,27 @@ void MainComponent::onClipTriggered(int buttonIndex) {
   // Calculate global clip index (tab-aware: 0-383 for 8 tabs × 48 buttons)
   int globalClipIndex = getGlobalClipIndex(buttonIndex);
 
-  // Toggle play/stop based on current state
-  auto currentState = button->getState();
+  // CRITICAL: Check actual SDK playback state, NOT button visual state
+  // Button visual state can lag due to 75fps timer, especially during rapid clicks
+  orpheus::PlaybackState sdkState = orpheus::PlaybackState::Stopped;
+  if (m_audioEngine) {
+    sdkState = m_audioEngine->getClipState(globalClipIndex);
+  }
 
-  if (currentState == ClipButton::State::Playing) {
-    // Stop the clip
+  // CRITICAL: Handle rapid-fire Voice 1/Voice 2 alternation correctly
+  // - Playing → STOP (starts fade-out)
+  // - Stopping → START (new voice while old fades)
+  // - Stopped → START (first voice)
+  if (sdkState == orpheus::PlaybackState::Playing) {
+    // Clip is playing - stop it (starts fade-out)
     if (m_audioEngine) {
       m_audioEngine->stopClip(globalClipIndex);
     }
     button->setState(ClipButton::State::Loaded);
     DBG("Button " + juce::String(buttonIndex) + " (global: " + juce::String(globalClipIndex) +
         "): Stopped via keyboard/click");
-  } else if (currentState == ClipButton::State::Loaded) {
+  } else {
+    // Clip is stopped OR fading out - start it (activates next voice)
     // Check if "stop others on play" mode is enabled for this button (use global index)
     if (m_stopOthersOnPlay[globalClipIndex]) {
       // Stop all other playing clips ON THIS TAB
@@ -636,13 +648,14 @@ void MainComponent::onClipTriggered(int buttonIndex) {
       }
     }
 
-    // Start the clip
+    // Start the clip (will activate next voice if one is still fading)
     if (m_audioEngine) {
       m_audioEngine->startClip(globalClipIndex);
     }
     button->setState(ClipButton::State::Playing);
     DBG("Button " + juce::String(buttonIndex) + " (global: " + juce::String(globalClipIndex) +
-        "): Started playing via keyboard/click");
+        "): Started playing via keyboard/click" +
+        (sdkState == orpheus::PlaybackState::Stopping ? " (new voice while fading)" : ""));
   }
 
   // CRITICAL: Restore keyboard focus to Edit Dialog if it's open
