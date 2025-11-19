@@ -20,8 +20,11 @@ rm -rf ~/Library/Caches/$APP_BUNDLE_ID 2>/dev/null || true
 # Clear diagnostic logs
 rm -f /tmp/audio_callback.txt /tmp/occ_output.log
 
-echo "==> Rebuilding Clip Composer..."
+echo "==> Rebuilding SDK libraries and Clip Composer..."
 cd "$SDK_ROOT"
+# Build SDK libraries first to ensure they're fresh
+cmake --build build --target orpheus_transport orpheus_audio_io orpheus_routing orpheus_audio_driver_manager orpheus_audio_driver_coreaudio
+# Then build Clip Composer app
 cmake --build build --target orpheus_clip_composer_app
 
 echo "==> Launching new instance..."

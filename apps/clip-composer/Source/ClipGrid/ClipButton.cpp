@@ -316,14 +316,7 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
     // Reserve minimal space for duration
     auto nameOnlyArea = nameArea.withTrimmedBottom(12.0f);
 
-    // Draw 1px shadow first
-    g.setColour(juce::Colours::black.withAlpha(0.5f));
-    g.drawFittedText(m_clipName, nameOnlyArea.translated(0, 1).toNearestInt(),
-                     juce::Justification::centred,
-                     3, // Allow up to 3 lines for name
-                     0.85f);
-
-    // Draw main text on top
+    // Draw clip name (no shadow per UX spec)
     g.setColour(textColor);
     g.drawFittedText(m_clipName, nameOnlyArea.toNearestInt(), juce::Justification::centred,
                      3, // Allow up to 3 lines for name
@@ -352,26 +345,23 @@ void ClipButton::drawClipHUD(juce::Graphics& g, juce::Rectangle<float> bounds) {
         g.setColour(juce::Colour(0xff2a2a2a).withAlpha(0.85f)); // Dark grey backdrop
         g.fillRoundedRectangle(backdropArea, 4.0f);             // 4px corner radius
 
-        // Color: green when playing, orange when stopping (with 2px shadow)
+        // Color: green when playing, orange when stopping
         juce::Colour timeColor = m_state == State::Playing
                                      ? juce::Colour(0xff00ff00).withAlpha(0.9f)
                                      : juce::Colour(0xffff8800).withAlpha(0.9f);
 
-        // Draw 2px shadow first
-        g.setColour(juce::Colours::black.withAlpha(0.6f));
-        g.drawText(timeDisplay, durationArea.translated(0, 2), juce::Justification::centred, false);
+        // UX spec: ONLY apply 1px shadow to green active time text (Playing state)
+        if (m_state == State::Playing) {
+          g.setColour(juce::Colours::black.withAlpha(0.6f));
+          g.drawText(timeDisplay, durationArea.translated(0, 1), juce::Justification::centred,
+                     false);
+        }
 
         // Draw main text on top
         g.setColour(timeColor);
       } else {
-        // Loaded/Empty: show total duration only
+        // Loaded/Empty: show total duration only (no shadow per UX spec)
         timeDisplay = formatDuration(m_durationSeconds);
-
-        // Draw 1px shadow for loaded state
-        g.setColour(juce::Colours::black.withAlpha(0.5f));
-        g.drawText(timeDisplay, durationArea.translated(0, 1), juce::Justification::centred, false);
-
-        // Color: subtle text
         g.setColour(subtleTextColor);
       }
 

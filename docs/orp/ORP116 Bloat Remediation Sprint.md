@@ -16,7 +16,6 @@
 ## 1. Binary Files in Git (CRITICAL)
 
 ### Issue #1: Release Artifacts Tracked in Git
-
 - **Location:** `docs/releases/OrpheusClipComposer-v0.1.0-arm64.dmg`
 - **Type:** Binary bloat
 - **Size Impact:** 37 MB
@@ -29,13 +28,11 @@
 - **Rationale:** Release binaries should be hosted on GitHub Releases, not in the repository. This bloats git history permanently.
 
 ### Issue #2: Competitor Research PDFs
-
-- **Location:** `apps/clip-composer/docs/occ/peers/SpotOn Manual*.pdf` (14 files)
+- **Location:** `apps/clip-composer/docs/occ/peers/SpotOn Manual*.pdf` (11 files)
 - **Type:** Binary bloat
 - **Size Impact:** ~21 MB
 - **Risk Level:** Safe (move to external storage)
 - **Action:**
-
   ```bash
   # Remove from git
   git rm apps/clip-composer/docs/occ/peers/*.pdf
@@ -43,7 +40,6 @@
   # Move to external reference if needed
   # Add note in peers/README.md with link to cloud storage
   ```
-
 - **Rationale:** Competitor research materials don't need version control. Store externally (Dropbox, Google Drive) and link in documentation.
 
 ---
@@ -51,13 +47,11 @@
 ## 2. Archived TypeScript Packages
 
 ### Issue #3: Obsolete TypeScript Packages
-
 - **Location:** `archive/packages/` (react, engine-wasm, engine-native, client, contract, engine-service)
 - **Type:** Dead code
-- **Size Impact:** Several MB (includes node_modules, build artifacts, dist directories)
+- **Size Impact:** 337 KB (code) + ongoing maintenance burden
 - **Risk Level:** Needs Review (verify truly obsolete)
 - **Action:**
-
   ```bash
   # If confirmed obsolete:
   git rm -r archive/packages
@@ -69,7 +63,6 @@
   git checkout main
   git rm -r archive/
   ```
-
 - **Rationale:** Per commit `acd00b3` ("refactor: archive TypeScript packages, focus on C++ SDK"), these were intentionally archived when pivoting to C++ focus. Safe to remove if truly obsolete.
 
 ---
@@ -77,7 +70,6 @@
 ## 3. Dependency Bloat
 
 ### Issue #4: Unused TypeScript/ESLint Dependencies
-
 - **Location:** `package.json` devDependencies
 - **Type:** Dependency bloat
 - **Size Impact:** ~100 MB (node_modules when installed)
@@ -92,7 +84,6 @@
   - `madge` (8.0.0) - never used in scripts/CI
 
 - **Action:**
-
   ```bash
   pnpm remove @typescript-eslint/eslint-plugin @typescript-eslint/parser \
     eslint eslint-config-prettier eslint-import-resolver-typescript \
@@ -106,7 +97,6 @@
   ```
 
 ### Issue #5: Unnecessary pnpm Overrides
-
 - **Location:** `package.json` pnpm.overrides section
 - **Type:** Dependency bloat
 - **Size Impact:** Minor (but adds complexity)
@@ -130,7 +120,6 @@
 ## 4. Asset Bloat (Font Files)
 
 ### Issue #6: Excessive Font Weights
-
 - **Location:** `apps/clip-composer/Resources/HKGrotesk_3003/`
 - **Type:** Asset bloat
 - **Size Impact:** 4.3 MB → reduce to ~400 KB (save ~3.9 MB)
@@ -138,7 +127,6 @@
 - **Current State:** 72 font files (9 weights × 2 styles × 4 formats)
 - **Actual Usage:** Only "plain" and "bold" styles used in code (HKGroteskLookAndFeel.h:28-44)
 - **Action:**
-
   ```bash
   # Keep only Regular and Bold in TTF format (desktop app doesn't need web fonts)
   cd apps/clip-composer/Resources/HKGrotesk_3003/
@@ -161,15 +149,13 @@
   ```
 
 ### Issue #7: Duplicate Icon Sets
-
 - **Location:** `apps/clip-composer/Resources/icons/transport/`
-- **Type:** Asset duplication (confirmed unused)
+- **Type:** Asset duplication
 - **Size Impact:** ~5 KB (minimal, but indicates confusion)
 - **Risk Level:** Safe
 - **Current State:** 3 icon sets (lucide, phosphor, tabler) with same 5 icons each
-- **Actual Usage:** **CONFIRMED UNUSED** - No SVG references found in any C++ source files
+- **Actual Usage:** No direct references found in source code
 - **Action:**
-
   ```bash
   # Determine which set is actually used (check at runtime or ask team)
   # Then remove the other two:
@@ -187,7 +173,6 @@
 ## 5. Dead Code
 
 ### Issue #8: Backup Files Tracked in Git
-
 - **Location:**
   - `CLAUDE.bak`
   - `docs/archive/CLAUDE.bak`
@@ -202,7 +187,6 @@
   ```
 
 ### Issue #9: .eslintrc.cjs for Archived Packages
-
 - **Location:** `.eslintrc.cjs`
 - **Type:** Dead code (config for non-existent packages)
 - **Size Impact:** <1 KB
@@ -218,7 +202,6 @@
 ## 6. Build & Infrastructure
 
 ### Issue #10: pnpm Lock File Size
-
 - **Location:** `pnpm-lock.yaml`
 - **Type:** Dependency overhead
 - **Size Impact:** 225 KB, 6768 lines
@@ -234,14 +217,14 @@
 
 ## Summary Metrics
 
-| Category      | Issues | Size Impact         | Risk Level      |
-| ------------- | ------ | ------------------- | --------------- |
-| Binary files  | 2      | 58 MB               | Safe            |
-| Archived code | 1      | Several MB          | Needs Review    |
-| Dependencies  | 2      | ~100 MB (installed) | Safe            |
-| Assets        | 2      | 3.9 MB              | Safe            |
-| Dead code     | 2      | <10 KB              | Safe            |
-| **TOTAL**     | **9**  | **~62+ MB**         | **Mostly Safe** |
+| Category | Issues | Size Impact | Risk Level |
+|----------|--------|-------------|------------|
+| Binary files | 2 | 58 MB | Safe |
+| Archived code | 1 | 337 KB | Needs Review |
+| Dependencies | 2 | ~100 MB (installed) | Safe |
+| Assets | 2 | 3.9 MB | Safe |
+| Dead code | 2 | <10 KB | Safe |
+| **TOTAL** | **9** | **~62 MB** | **Mostly Safe** |
 
 ---
 
@@ -264,14 +247,12 @@ These 7 items can be removed immediately with high confidence:
 ## Areas Requiring Deeper Review
 
 ### 1. Archived TypeScript Packages (Issue #3)
-
 - **Question:** Are these needed for historical reference or future revival?
 - **Recommendation:** If truly obsolete, remove completely. If might be revived, move to separate git branch.
 
-### 2. Icon Sets (Issue #7) - RESOLVED
-
-- **Finding:** All three icon sets (lucide, phosphor, tabler) are **confirmed unused** - no SVG references in source code
-- **Recommendation:** Remove entire `apps/clip-composer/Resources/icons/transport/` directory
+### 2. Icon Sets (Issue #7)
+- **Question:** Which icon set (tabler/lucide/phosphor) is actually loaded at runtime?
+- **Recommendation:** Check TransportControls.cpp to see which path is referenced, then remove unused sets.
 
 ---
 
@@ -287,7 +268,6 @@ These 7 items can be removed immediately with high confidence:
 ## Recommended Action Plan
 
 ### Phase 1: Immediate (This Week)
-
 ```bash
 # 1. Remove binary artifacts
 git rm docs/releases/OrpheusClipComposer-v0.1.0-arm64.dmg
@@ -305,7 +285,6 @@ git commit -m "chore: remove binary artifacts and backup files (58 MB)"
 ```
 
 ### Phase 2: Dependency Cleanup (Next Week)
-
 ```bash
 # 1. Remove TypeScript tooling
 pnpm remove @typescript-eslint/eslint-plugin @typescript-eslint/parser \
@@ -323,7 +302,6 @@ git commit -m "chore: remove obsolete TypeScript tooling"
 ```
 
 ### Phase 3: Asset Optimization (Following Week)
-
 ```bash
 # 1. Trim font files
 # (See Issue #6 detailed instructions)
@@ -336,7 +314,6 @@ git commit -m "chore: optimize font and icon assets (3.9 MB)"
 ```
 
 ### Phase 4: Review Archived Packages (Future)
-
 - Team discussion: Remove archive/packages entirely or preserve in branch?
 
 ---
@@ -358,7 +335,6 @@ The C++ core (456 KB src/ + 126 KB include/) is lean and appropriate for a profe
 ## Appendix: Audit Methodology
 
 This audit was conducted by analyzing:
-
 - Git-tracked files and their sizes
 - package.json dependencies and usage
 - CMakeLists.txt build configuration

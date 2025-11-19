@@ -357,23 +357,32 @@ void TransportController::processAudio(float** outputBuffers, size_t numChannels
         gain *= std::max(0.0f, clip.fadeOutGain); // Use pre-computed fade gain
       }
 
-      // ORP097 Bug 7 Fix: Only apply clip fade-in/out on FIRST playthrough (not on loops)
-      // Loops should be seamless with no fade processing at boundaries
+      // ORP097 Bug 7 Fix: Clip fade-in/out behavior depends on loop state
+      // Loop crosspoints MUST be seamless with no fades (OCC129 spec)
+
+      // Load loop state once per frame (atomic read)
+      bool shouldLoop = clip.loopEnabled.load(std::memory_order_acquire);
+
+      // Calculate position relative to trim boundaries
+      int64_t relativePos = clip.currentSample + static_cast<int64_t>(frame) - trimIn;
+      int64_t trimmedDuration = trimOut - trimIn;
+
+      // Apply clip fade-IN on first playthrough ONLY (before any loop has occurred)
       if (!clip.hasLoopedOnce) {
-        // Apply clip fade-in (first N samples from trim IN)
-        int64_t relativePos = clip.currentSample + static_cast<int64_t>(frame) - trimIn;
         if (fadeInSampleCount > 0 && relativePos >= 0 && relativePos < fadeInSampleCount) {
           float fadeInPos = static_cast<float>(relativePos) / static_cast<float>(fadeInSampleCount);
           gain *= calculateFadeGain(fadeInPos, fadeInCurveType);
         }
+      }
 
-        // Apply clip fade-out (last N samples before trim OUT)
-        int64_t trimmedDuration = trimOut - trimIn;
+      // Apply clip fade-OUT ONLY if NOT looping (seamless loop crosspoints required)
+      if (!shouldLoop) {
         if (fadeOutSampleCount > 0 && relativePos >= (trimmedDuration - fadeOutSampleCount)) {
           int64_t fadeOutRelativePos = relativePos - (trimmedDuration - fadeOutSampleCount);
           float fadeOutPos =
               static_cast<float>(fadeOutRelativePos) / static_cast<float>(fadeOutSampleCount);
-          gain *= (1.0f - calculateFadeGain(fadeOutPos, fadeOutCurveType));
+          float fadeOutGain = (1.0f - calculateFadeGain(fadeOutPos, fadeOutCurveType));
+          gain *= fadeOutGain;
         }
       }
 
