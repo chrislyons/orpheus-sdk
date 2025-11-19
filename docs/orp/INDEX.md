@@ -1,13 +1,13 @@
 # ORP Documentation Index
 
 **Prefix:** ORP (Orpheus SDK)
-**Next Available Number:** ORP111
+**Next Available Number:** ORP118
 
 ## Active Documentation
 
 Current, frequently-referenced documents. See individual files for full titles.
 
-Recent documents (ORP090-ORP110):
+Recent documents (ORP090-ORP117):
 
 - [ORP068](./ORP068.md) — Implementation Plan (v2.0) - Current roadmap
 - [ORP099](./ORP099.md) — SDK Track Phase 4 Completion and Testing
@@ -15,6 +15,7 @@ Recent documents (ORP090-ORP110):
 - [ORP101](./ORP101.md) — Phase 4 Completion Report
 - [ORP109](./ORP109 SDK Feature Roadmap for Clip Composer Integration.md) — SDK Feature Roadmap for Clip Composer Integration
 - [ORP110](./ORP110 ORP109 Implementation Report.md) — ORP109 Implementation Report (7 features complete)
+- [ORP117](./ORP117 Multi-Voice Architecture and Audio Summing Topology.md) — Multi-Voice Architecture and Audio Summing Topology
 
 For complete list, see: `ls -1 docs/orp/ORP*.md`
 
