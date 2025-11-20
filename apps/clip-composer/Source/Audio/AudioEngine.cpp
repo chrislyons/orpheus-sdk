@@ -9,6 +9,11 @@
 AudioEngine::AudioEngine() {
   // Initialize clip handles to invalid
   m_clipHandles.fill(0);
+
+  // Initialize pending command flags
+  for (auto& flag : m_pendingStarts) {
+    flag.store(false, std::memory_order_relaxed);
+  }
 }
 
 AudioEngine::~AudioEngine() {
@@ -257,27 +262,32 @@ bool AudioEngine::startClip(int buttonIndex) {
   if (!m_transportController)
     return false;
 
-  // CRITICAL: Check if already playing - if so, RESTART from IN point (not resume)
-  // This ensures rapid clip button clicks always restart from the beginning
-  // Reference: Commit 693293f1 (perfect button behavior, no zigzag distortion)
-  // See: apps/clip-composer/docs/occ/OCC129 for complete technical explanation
+  // CRITICAL: Check if already playing OR if Start command is pending
+  // This prevents race condition where rapid clicks queue duplicate Start commands
   bool isAlreadyPlaying = m_transportController->isClipPlaying(handle);
+  bool isPendingStart = m_pendingStarts[buttonIndex].load(std::memory_order_acquire);
 
   orpheus::SessionGraphError result;
-  if (isAlreadyPlaying) {
-    // Already playing - use restartClip() to force restart from IN point
+  if (isAlreadyPlaying || isPendingStart) {
+    // Already playing OR Start pending - use restartClip() to force restart from IN point
     // This restarts ALL voices with a 5ms broadcast-safe crossfade
-    // Eliminates zigzag distortion by preventing overlapping voices with independent fades
+    // Eliminates zigzag distortion and prevents duplicate Start commands
     result = m_transportController->restartClip(handle);
     if (result != orpheus::SessionGraphError::OK) {
       DBG("AudioEngine: Failed to restart clip " << handle);
       return false;
     }
-    DBG("AudioEngine: Restarted clip on button " << buttonIndex << " (was already playing)");
+    DBG("AudioEngine: Restarted clip on button "
+        << buttonIndex << (isPendingStart ? " (Start pending)" : " (was already playing)"));
   } else {
-    // Not playing - use startClip() as normal
+    // Not playing and no pending Start - use startClip() as normal
+    // Set pending flag BEFORE queuing command to prevent race window
+    m_pendingStarts[buttonIndex].store(true, std::memory_order_release);
+
     result = m_transportController->startClip(handle);
     if (result != orpheus::SessionGraphError::OK) {
+      // Command failed - clear pending flag
+      m_pendingStarts[buttonIndex].store(false, std::memory_order_release);
       DBG("AudioEngine: Failed to start clip " << handle);
       return false;
     }
@@ -761,6 +771,12 @@ bool AudioEngine::seekCueBuss(orpheus::ClipHandle cueBussHandle, int64_t positio
 
 //==============================================================================
 void AudioEngine::onClipStarted(orpheus::ClipHandle handle, orpheus::TransportPosition position) {
+  // Clear pending Start flag (command has been processed)
+  int buttonIndex = getButtonIndexFromHandle(handle);
+  if (buttonIndex >= 0 && buttonIndex < MAX_CLIP_BUTTONS) {
+    m_pendingStarts[buttonIndex].store(false, std::memory_order_release);
+  }
+
   // Post to UI thread
   juce::MessageManager::callAsync([this, handle]() {
     int buttonIndex = getButtonIndexFromHandle(handle);

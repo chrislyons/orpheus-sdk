@@ -316,5 +316,9 @@ private:
   bool m_initialized = false;
   std::string m_currentDeviceName = "Default Device"; // Current audio device name
 
+  // Pending command tracking (prevents race condition with rapid clicks)
+  // Atomic flags per button index - true if Start command is pending processing
+  std::array<std::atomic<bool>, MAX_CLIP_BUTTONS> m_pendingStarts;
+
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioEngine)
 };
