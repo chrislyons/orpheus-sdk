@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-#include "../shared/session_guard.h"
+#include "abi_negotiation.h"
 #include "json_io.h"
 #include "orpheus/abi.h"
 #include "orpheus/errors.h"
 #include "orpheus/json.hpp"
 #include "orpheus/music_timing.h"
+#include "session_guard.h"
 
 #include <algorithm>
 #include <cctype>
@@ -239,15 +240,12 @@ void PrintNegotiationSummary(const AbiContext& abi, bool verbose) {
 }
 
 bool NegotiateApis(AbiContext& abi, bool verbose, ErrorInfo& error) {
-  abi.session_api =
-      orpheus_session_abi_v1(ORPHEUS_ABI_MAJOR, &abi.session_major, &abi.session_minor);
-  abi.clipgrid_api = orpheus_clipgrid_abi_v1(ORPHEUS_ABI_MAJOR, &abi.clip_major, &abi.clip_minor);
-  abi.render_api = orpheus_render_abi_v1(ORPHEUS_ABI_MAJOR, &abi.render_major, &abi.render_minor);
+  using orpheus::adapters::NegotiateAbi;
+  abi.session_api = NegotiateAbi(orpheus_session_abi_v1, abi.session_major, abi.session_minor);
+  abi.clipgrid_api = NegotiateAbi(orpheus_clipgrid_abi_v1, abi.clip_major, abi.clip_minor);
+  abi.render_api = NegotiateAbi(orpheus_render_abi_v1, abi.render_major, abi.render_minor);
   PrintNegotiationSummary(abi, verbose);
-  if (!abi.session_api || !abi.clipgrid_api || !abi.render_api ||
-      abi.session_major != ORPHEUS_ABI_MAJOR || abi.clip_major != ORPHEUS_ABI_MAJOR ||
-      abi.render_major != ORPHEUS_ABI_MAJOR || abi.session_minor != ORPHEUS_ABI_MINOR ||
-      abi.clip_minor != ORPHEUS_ABI_MINOR || abi.render_minor != ORPHEUS_ABI_MINOR) {
+  if (!abi.session_api || !abi.clipgrid_api || !abi.render_api) {
     error.code = "abi.negotiation";
     error.message = "ABI negotiation failed";
     return false;
