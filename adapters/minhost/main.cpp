@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
+#include "../shared/session_guard.h"
 #include "json_io.h"
 #include "orpheus/abi.h"
 #include "orpheus/errors.h"
 #include "orpheus/json.hpp"
-#include "../shared/session_guard.h"
+#include "orpheus/music_timing.h"
 
 #include <algorithm>
 #include <cctype>
@@ -1253,7 +1254,7 @@ void RunTransportSimulation(double tempo_bpm, std::chrono::duration<double> dura
     return;
   }
 
-  const double beat_duration_seconds = 60.0 / tempo_bpm;
+  const double beat_duration_seconds = orpheus::secondsPerBeat(tempo_bpm);
   const int total_beats = static_cast<int>(std::ceil(duration.count() / beat_duration_seconds));
   auto start = std::chrono::steady_clock::now();
 
@@ -1301,7 +1302,7 @@ int RunSimulateTransportCommand(const CliGlobalOptions& global,
   }
   double seconds = 0.0;
   if (context.tempo_bpm > 0.0) {
-    seconds = beats * (60.0 / context.tempo_bpm);
+    seconds = beats * orpheus::secondsPerBeat(context.tempo_bpm);
   }
   RunTransportSimulation(context.tempo_bpm, std::chrono::duration<double>(seconds),
                          !global.json_output);

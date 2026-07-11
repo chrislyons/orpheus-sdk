@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 #include "panel.h"
 
+#include "../shared/session_guard.h"
 #include "json_io.h"
 #include "orpheus/abi.h"
 #include "orpheus/adapters/reaper/entry.h"
 #include "orpheus/errors.h"
-#include "../shared/session_guard.h"
+#include "orpheus/music_timing.h"
 
 #include <algorithm>
 #include <cmath>
@@ -24,7 +25,7 @@ namespace {
 std::mutex gStateMutex;
 orpheus::reaper::PanelSnapshot gSnapshot;
 std::string gPanelText;
-constexpr std::uint32_t kBeatsPerBar = 4;
+using orpheus::kBeatsPerBar;
 
 const orpheus_session_api_v1* SessionAbi() {
   uint32_t major = 0;
