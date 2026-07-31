@@ -63,7 +63,7 @@ Observed on this branch:
 - requested focused CTest gate and `tools/realtime_audit.py --fail-known-debt`: passed; the audit reported zero hard failures and zero tracked debt findings;
 - ThreadSanitizer build plus `voice_state_tsan_test` (2/2), streaming realtime harness (5/5), and `streaming_seek_test` (14/14): passed with `halt_on_error=1`.
 
-The configured tree built successfully. Its full CTest run passed 157/159 tests. Two pre-existing, unrelated gates failed: `docs_path_audit` reports eight stale repository links in `README.md`/`ARCHITECTURE.md`; `coreaudio_driver_test` depends on unavailable/default CoreAudio route conditions and its sample-rate-monitor timing expectation on this host. Neither failure exercised ORP168 code.
+The configured tree built successfully. Its full CTest run passed 157/159 tests. Two local gates failed: `docs_path_audit` reported eight stale repository links in `README.md`/`ARCHITECTURE.md`; `coreaudio_driver_test` reported unavailable/default CoreAudio route conditions and a sample-rate-monitor timing expectation on this host. Neither failure exercised ORP168 code.
 
 ## Downstream boundary
 
