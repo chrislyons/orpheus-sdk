@@ -2946,8 +2946,10 @@ SessionGraphError TransportController::seekClip(ClipHandle handle, int64_t posit
       const int64_t trimIn = entry.trimInSamples;
       const int64_t trimOut = entry.trimOutSamples == 0 ? fileLength : entry.trimOutSamples;
       const int64_t rangeFrames = static_cast<int64_t>(firstRenderFrames);
-      if (trimOut > trimIn && clampedPosition < trimOut &&
-          trimOut - clampedPosition <= rangeFrames) {
+      // A position at/past OUT wraps before its first read; otherwise this
+      // accepted command could enter trim-IN on a non-resident page.
+      if (trimOut > trimIn &&
+          (clampedPosition >= trimOut || trimOut - clampedPosition <= rangeFrames)) {
         primeResult = prime(trimIn);
       }
     }

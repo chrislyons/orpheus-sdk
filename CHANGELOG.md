@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ITransportController::seekClip` now synchronously primes and pins the
   reader-validated first-render page set for registered streaming sources before
-  publishing its existing FIFO command. Rejected preparation, fixed-prime
+  publishing its existing FIFO command, including trim-IN for looping targets
+  that reach or are already at/past trim-OUT. Rejected preparation, fixed-prime
   capacity, or full-ring seeks are failure-atomic: no cursor mutation,
   `ClipSeeked`, or synthetic `BufferUnderrun`.
 - Streaming page ownership now separates four steady worker pages from four

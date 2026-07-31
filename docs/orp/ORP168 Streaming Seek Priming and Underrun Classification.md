@@ -53,7 +53,7 @@ Existing registrations are not replaced in place. Registered-source start prepar
 3. 4x page-boundary coverage, queued FIFO seeks, command-ring saturation, and first-block RT allocation/deallocation guards;
 4. transactional read/seek/early-EOF failures, fixed-prime-capacity recovery, and concurrent worker/prime ownership coverage;
 5. resampled-reader error propagation and failed-seek state preservation;
-6. trim-loop, segment transition, fade-overlap, queued Start, exact-EOF Seek, and unregister/replacement lifetime coverage.
+6. trim-loop coverage with an evicted trim-IN page for seeks at and past trim-OUT, segment transition, fade-overlap, queued Start, exact-EOF Seek, and unregister/replacement lifetime coverage.
 
 Observed on this branch:
 

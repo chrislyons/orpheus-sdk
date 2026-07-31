@@ -424,44 +424,55 @@ TEST_F(StreamingSeekMatrixTest, QueuedStartAndExactEofSeekBlockUnregisterUntilCo
   ASSERT_EQ(transport->unregisterClipAudio(1), SessionGraphError::OK);
 }
 
-TEST_F(StreamingSeekMatrixTest, TrimUpdateThenSeekUsesNewLoopWindow) {
+TEST_F(StreamingSeekMatrixTest, LoopSeekAtOrPastTrimOutPrimesEvictedTrimIn) {
   constexpr uint32_t rate = 48000;
   constexpr uint32_t block = 1024;
-  TransportConfig config{.sampleRate = rate,
-                         .outputChannels = 1,
-                         .maxBlockFrames = block,
-                         .maxActiveVoices = 32,
-                         .numGroups = 1,
-                         .maxSourceChannels = 1,
-                         .sourceChannelPolicy = SourceChannelPolicy::Discrete};
-  auto transport = std::make_unique<TransportController>(nullptr, config);
-  transport->setPreparedSourceMaxFrames(rate);
-  SeekCallback callback;
-  transport->setCallback(&callback);
-  ASSERT_EQ(transport->registerClipAudio(1, sourcePath(rate, 1, rate)), SessionGraphError::OK);
-  auto metadata = transport->getClipMetadata(1);
-  ASSERT_TRUE(metadata.has_value());
-  metadata->playbackRate = 4.0;
-  ASSERT_EQ(transport->updateClipMetadata(1, *metadata), SessionGraphError::OK);
-  ASSERT_EQ(transport->startClip(1), SessionGraphError::OK);
-  std::vector<float> output(block);
-  float* buffers[] = {output.data()};
-  transport->processAudio(buffers, 1, block);
+  const int64_t page = static_cast<int64_t>(StreamingClipSource::kPageFrames);
+  const int64_t trimIn = 3 * page + 100;
+  const int64_t trimOut = 4 * page + 2000;
+  const int64_t fileLength = 9 * static_cast<int64_t>(rate);
+  const int64_t evictionTarget = 5 * page + 1000;
 
-  const int64_t trimIn = 3 * static_cast<int64_t>(StreamingClipSource::kPageFrames) + 100;
-  const int64_t trimOut = 4 * static_cast<int64_t>(StreamingClipSource::kPageFrames) + 2000;
-  ASSERT_EQ(transport->updateClipTrimPoints(1, trimIn, trimOut), SessionGraphError::OK);
-  ASSERT_EQ(transport->setClipLoopMode(1, true), SessionGraphError::OK);
-  ASSERT_EQ(transport->seekClip(1, trimOut - 1000), SessionGraphError::OK);
-  RtGuardState::reset();
-  {
-    RtSection section;
+  for (const int64_t target : {trimOut, fileLength}) {
+    SCOPED_TRACE("target=" + std::to_string(target));
+    TransportConfig config{.sampleRate = rate,
+                           .outputChannels = 1,
+                           .maxBlockFrames = block,
+                           .maxActiveVoices = 32,
+                           .numGroups = 1,
+                           .maxSourceChannels = 1,
+                           .sourceChannelPolicy = SourceChannelPolicy::Discrete};
+    auto transport = std::make_unique<TransportController>(nullptr, config);
+    transport->setPreparedSourceMaxFrames(rate);
+    SeekCallback callback;
+    transport->setCallback(&callback);
+    ASSERT_EQ(transport->registerClipAudio(1, sourcePath(rate, 1, rate)), SessionGraphError::OK);
+    ASSERT_EQ(transport->updateClipTrimPoints(1, trimIn, fileLength), SessionGraphError::OK);
+    ASSERT_EQ(transport->startClip(1), SessionGraphError::OK);
+
+    std::vector<float> output(block);
+    float* buffers[] = {output.data()};
     transport->processAudio(buffers, 1, block);
+
+    // Render far from trim-IN so read() retires its initial worker page.
+    ASSERT_EQ(transport->seekClip(1, evictionTarget), SessionGraphError::OK);
+    transport->processAudio(buffers, 1, block);
+
+    ASSERT_EQ(transport->updateClipTrimPoints(1, trimIn, trimOut), SessionGraphError::OK);
+    ASSERT_EQ(transport->setClipLoopMode(1, true), SessionGraphError::OK);
+    ASSERT_EQ(transport->seekClip(1, target), SessionGraphError::OK);
+    RtGuardState::reset();
+    {
+      RtSection section;
+      transport->processAudio(buffers, 1, block);
+    }
+    transport->processCallbacks();
+
+    EXPECT_NEAR(trailingMean(output), -0.60f, 0.12f);
+    EXPECT_EQ(callback.seeks.load(), 2);
+    EXPECT_EQ(callback.underruns.load(), 0);
+    EXPECT_EQ(RtGuardState::totalViolations(), 0u);
   }
-  transport->processCallbacks();
-  EXPECT_EQ(callback.seeks.load(), 1);
-  EXPECT_EQ(callback.underruns.load(), 0);
-  EXPECT_EQ(RtGuardState::totalViolations(), 0u);
 }
 
 TEST_F(StreamingSeekMatrixTest, SegmentProgramSeekPrimesEveryPossibleFirstBlockStart) {
