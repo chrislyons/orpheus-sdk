@@ -367,6 +367,184 @@ TEST_F(StreamingSeekMatrixTest, CommandQueueSaturationRejectsBeforePriming) {
   EXPECT_EQ(callback.underruns.load(), 0);
 }
 
+TEST_F(StreamingSeekMatrixTest, PendingSeekBlocksUnregisterAndReplacementUntilConsumed) {
+  constexpr uint32_t rate = 48000;
+  constexpr uint32_t block = 512;
+  TransportConfig config{.sampleRate = rate,
+                         .outputChannels = 1,
+                         .maxBlockFrames = block,
+                         .maxActiveVoices = 32,
+                         .numGroups = 1,
+                         .maxSourceChannels = 1,
+                         .sourceChannelPolicy = SourceChannelPolicy::Discrete};
+  auto transport = std::make_unique<TransportController>(nullptr, config);
+  transport->setPreparedSourceMaxFrames(rate);
+  ASSERT_EQ(transport->registerClipAudio(1, sourcePath(rate, 1, rate)), SessionGraphError::OK);
+  ASSERT_EQ(transport->startClip(1), SessionGraphError::OK);
+  std::vector<float> output(block);
+  float* buffers[] = {output.data()};
+  transport->processAudio(buffers, 1, block);
+
+  ASSERT_EQ(transport->seekClip(1, static_cast<int64_t>(6.75 * static_cast<double>(rate))),
+            SessionGraphError::OK);
+  EXPECT_EQ(transport->unregisterClipAudio(1), SessionGraphError::NotReady);
+  EXPECT_EQ(transport->registerClipAudio(1, sourcePath(rate, 1, rate)),
+            SessionGraphError::NotReady);
+  transport->processAudio(buffers, 1, block);
+  EXPECT_EQ(transport->unregisterClipAudio(1), SessionGraphError::NotReady);
+  ASSERT_EQ(transport->panic(), SessionGraphError::OK);
+  transport->processAudio(buffers, 1, block);
+  ASSERT_EQ(transport->unregisterClipAudio(1), SessionGraphError::OK);
+  EXPECT_EQ(transport->registerClipAudio(1, sourcePath(rate, 1, rate)), SessionGraphError::OK);
+}
+
+TEST_F(StreamingSeekMatrixTest, QueuedStartAndExactEofSeekBlockUnregisterUntilConsumed) {
+  constexpr uint32_t rate = 48000;
+  constexpr uint32_t block = 512;
+  TransportConfig config{.sampleRate = rate,
+                         .outputChannels = 1,
+                         .maxBlockFrames = block,
+                         .maxActiveVoices = 32,
+                         .numGroups = 1,
+                         .maxSourceChannels = 1,
+                         .sourceChannelPolicy = SourceChannelPolicy::Discrete};
+  auto transport = std::make_unique<TransportController>(nullptr, config);
+  transport->setPreparedSourceMaxFrames(rate);
+  ASSERT_EQ(transport->registerClipAudio(1, sourcePath(rate, 1, rate)), SessionGraphError::OK);
+  ASSERT_EQ(transport->startClip(1), SessionGraphError::OK);
+  EXPECT_EQ(transport->unregisterClipAudio(1), SessionGraphError::NotReady);
+  std::vector<float> output(block);
+  float* buffers[] = {output.data()};
+  transport->processAudio(buffers, 1, block);
+  ASSERT_EQ(transport->seekClip(1, 9 * static_cast<int64_t>(rate)), SessionGraphError::OK);
+  EXPECT_EQ(transport->unregisterClipAudio(1), SessionGraphError::NotReady);
+  transport->processAudio(buffers, 1, block);
+  ASSERT_EQ(transport->panic(), SessionGraphError::OK);
+  transport->processAudio(buffers, 1, block);
+  ASSERT_EQ(transport->unregisterClipAudio(1), SessionGraphError::OK);
+}
+
+TEST_F(StreamingSeekMatrixTest, TrimUpdateThenSeekUsesNewLoopWindow) {
+  constexpr uint32_t rate = 48000;
+  constexpr uint32_t block = 1024;
+  TransportConfig config{.sampleRate = rate,
+                         .outputChannels = 1,
+                         .maxBlockFrames = block,
+                         .maxActiveVoices = 32,
+                         .numGroups = 1,
+                         .maxSourceChannels = 1,
+                         .sourceChannelPolicy = SourceChannelPolicy::Discrete};
+  auto transport = std::make_unique<TransportController>(nullptr, config);
+  transport->setPreparedSourceMaxFrames(rate);
+  SeekCallback callback;
+  transport->setCallback(&callback);
+  ASSERT_EQ(transport->registerClipAudio(1, sourcePath(rate, 1, rate)), SessionGraphError::OK);
+  auto metadata = transport->getClipMetadata(1);
+  ASSERT_TRUE(metadata.has_value());
+  metadata->playbackRate = 4.0;
+  ASSERT_EQ(transport->updateClipMetadata(1, *metadata), SessionGraphError::OK);
+  ASSERT_EQ(transport->startClip(1), SessionGraphError::OK);
+  std::vector<float> output(block);
+  float* buffers[] = {output.data()};
+  transport->processAudio(buffers, 1, block);
+
+  const int64_t trimIn = 3 * static_cast<int64_t>(StreamingClipSource::kPageFrames) + 100;
+  const int64_t trimOut = 4 * static_cast<int64_t>(StreamingClipSource::kPageFrames) + 2000;
+  ASSERT_EQ(transport->updateClipTrimPoints(1, trimIn, trimOut), SessionGraphError::OK);
+  ASSERT_EQ(transport->setClipLoopMode(1, true), SessionGraphError::OK);
+  ASSERT_EQ(transport->seekClip(1, trimOut - 1000), SessionGraphError::OK);
+  RtGuardState::reset();
+  {
+    RtSection section;
+    transport->processAudio(buffers, 1, block);
+  }
+  transport->processCallbacks();
+  EXPECT_EQ(callback.seeks.load(), 1);
+  EXPECT_EQ(callback.underruns.load(), 0);
+  EXPECT_EQ(RtGuardState::totalViolations(), 0u);
+}
+
+TEST_F(StreamingSeekMatrixTest, SegmentProgramSeekPrimesEveryPossibleFirstBlockStart) {
+  constexpr uint32_t rate = 48000;
+  constexpr uint32_t block = 1024;
+  const int64_t page = static_cast<int64_t>(StreamingClipSource::kPageFrames);
+  TransportConfig config{.sampleRate = rate,
+                         .outputChannels = 1,
+                         .maxBlockFrames = block,
+                         .maxActiveVoices = 32,
+                         .numGroups = 1,
+                         .maxSourceChannels = 1,
+                         .sourceChannelPolicy = SourceChannelPolicy::Discrete};
+  auto transport = std::make_unique<TransportController>(nullptr, config);
+  transport->setPreparedSourceMaxFrames(rate);
+  SeekCallback callback;
+  transport->setCallback(&callback);
+  ASSERT_EQ(transport->registerClipAudio(1, sourcePath(rate, 1, rate)), SessionGraphError::OK);
+  ASSERT_EQ(transport->startClip(1), SessionGraphError::OK);
+  std::vector<float> output(block);
+  float* buffers[] = {output.data()};
+  transport->processAudio(buffers, 1, block);
+
+  auto metadata = transport->getClipMetadata(1);
+  ASSERT_TRUE(metadata.has_value());
+  metadata->playbackRate = 4.0;
+  metadata->loopEnabled = true;
+  metadata->segmentCount = 2;
+  metadata->segments[0] = {3 * page + 100, 3 * page + 2000, 1};
+  metadata->segments[1] = {5 * page + 100, 5 * page + 5000, 1};
+  ASSERT_EQ(transport->updateClipMetadata(1, *metadata), SessionGraphError::OK);
+  ASSERT_EQ(transport->seekClip(1, 3 * page + 1500), SessionGraphError::OK);
+  RtGuardState::reset();
+  {
+    RtSection section;
+    transport->processAudio(buffers, 1, block);
+  }
+  transport->processCallbacks();
+  EXPECT_EQ(callback.seeks.load(), 1);
+  EXPECT_EQ(callback.underruns.load(), 0);
+  EXPECT_EQ(RtGuardState::totalViolations(), 0u);
+}
+
+TEST_F(StreamingSeekMatrixTest, FadeOverlapSeekMovesBothVoicesWithoutUnderrun) {
+  constexpr uint32_t rate = 48000;
+  constexpr uint32_t block = 512;
+  TransportConfig config{.sampleRate = rate,
+                         .outputChannels = 1,
+                         .maxBlockFrames = block,
+                         .maxActiveVoices = 32,
+                         .numGroups = 1,
+                         .maxSourceChannels = 1,
+                         .sourceChannelPolicy = SourceChannelPolicy::Discrete};
+  auto transport = std::make_unique<TransportController>(nullptr, config);
+  transport->setPreparedSourceMaxFrames(rate);
+  SeekCallback callback;
+  transport->setCallback(&callback);
+  ASSERT_EQ(transport->registerClipAudio(1, sourcePath(rate, 1, rate)), SessionGraphError::OK);
+  ASSERT_EQ(transport->setClipVoiceMode(1, VoiceMode::MonoWithFadeOverlap), SessionGraphError::OK);
+  auto metadata = transport->getClipMetadata(1);
+  ASSERT_TRUE(metadata.has_value());
+  metadata->stopFadeOutSeconds = 0.1;
+  ASSERT_EQ(transport->updateClipMetadata(1, *metadata), SessionGraphError::OK);
+  ASSERT_EQ(transport->startClip(1), SessionGraphError::OK);
+  std::vector<float> output(block);
+  float* buffers[] = {output.data()};
+  transport->processAudio(buffers, 1, block);
+  ASSERT_EQ(transport->stopClip(1), SessionGraphError::OK);
+  ASSERT_EQ(transport->startClip(1), SessionGraphError::OK);
+  transport->processAudio(buffers, 1, block);
+  ASSERT_EQ(transport->getTotalActiveVoiceCount(), 2u);
+  ASSERT_EQ(transport->seekClip(1, static_cast<int64_t>(6.75 * static_cast<double>(rate))),
+            SessionGraphError::OK);
+  RtGuardState::reset();
+  {
+    RtSection section;
+    transport->processAudio(buffers, 1, block);
+  }
+  transport->processCallbacks();
+  EXPECT_EQ(callback.underruns.load(), 0);
+  EXPECT_EQ(RtGuardState::totalViolations(), 0u);
+}
+
 TEST(StreamingClipSourcePrimeTest, PrimeFailuresRollBackAndRecover) {
   auto reader =
       std::make_shared<FaultReader>(4 * static_cast<int64_t>(StreamingClipSource::kPageFrames));
