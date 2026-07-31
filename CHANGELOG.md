@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `ITransportController::seekClip` now synchronously primes and pins the
+  reader-validated first-render page set for registered streaming sources before
+  publishing its existing FIFO command. Rejected preparation, fixed-prime
+  capacity, or full-ring seeks are failure-atomic: no cursor mutation,
+  `ClipSeeked`, or synthetic `BufferUnderrun`.
+- Streaming page ownership now separates four steady worker pages from four
+  bounded command-prime pages; unread registered-source Start/Seek commands and
+  pending render-block page leases protect source lifetime through unregistration
+  and controller teardown. Resampled reader failures now propagate rather than
+  becoming EOF silence.
 ### Changed
 
 - Synchronized `packages/shmui-juce` to ShmUI `0375ebf47329786924c61359c2aa4d9372456985`
