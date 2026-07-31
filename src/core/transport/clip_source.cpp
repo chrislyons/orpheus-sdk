@@ -256,6 +256,14 @@ SessionGraphError StreamingClipSource::primeForCommand(int64_t pos, size_t frame
   uint8_t readyPinMask = 0;
   uint8_t claimedMask = 0;
 
+  const auto reservationSize = [](uint8_t mask) noexcept {
+    size_t count = 0;
+    for (size_t index = 0; index < kNumPages; ++index) {
+      count += (mask & static_cast<uint8_t>(uint8_t{1} << index)) != 0 ? 1u : 0u;
+    }
+    return count;
+  };
+
   const auto rollback = [&]() noexcept {
     for (size_t index = 0; index < claimedCount; ++index) {
       claimedPages[index].page->guard.store(0, std::memory_order_release);
@@ -285,6 +293,12 @@ SessionGraphError StreamingClipSource::primeForCommand(int64_t pos, size_t frame
         if ((originalMask & bit) != 0) {
           satisfied = true;
           break;
+        }
+
+        if (reservationSize(static_cast<uint8_t>(originalMask | readyPinMask | claimedMask)) >=
+            kCommandPrimePages) {
+          rollback();
+          return SessionGraphError::NotReady;
         }
 
         uint32_t expected = page.guard.load(std::memory_order_acquire);
@@ -325,6 +339,12 @@ SessionGraphError StreamingClipSource::primeForCommand(int64_t pos, size_t frame
       continue;
     }
     if (exhaustedByContention) {
+      rollback();
+      return SessionGraphError::NotReady;
+    }
+
+    if (reservationSize(static_cast<uint8_t>(originalMask | readyPinMask | claimedMask)) >=
+        kCommandPrimePages) {
       rollback();
       return SessionGraphError::NotReady;
     }
