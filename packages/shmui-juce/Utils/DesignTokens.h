@@ -12,7 +12,7 @@
       pnpm --filter=www gen:juce-tokens
     CI enforces that this file matches the CSS (check-juce-tokens.mts).
 
-    source sha256: 2ea093c0ff0647833d37a81762c5fa6ac882a1cca7f86fefbc40e16b6443a8d9
+    source sha256: af404565143f6bb59b380ca10a79cd8fce5ebaf8d762730cf6f88a70f06f075c
 
   ==============================================================================
 */
@@ -124,53 +124,53 @@ inline juce::Colour lightWarning() {
 /** Console palette (Clip Composer). */
 namespace console {
 inline juce::Colour bg0() {
-  return juce::Colour(0xFF071316);
-} // --console-bg-0: #071316
+  return juce::Colour(0xFF0A1518);
+} // --console-bg-0: #0a1518
 inline juce::Colour bg1() {
-  return juce::Colour(0xFF102329);
-} // --console-bg-1: #102329
+  return juce::Colour(0xFF0F1F23);
+} // --console-bg-1: #0f1f23
 inline juce::Colour bg2() {
-  return juce::Colour(0xFF1D353B);
-} // --console-bg-2: #1d353b
+  return juce::Colour(0xFF17292F);
+} // --console-bg-2: #17292f
 inline juce::Colour bg3() {
-  return juce::Colour(0xFF294950);
-} // --console-bg-3: #294950
+  return juce::Colour(0xFF1F363C);
+} // --console-bg-3: #1f363c
 inline juce::Colour bgInset() {
-  return juce::Colour(0xFF0D1B1D);
-} // --console-bg-inset: #0d1b1d
+  return juce::Colour(0xFF0C1A1E);
+} // --console-bg-inset: #0c1a1e
 inline juce::Colour warm0() {
-  return juce::Colour(0xFF120E0F);
-} // --console-warm-0: #120e0f
+  return juce::Colour(0xFF16120E);
+} // --console-warm-0: #16120e
 inline juce::Colour warm1() {
-  return juce::Colour(0xFF21191D);
-} // --console-warm-1: #21191d
+  return juce::Colour(0xFF1F1A14);
+} // --console-warm-1: #1f1a14
 inline juce::Colour warm2() {
-  return juce::Colour(0xFF38282B);
-} // --console-warm-2: #38282b
+  return juce::Colour(0xFF2A241A);
+} // --console-warm-2: #2a241a
 inline juce::Colour warm3() {
-  return juce::Colour(0xFF49342B);
-} // --console-warm-3: #49342b
+  return juce::Colour(0xFF3A3225);
+} // --console-warm-3: #3a3225
 inline juce::Colour warmInset() {
-  return juce::Colour(0xFF150F0F);
-} // --console-warm-inset: #150f0f
+  return juce::Colour(0xFF1A1610);
+} // --console-warm-inset: #1a1610
 inline juce::Colour warmBorder() {
   return juce::Colour(0xFF4A4030);
 } // --console-warm-border: #4a4030
 inline juce::Colour cool0() {
-  return juce::Colour(0xFF101418);
-} // --console-cool-0: #101418
+  return juce::Colour(0xFF15181B);
+} // --console-cool-0: #15181b
 inline juce::Colour cool1() {
-  return juce::Colour(0xFF211D21);
-} // --console-cool-1: #211d21
+  return juce::Colour(0xFF1C2024);
+} // --console-cool-1: #1c2024
 inline juce::Colour cool2() {
-  return juce::Colour(0xFF32281B);
-} // --console-cool-2: #32281b
+  return juce::Colour(0xFF262B30);
+} // --console-cool-2: #262b30
 inline juce::Colour cool3() {
-  return juce::Colour(0xFF493A28);
-} // --console-cool-3: #493a28
+  return juce::Colour(0xFF353C42);
+} // --console-cool-3: #353c42
 inline juce::Colour coolInset() {
-  return juce::Colour(0xFF15150F);
-} // --console-cool-inset: #15150f
+  return juce::Colour(0xFF181B1E);
+} // --console-cool-inset: #181b1e
 inline juce::Colour coolBorder() {
   return juce::Colour(0xFF3D464D);
 } // --console-cool-border: #3d464d
@@ -337,17 +337,17 @@ inline juce::Colour lightMaterialChassis() {
   return juce::Colour(0xFFB9C1B7);
 } // --console-light-material-chassis: #b9c1b7
 inline juce::Colour lightMaterialPanel() {
-  return juce::Colour(0xFFA6B1A6);
-} // --console-light-material-panel: #a6b1a6
+  return juce::Colour(0xFFC8CEC5);
+} // --console-light-material-panel: #c8cec5
 inline juce::Colour lightMaterialRaised() {
-  return juce::Colour(0xFFD4D9D2);
-} // --console-light-material-raised: #d4d9d2
+  return juce::Colour(0xFFD8DDD5);
+} // --console-light-material-raised: #d8ddd5
 inline juce::Colour lightMaterialWell() {
-  return juce::Colour(0xFFA0ACA2);
-} // --console-light-material-well: #a0aca2
+  return juce::Colour(0xFFA7B0A6);
+} // --console-light-material-well: #a7b0a6
 inline juce::Colour lightMaterialInset() {
-  return juce::Colour(0xFF687770);
-} // --console-light-material-inset: #687770
+  return juce::Colour(0xFF909B91);
+} // --console-light-material-inset: #909b91
 inline juce::Colour lightMaterialSeam() {
   return juce::Colour(0xFF626E65);
 } // --console-light-material-seam: #626e65
@@ -376,23 +376,23 @@ inline juce::Colour lightMaterialGlare() {
   return juce::Colour(0xFFF8F8F3);
 } // --console-light-material-glare: #f8f8f3
 inline juce::Colour lightTextSecondary() {
-  return juce::Colour(0xFF2E382F);
-} // --console-light-text-secondary: #2e382f
+  return juce::Colour(0xFF344039);
+} // --console-light-text-secondary: #344039
 inline juce::Colour warmLightMaterialChassis() {
   return juce::Colour(0xFFC8B894);
 } // --console-warm-light-material-chassis: #c8b894
 inline juce::Colour warmLightMaterialPanel() {
-  return juce::Colour(0xFFB9A475);
-} // --console-warm-light-material-panel: #b9a475
+  return juce::Colour(0xFFD4C5A4);
+} // --console-warm-light-material-panel: #d4c5a4
 inline juce::Colour warmLightMaterialRaised() {
-  return juce::Colour(0xFFD9CBA9);
-} // --console-warm-light-material-raised: #d9cba9
+  return juce::Colour(0xFFE1D5B9);
+} // --console-warm-light-material-raised: #e1d5b9
 inline juce::Colour warmLightMaterialWell() {
-  return juce::Colour(0xFFB39A6E);
-} // --console-warm-light-material-well: #b39a6e
+  return juce::Colour(0xFFB7A47F);
+} // --console-warm-light-material-well: #b7a47f
 inline juce::Colour warmLightMaterialInset() {
-  return juce::Colour(0xFF786C4C);
-} // --console-warm-light-material-inset: #786c4c
+  return juce::Colour(0xFFA08F71);
+} // --console-warm-light-material-inset: #a08f71
 inline juce::Colour warmLightMaterialSeam() {
   return juce::Colour(0xFF746347);
 } // --console-warm-light-material-seam: #746347
@@ -421,23 +421,23 @@ inline juce::Colour warmLightMaterialGlare() {
   return juce::Colour(0xFFFFF6E4);
 } // --console-warm-light-material-glare: #fff6e4
 inline juce::Colour warmLightTextSecondary() {
-  return juce::Colour(0xFF3C2F1F);
-} // --console-warm-light-text-secondary: #3c2f1f
+  return juce::Colour(0xFF453A2A);
+} // --console-warm-light-text-secondary: #453a2a
 inline juce::Colour coolLightMaterialChassis() {
   return juce::Colour(0xFFBFC3C1);
 } // --console-cool-light-material-chassis: #bfc3c1
 inline juce::Colour coolLightMaterialPanel() {
-  return juce::Colour(0xFFAAB2B5);
-} // --console-cool-light-material-panel: #aab2b5
+  return juce::Colour(0xFFCED1CF);
+} // --console-cool-light-material-panel: #ced1cf
 inline juce::Colour coolLightMaterialRaised() {
-  return juce::Colour(0xFFD5D9D8);
-} // --console-cool-light-material-raised: #d5d9d8
+  return juce::Colour(0xFFDDE0DE);
+} // --console-cool-light-material-raised: #dde0de
 inline juce::Colour coolLightMaterialWell() {
-  return juce::Colour(0xFFA4AFB4);
-} // --console-cool-light-material-well: #a4afb4
+  return juce::Colour(0xFFA9AEAD);
+} // --console-cool-light-material-well: #a9aead
 inline juce::Colour coolLightMaterialInset() {
-  return juce::Colour(0xFF74867C);
-} // --console-cool-light-material-inset: #74867c
+  return juce::Colour(0xFF919797);
+} // --console-cool-light-material-inset: #919797
 inline juce::Colour coolLightMaterialSeam() {
   return juce::Colour(0xFF656D70);
 } // --console-cool-light-material-seam: #656d70
@@ -466,8 +466,8 @@ inline juce::Colour coolLightMaterialGlare() {
   return juce::Colour(0xFFFFFFFF);
 } // --console-cool-light-material-glare: #ffffff
 inline juce::Colour coolLightTextSecondary() {
-  return juce::Colour(0xFF30393D);
-} // --console-cool-light-text-secondary: #30393d
+  return juce::Colour(0xFF394347);
+} // --console-cool-light-text-secondary: #394347
 // --console-light-material-texture-style: enamel-speckle  (non-literal — not emitted)
 // --console-light-material-texture-intensity: 45  (non-literal — not emitted)
 // --console-light-material-texture-scale: 3px  (non-literal — not emitted)
