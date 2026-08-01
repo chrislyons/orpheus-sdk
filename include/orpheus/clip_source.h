@@ -147,7 +147,9 @@ public:
   /// rejected before mutation.
   SessionGraphError primeForCommand(int64_t pos, size_t frames, PrimeReservation& reservation);
 
-  /// AUDIO THREAD ONLY. Releases one command-owned pin for each set bit.
+  /// CONTROL THREAD for rejected/unread-command cleanup, or AUDIO THREAD after
+  /// the consuming render block. Releases one command-owned pin per set bit;
+  /// fixed bounded atomic work with no allocation, locking, or I/O.
   void releaseCommandPrime(PrimeReservation reservation) noexcept;
 
   bool hasPendingCommandPrimes() const noexcept {
