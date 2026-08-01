@@ -261,6 +261,11 @@ TransportController::~TransportController() {
       command.seekSource->releaseCommandPrime(command.seekPrime);
     }
     if ((command.type == TransportCommand::Type::Start ||
+         command.type == TransportCommand::Type::StartWithGroupChoke) &&
+        command.startSource && command.startPrime.pageMask != 0) {
+      command.startSource->releaseCommandPrime(command.startPrime);
+    }
+    if ((command.type == TransportCommand::Type::Start ||
          command.type == TransportCommand::Type::StartWithGroupChoke ||
          command.type == TransportCommand::Type::Seek) &&
         command.sourceLifetime) {
@@ -268,14 +273,26 @@ TransportController::~TransportController() {
     }
     readIndex = (readIndex + 1) % MAX_COMMANDS;
   }
+  releasePendingStartReservations();
   releasePendingSeekReservations();
 }
 
 SessionGraphError
 TransportController::makeStartContext(ClipHandle handle, bool requireRegisteredSource,
                                       std::shared_ptr<ClipPlaybackContext>& context,
-                                      SourceCommandLifetime*& sourceLifetime) {
+                                      SourceCommandLifetime*& sourceLifetime,
+                                      StreamingClipSource*& startSource,
+                                      StreamingClipSource::PrimeReservation& startPrime) {
   sourceLifetime = nullptr;
+  startSource = nullptr;
+  startPrime = {};
+  const auto releaseStartPrime = [&]() noexcept {
+    if (startSource && startPrime.pageMask != 0) {
+      startSource->releaseCommandPrime(startPrime);
+      startSource = nullptr;
+      startPrime = {};
+    }
+  };
   if (handle == 0) {
     return SessionGraphError::InvalidHandle;
   }
@@ -298,12 +315,16 @@ TransportController::makeStartContext(ClipHandle handle, bool requireRegisteredS
       // Registered sources never fall back to the historical source-less test
       // default. Decode/cache preparation must succeed before this Start can
       // acquire the one atomic command slot.
-      const SessionGraphError prepareResult = ensurePreparedSourceLocked(entry);
+      const SessionGraphError prepareResult = ensurePreparedSourceLocked(entry, &startPrime);
       if (prepareResult != SessionGraphError::OK) {
+        releaseStartPrime();
         context.reset();
         return prepareResult;
       }
       context->source = entry.source;
+      if (startPrime.pageMask != 0) {
+        startSource = dynamic_cast<StreamingClipSource*>(entry.source.get());
+      }
       context->numChannels = entry.metadata.num_channels;
       context->trimInSamples = entry.trimInSamples;
       context->stopFadeOutSeconds = entry.stopFadeOutSeconds;
@@ -330,12 +351,14 @@ TransportController::makeStartContext(ClipHandle handle, bool requireRegisteredS
       context->segments = entry.segments;
       if (context->dspProcessor.prepare(entry.dsp, m_sampleRate, entry.metadata.num_channels) !=
           ClipDspValidationError::OK) {
+        releaseStartPrime();
         context.reset();
         return SessionGraphError::InvalidParameter;
       }
       context->routingGroup = entry.routingGroup;
       context->voiceMode = entry.voiceMode;
       if (!entry.commandLifetime) {
+        releaseStartPrime();
         context.reset();
         return SessionGraphError::InternalError;
       }
@@ -343,6 +366,7 @@ TransportController::makeStartContext(ClipHandle handle, bool requireRegisteredS
       sourceLifetime = entry.commandLifetime.get();
       return SessionGraphError::OK;
     }
+
 
     if (requireRegisteredSource) {
       context.reset();
@@ -376,6 +400,7 @@ TransportController::makeStartContext(ClipHandle handle, bool requireRegisteredS
     context->dspProcessor.prepare({}, m_sampleRate, context->numChannels);
     return SessionGraphError::OK;
   } catch (const std::bad_alloc&) {
+    releaseStartPrime();
     context.reset();
     sourceLifetime = nullptr;
     return SessionGraphError::InternalError;
@@ -385,7 +410,17 @@ TransportController::makeStartContext(ClipHandle handle, bool requireRegisteredS
 SessionGraphError TransportController::startClip(ClipHandle handle) {
   std::shared_ptr<ClipPlaybackContext> context;
   SourceCommandLifetime* sourceLifetime = nullptr;
-  const SessionGraphError contextResult = makeStartContext(handle, false, context, sourceLifetime);
+  StreamingClipSource* startSource = nullptr;
+  StreamingClipSource::PrimeReservation startPrime{};
+  const auto releaseStartPrime = [&]() noexcept {
+    if (startSource && startPrime.pageMask != 0) {
+      startSource->releaseCommandPrime(startPrime);
+      startSource = nullptr;
+      startPrime = {};
+    }
+  };
+  const SessionGraphError contextResult =
+      makeStartContext(handle, false, context, sourceLifetime, startSource, startPrime);
   if (contextResult != SessionGraphError::OK) {
     return contextResult;
   }
@@ -402,6 +437,7 @@ SessionGraphError TransportController::startClip(ClipHandle handle) {
   if (stopOthers) {
     const SessionGraphError stopResult = stopOtherClips(handle);
     if (stopResult != SessionGraphError::OK) {
+      releaseStartPrime();
       releaseSourceCommand(sourceLifetime);
       return stopResult;
     }
@@ -412,8 +448,11 @@ SessionGraphError TransportController::startClip(ClipHandle handle) {
   cmd.handle = handle;
   cmd.startContext = context;
   cmd.sourceLifetime = sourceLifetime;
+  cmd.startSource = startSource;
+  cmd.startPrime = startPrime;
   const SessionGraphError postResult = postCommand(cmd);
   if (postResult != SessionGraphError::OK) {
+    releaseStartPrime();
     releaseSourceCommand(sourceLifetime);
   }
   return postResult;
@@ -422,7 +461,17 @@ SessionGraphError TransportController::startClip(ClipHandle handle) {
 SessionGraphError TransportController::startClipWithGroupChoke(ClipHandle handle) {
   std::shared_ptr<ClipPlaybackContext> context;
   SourceCommandLifetime* sourceLifetime = nullptr;
-  const SessionGraphError contextResult = makeStartContext(handle, true, context, sourceLifetime);
+  StreamingClipSource* startSource = nullptr;
+  StreamingClipSource::PrimeReservation startPrime{};
+  const auto releaseStartPrime = [&]() noexcept {
+    if (startSource && startPrime.pageMask != 0) {
+      startSource->releaseCommandPrime(startPrime);
+      startSource = nullptr;
+      startPrime = {};
+    }
+  };
+  const SessionGraphError contextResult =
+      makeStartContext(handle, true, context, sourceLifetime, startSource, startPrime);
   if (contextResult != SessionGraphError::OK) {
     return contextResult;
   }
@@ -432,8 +481,11 @@ SessionGraphError TransportController::startClipWithGroupChoke(ClipHandle handle
   cmd.handle = handle;
   cmd.startContext = context;
   cmd.sourceLifetime = sourceLifetime;
+  cmd.startSource = startSource;
+  cmd.startPrime = startPrime;
   const SessionGraphError postResult = postCommand(cmd);
   if (postResult != SessionGraphError::OK) {
+    releaseStartPrime();
     releaseSourceCommand(sourceLifetime);
   }
   return postResult;
@@ -918,8 +970,9 @@ void TransportController::processAudio(float* const* outputBuffers, size_t numCh
     ++i;
   }
 
-  // Seek command primes remain pinned through every source read in this
-  // callback, including loop interpolation and stopping overlap tails.
+  // Start and seek command primes remain pinned through every source read in
+  // this callback, including loop interpolation and stopping overlap tails.
+  releasePendingStartReservations();
   releasePendingSeekReservations();
 
   // Update transport position
@@ -958,22 +1011,32 @@ void TransportController::processAudio(float* const* outputBuffers, size_t numCh
 void TransportController::processCommands() {
   size_t readIndex = m_commandReadIndex.load(std::memory_order_relaxed);
   size_t writeIndex = m_commandWriteIndex.load(std::memory_order_acquire);
+  const auto settleStartPrime = [&](const TransportCommand& command, bool retain) noexcept {
+    if (command.startSource == nullptr || command.startPrime.pageMask == 0) {
+      return;
+    }
+    if (!retain || m_pendingStartReservationCount >= MAX_ACTIVE_CLIPS) {
+      command.startSource->releaseCommandPrime(command.startPrime);
+      return;
+    }
+    m_pendingStartReservations[m_pendingStartReservationCount++] = {
+        command.startSource, command.startPrime};
+  };
 
   while (readIndex != writeIndex) {
     const TransportCommand& cmd = m_commands[readIndex];
 
     switch (cmd.type) {
     case TransportCommand::Type::Start: {
-      if (cmd.startContext) {
-        const uint32_t voiceId = startVoiceWithMode(cmd.startContext);
-        if (voiceId != 0) {
-          TransportEvent event{};
-          event.type = TransportEventType::ClipStarted;
-          event.handle = cmd.handle;
-          event.voiceId = voiceId;
-          event.position = getCurrentPosition();
-          postTransportEvent(event);
-        }
+      const uint32_t voiceId = cmd.startContext ? startVoiceWithMode(cmd.startContext) : 0;
+      settleStartPrime(cmd, voiceId != 0);
+      if (voiceId != 0) {
+        TransportEvent event{};
+        event.type = TransportEventType::ClipStarted;
+        event.handle = cmd.handle;
+        event.voiceId = voiceId;
+        event.position = getCurrentPosition();
+        postTransportEvent(event);
       }
     } break;
 
@@ -981,6 +1044,7 @@ void TransportController::processCommands() {
       // Admission is deliberately first. A voice-pool refusal may publish the
       // existing typed rejection event, but it cannot mutate any peer.
       const uint32_t voiceId = cmd.startContext ? startVoiceWithMode(cmd.startContext) : 0;
+      settleStartPrime(cmd, voiceId != 0);
       if (voiceId != 0) {
         TransportEvent event{};
         event.type = TransportEventType::ClipStarted;
@@ -1031,6 +1095,7 @@ void TransportController::processCommands() {
         m_activeClips[i].source.reset();
       }
       m_activeClipCount = 0;
+      releasePendingStartReservations();
       releasePendingSeekReservations();
 
       break;
@@ -1306,6 +1371,17 @@ void TransportController::releaseSourceCommand(SourceCommandLifetime* lifetime) 
     const uint32_t previous = lifetime->unread.fetch_sub(1, std::memory_order_release);
     assert(previous > 0);
   }
+}
+
+void TransportController::releasePendingStartReservations() noexcept {
+  for (size_t index = 0; index < m_pendingStartReservationCount; ++index) {
+    PendingStartReservation& pending = m_pendingStartReservations[index];
+    if (pending.source && pending.prime.pageMask != 0) {
+      pending.source->releaseCommandPrime(pending.prime);
+    }
+    pending = {};
+  }
+  m_pendingStartReservationCount = 0;
 }
 
 void TransportController::releasePendingSeekReservations() noexcept {
@@ -2139,15 +2215,17 @@ SessionGraphError TransportController::unregisterClipAudio(ClipHandle handle) {
   return SessionGraphError::OK;
 }
 
-SessionGraphError TransportController::ensurePreparedSourceLocked(AudioFileEntry& entry) {
+SessionGraphError TransportController::ensurePreparedSourceLocked(
+    AudioFileEntry& entry, StreamingClipSource::PrimeReservation* reservation) {
   // ORP134 G1: build the realtime playback source on the CONTROL thread. All
   // decode/resample/file I/O happens here (or on the stream worker) - the
   // audio thread only ever memcpy-reads the published source.
   if (entry.source) {
     if (auto streaming = std::dynamic_pointer_cast<StreamingClipSource>(entry.source)) {
-      // Refires and starts synchronously make their audible trim-IN page
-      // resident. Worker look-ahead remains best effort.
-      return streaming->prefill(entry.trimInSamples, 1);
+      // Refires and starts synchronously pin their audible trim-IN page. When
+      // the steady worker window is full, the command-owned reservation uses
+      // the separate prime capacity and remains with the Start command.
+      return streaming->prefill(entry.trimInSamples, 1, reservation);
     }
     return SessionGraphError::OK;
   }
@@ -2934,7 +3012,12 @@ SessionGraphError TransportController::seekClip(ClipHandle handle, int64_t posit
     const auto prime = [&](int64_t start) {
       return streaming->primeForCommand(start, firstRenderFrames, reservation);
     };
-    SessionGraphError primeResult = prime(clampedPosition);
+    // The renderer clamps a non-segment seek below trim-IN before its first
+    // source read. Prime that effective position, not the discarded request.
+    const int64_t effectiveFirstRenderPosition =
+        entry.segmentCount == 0 ? std::max(clampedPosition, entry.trimInSamples)
+                                : clampedPosition;
+    SessionGraphError primeResult = prime(effectiveFirstRenderPosition);
     if (primeResult == SessionGraphError::OK && entry.segmentCount != 0) {
       for (uint32_t index = 0; index < entry.segmentCount; ++index) {
         primeResult = prime(entry.segments[index].startSample);

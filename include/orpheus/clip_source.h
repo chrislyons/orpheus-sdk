@@ -157,8 +157,12 @@ public:
   /// Fill up to `max_pages` non-resident pages of the steady worker window
   /// synchronously — the demand page first, then forward pages, then behind.
   /// The audible page is mandatory; later look-ahead pages are best effort.
+  /// When `commandReservation` is supplied, the mandatory page is pinned as a
+  /// command-owned page so a caller publishing a command can use command-prime
+  /// capacity when the steady window is full.
   /// CONTROL/WORKER THREAD.
-  SessionGraphError prefill(int64_t pos, size_t max_pages = kWindowPages);
+  SessionGraphError prefill(int64_t pos, size_t max_pages = kWindowPages,
+                            PrimeReservation* commandReservation = nullptr);
 
   /// One worker pass: refill FREE pages inside the current demand window.
   /// WORKER THREAD ONLY.

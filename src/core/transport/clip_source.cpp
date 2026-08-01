@@ -424,7 +424,8 @@ void StreamingClipSource::releaseCommandPrime(PrimeReservation reservation) noex
   }
 }
 
-SessionGraphError StreamingClipSource::prefill(int64_t pos, size_t max_pages) {
+SessionGraphError StreamingClipSource::prefill(int64_t pos, size_t max_pages,
+                                                PrimeReservation* commandReservation) {
   if (m_lengthFrames <= 0 || pos >= m_lengthFrames) {
     return SessionGraphError::OK;
   }
@@ -432,6 +433,18 @@ SessionGraphError StreamingClipSource::prefill(int64_t pos, size_t max_pages) {
     return SessionGraphError::NotReady;
   }
   const int64_t base = alignDown(std::max<int64_t>(0, pos));
+
+  // A command publisher must pin the page the first render will consume. This
+  // path deliberately uses the transactional command-prime lease rather than
+  // allowing a full steady window to turn preparation into NotReady.
+  size_t filled = 0;
+  if (commandReservation != nullptr) {
+    const SessionGraphError result = primeForCommand(base, 1, *commandReservation);
+    if (result != SessionGraphError::OK) {
+      return result;
+    }
+    filled = 1;
+  }
 
   // Fill order: audible demand, forward look-ahead, then reverse runway.
   std::array<int64_t, kWindowPages> wanted{};
@@ -441,10 +454,12 @@ SessionGraphError StreamingClipSource::prefill(int64_t pos, size_t max_pages) {
   }
   wanted[wantedCount++] = base - static_cast<int64_t>(kPageFrames);
 
-  size_t filled = 0;
   for (size_t index = 0; index < wantedCount && filled < max_pages; ++index) {
     const int64_t start = wanted[index];
     if (start < 0 || start >= m_lengthFrames) {
+      continue;
+    }
+    if (commandReservation != nullptr && index == 0) {
       continue;
     }
     bool resident = false;
@@ -460,7 +475,7 @@ SessionGraphError StreamingClipSource::prefill(int64_t pos, size_t max_pages) {
 
     const SessionGraphError result = fillPage(start);
     if (result != SessionGraphError::OK) {
-      if (index == 0) {
+      if (index == 0 && commandReservation == nullptr) {
         return result;
       }
       continue; // look-ahead is deliberately best effort

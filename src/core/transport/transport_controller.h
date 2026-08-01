@@ -99,6 +99,8 @@ struct TransportCommand {
   // Raw source lifetimes are retained by the registry before publication and
   // released exactly once by the audio command consumer.
   SourceCommandLifetime* sourceLifetime{nullptr};
+  StreamingClipSource* startSource{nullptr};
+  StreamingClipSource::PrimeReservation startPrime{};
   StreamingClipSource* seekSource{nullptr};
   StreamingClipSource::PrimeReservation seekPrime{};
 
@@ -400,9 +402,11 @@ private:
   ///
   /// Group-choke starts require a registered, available source so every
   /// pre-admission failure is reported before the atomic command is posted.
-  SessionGraphError makeStartContext(ClipHandle handle, bool requireRegisteredSource,
-                                     std::shared_ptr<ClipPlaybackContext>& context,
-                                     SourceCommandLifetime*& sourceLifetime);
+  SessionGraphError makeStartContext(
+      ClipHandle handle, bool requireRegisteredSource,
+      std::shared_ptr<ClipPlaybackContext>& context, SourceCommandLifetime*& sourceLifetime,
+      StreamingClipSource*& startSource,
+      StreamingClipSource::PrimeReservation& startPrime);
 
   /// Process pending commands from UI thread
   void processCommands();
@@ -508,6 +512,13 @@ private:
   static constexpr size_t MAX_ACTIVE_CLIPS = 32;
   std::array<ActiveClip, MAX_ACTIVE_CLIPS> m_activeClips;
   size_t m_activeClipCount{0};
+
+  struct PendingStartReservation {
+    StreamingClipSource* source{nullptr};
+    StreamingClipSource::PrimeReservation prime{};
+  };
+  std::array<PendingStartReservation, MAX_ACTIVE_CLIPS> m_pendingStartReservations{};
+  size_t m_pendingStartReservationCount{0};
 
   struct PendingSeekReservation {
     ClipHandle handle{0};
@@ -672,11 +683,15 @@ private:
   std::unordered_map<ClipHandle, AudioFileEntry> m_audioFiles;
 
   /// ORP134 G1: Ensure entry.source exists (decode-to-memory or streaming
-  /// ring). Control thread only; caller holds m_audioFilesMutex.
-  SessionGraphError ensurePreparedSourceLocked(AudioFileEntry& entry);
+  /// ring). Control thread only; caller holds m_audioFilesMutex. A non-null
+  /// reservation receives a command-owned pin for an existing source's
+  /// first-render page.
+  SessionGraphError ensurePreparedSourceLocked(
+      AudioFileEntry& entry, StreamingClipSource::PrimeReservation* reservation = nullptr);
 
   void retainSourceCommand(SourceCommandLifetime* lifetime) noexcept;
   void releaseSourceCommand(SourceCommandLifetime* lifetime) noexcept;
+  void releasePendingStartReservations() noexcept;
   void releasePendingSeekReservations() noexcept;
 
   // Routing matrix for final mix (audio thread processes, UI thread configures)

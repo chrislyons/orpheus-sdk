@@ -13,6 +13,7 @@
 #include <array>
 #include <atomic>
 #include <cmath>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -475,6 +476,117 @@ TEST_F(StreamingSeekMatrixTest, LoopSeekAtOrPastTrimOutPrimesEvictedTrimIn) {
   }
 }
 
+TEST_F(StreamingSeekMatrixTest, StartUsesCommandPrimeWhenSteadyWindowIsFull) {
+  constexpr uint32_t rate = 48000;
+  constexpr uint32_t block = 1024;
+  const int64_t page = static_cast<int64_t>(StreamingClipSource::kPageFrames);
+  const int64_t trimIn = 3 * page + 100;
+  const int64_t fileLength = 9 * static_cast<int64_t>(rate);
+  const int64_t evictionTarget = 5 * page + 1000;
+
+  TransportConfig config{.sampleRate = rate,
+                         .outputChannels = 1,
+                         .maxBlockFrames = block,
+                         .maxActiveVoices = 32,
+                         .numGroups = 1,
+                         .maxSourceChannels = 1,
+                         .sourceChannelPolicy = SourceChannelPolicy::Discrete};
+  auto transport = std::make_unique<TransportController>(nullptr, config);
+  transport->setPreparedSourceMaxFrames(rate);
+  SeekCallback callback;
+  transport->setCallback(&callback);
+  ASSERT_EQ(transport->registerClipAudio(1, sourcePath(rate, 1, rate)), SessionGraphError::OK);
+  ASSERT_EQ(transport->updateClipTrimPoints(1, trimIn, fileLength), SessionGraphError::OK);
+  ASSERT_EQ(transport->startClip(1), SessionGraphError::OK);
+
+  std::vector<float> output(block);
+  float* buffers[] = {output.data()};
+  transport->processAudio(buffers, 1, block);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  // The target page is already resident, so this advances demand without
+  // consuming command-prime capacity. The worker then fills the four steady
+  // slots around the target while trim-IN remains evicted.
+  ASSERT_EQ(transport->seekClip(1, evictionTarget), SessionGraphError::OK);
+  transport->processAudio(buffers, 1, block);
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  // With every steady slot occupied, start preparation must use the remaining
+  // command-prime capacity rather than returning NotReady.
+  ASSERT_EQ(transport->startClip(1), SessionGraphError::OK);
+  EXPECT_EQ(transport->unregisterClipAudio(1), SessionGraphError::NotReady);
+
+  RtGuardState::reset();
+  {
+    RtSection section;
+    transport->processAudio(buffers, 1, block);
+  }
+  transport->processCallbacks();
+
+  EXPECT_NEAR(trailingMean(output), -0.80f, 0.12f);
+  EXPECT_EQ(callback.underruns.load(), 0);
+  EXPECT_EQ(RtGuardState::totalViolations(), 0u);
+  EXPECT_EQ(transport->unregisterClipAudio(1), SessionGraphError::NotReady);
+
+  // Remove the voice and prove the Start reservation was released after its
+  // first render rather than leaking into the registry lifetime.
+  ASSERT_EQ(transport->panic(), SessionGraphError::OK);
+  transport->processAudio(buffers, 1, block);
+  ASSERT_EQ(transport->unregisterClipAudio(1), SessionGraphError::OK);
+}
+
+TEST_F(StreamingSeekMatrixTest, SeekBeforeEvictedTrimInPrimesEffectiveFirstRender) {
+  constexpr uint32_t rate = 48000;
+  constexpr uint32_t block = 1024;
+  const int64_t page = static_cast<int64_t>(StreamingClipSource::kPageFrames);
+  const int64_t trimIn = 3 * page + 100;
+  const int64_t fileLength = 9 * static_cast<int64_t>(rate);
+  const int64_t evictionTarget = 5 * page + 1000;
+  const int64_t preTrimTarget = 2 * page + 1000;
+
+  for (const bool looping : {false, true}) {
+    SCOPED_TRACE(looping ? "looping" : "non-looping");
+    TransportConfig config{.sampleRate = rate,
+                           .outputChannels = 1,
+                           .maxBlockFrames = block,
+                           .maxActiveVoices = 32,
+                           .numGroups = 1,
+                           .maxSourceChannels = 1,
+                           .sourceChannelPolicy = SourceChannelPolicy::Discrete};
+    auto transport = std::make_unique<TransportController>(nullptr, config);
+    transport->setPreparedSourceMaxFrames(rate);
+    SeekCallback callback;
+    transport->setCallback(&callback);
+    ASSERT_EQ(transport->registerClipAudio(1, sourcePath(rate, 1, rate)),
+              SessionGraphError::OK);
+    ASSERT_EQ(transport->updateClipTrimPoints(1, trimIn, fileLength), SessionGraphError::OK);
+    ASSERT_EQ(transport->setClipLoopMode(1, looping), SessionGraphError::OK);
+    ASSERT_EQ(transport->startClip(1), SessionGraphError::OK);
+
+    std::vector<float> output(block);
+    float* buffers[] = {output.data()};
+    transport->processAudio(buffers, 1, block);
+
+    // Evict the trim-IN page from the steady window before the pre-trim seek.
+    ASSERT_EQ(transport->seekClip(1, evictionTarget), SessionGraphError::OK);
+    transport->processAudio(buffers, 1, block);
+
+    ASSERT_EQ(transport->seekClip(1, preTrimTarget), SessionGraphError::OK);
+    RtGuardState::reset();
+    {
+      RtSection section;
+      transport->processAudio(buffers, 1, block);
+    }
+    transport->processCallbacks();
+
+    EXPECT_NEAR(trailingMean(output), -0.60f, 0.12f);
+    EXPECT_EQ(callback.seeks.load(), 2);
+    EXPECT_EQ(callback.underruns.load(), 0);
+    EXPECT_EQ(RtGuardState::totalViolations(), 0u);
+  }
+}
+
 TEST_F(StreamingSeekMatrixTest, SegmentProgramSeekPrimesEveryPossibleFirstBlockStart) {
   constexpr uint32_t rate = 48000;
   constexpr uint32_t block = 1024;
@@ -586,6 +698,31 @@ TEST(StreamingClipSourcePrimeTest, PrimeFailuresRollBackAndRecover) {
   ASSERT_EQ(source.primeForCommand(3 * static_cast<int64_t>(StreamingClipSource::kPageFrames), 32,
                                    reservation),
             SessionGraphError::OK);
+  source.releaseCommandPrime(reservation);
+  EXPECT_FALSE(source.hasPendingCommandPrimes());
+}
+
+TEST(StreamingClipSourcePrimeTest, CommandPrefillUsesPrimeCapacityAfterSteadyExhaustion) {
+  const int64_t page = static_cast<int64_t>(StreamingClipSource::kPageFrames);
+  auto reader = std::make_shared<FaultReader>(9 * page);
+  ASSERT_TRUE(reader->open("").isOk());
+  StreamingClipSource source(reader, 1, 9 * page);
+  StreamingClipSource::PrimeReservation reservation{};
+
+  ASSERT_EQ(source.prefill(3 * page + 100), SessionGraphError::OK);
+  std::vector<float> scratch(32, 0.0f);
+  size_t framesRead = 0;
+  ASSERT_TRUE(source.read(5 * page + 100, scratch.data(), 32, framesRead));
+  source.service();
+
+  EXPECT_EQ(source.prefill(3 * page + 100, 1), SessionGraphError::NotReady);
+  ASSERT_EQ(source.prefill(3 * page + 100, 1, &reservation), SessionGraphError::OK);
+  const uint8_t commandMask =
+      static_cast<uint8_t>(0xFFu << StreamingClipSource::kWindowPages);
+  EXPECT_NE(reservation.pageMask & commandMask, 0);
+  EXPECT_TRUE(source.read(3 * page + 100, scratch.data(), 32, framesRead));
+  EXPECT_EQ(framesRead, 32u);
+
   source.releaseCommandPrime(reservation);
   EXPECT_FALSE(source.hasPendingCommandPrimes());
 }
