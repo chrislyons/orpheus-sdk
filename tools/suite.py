@@ -570,6 +570,11 @@ def clean_repositories(manifest: dict[str, Any], workspace: Path, repo_ids: Iter
             dirty.append(repo_id)
     return dirty
 
+def require_manifest_owner_clean(manifest_path: Path) -> None:
+    owner = manifest_path.parent.parent
+    if owner.is_dir() and git_dirty(owner):
+        raise SuiteError(f"refusing to overwrite a dirty manifest worktree: {owner}")
+
 
 def backup_ref(repo_path_value: Path, repo_id: str, stamp: str) -> str:
     ref = f"refs/suite/backups/{stamp}/{repo_id}"
@@ -765,18 +770,18 @@ def cmd_update(args: argparse.Namespace) -> int:
         for pin in repo.get("dependency_pins", []):
             if pin.get("dependency") == source:
                 plan.append({"repository": repo_id, "dependency": source, "kind": pin.get("kind"), "path": pin.get("path") or pin.get("workspace_path"), "action": "update-exact-pin" if pin.get("kind") == "git-submodule" else "reconfigure-source-or-package"})
-    result: dict[str, Any] = {"source": source, "revision": args.revision, "affected": affected, "plan": plan, "applied": []}
+    result: dict[str, Any] = {"source": source, "revision": args.revision, "affected": affected, "plan": plan, "applied": [], "backups": []}
     if not args.apply:
         output(result, args.json)
         return 0
     if not args.yes:
         raise SuiteError("update --apply requires --yes; the default is a dry-run")
+    require_manifest_owner_clean(manifest_path)
     dirty = clean_repositories(manifest, workspace, [item["repository"] for item in plan])
     if dirty:
         raise SuiteError("refusing to update dirty worktrees: " + ", ".join(dirty))
-    for item in plan:
-        if item["kind"] != "git-submodule":
-            continue
+    git_items = [item for item in plan if item["kind"] == "git-submodule"]
+    for item in git_items:
         consumer = repo_path(workspace, repositories[item["repository"]])
         child = consumer / item["path"]
         if not child.is_dir():
@@ -785,6 +790,11 @@ def cmd_update(args: argparse.Namespace) -> int:
             run_git(child, ["fetch", "--no-tags", "origin"], check=True)
         if not git_revision_exists(child, args.revision):
             raise SuiteError(f"revision {args.revision} is not available in {child}")
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    for item in git_items:
+        consumer = repo_path(workspace, repositories[item["repository"]])
+        result["backups"].append(backup_ref(consumer, item["repository"], stamp))
+        child = consumer / item["path"]
         run_git(child, ["checkout", "--detach", args.revision], check=True)
         run_git(consumer, ["add", item["path"]], check=True)
         update_manifest_pin(manifest, item["repository"], source, args.revision)
@@ -893,6 +903,7 @@ def cmd_release(args: argparse.Namespace) -> int:
             raise SuiteError("release candidate is blocked:\n- " + "\n- ".join(blockers))
         if not args.yes:
             raise SuiteError("release candidate --apply requires --yes")
+        require_manifest_owner_clean(manifest_path)
         if snapshot_id in manifest["snapshots"]:
             raise SuiteError(f"snapshot already exists: {snapshot_id}")
         snapshot = capture_snapshot(manifest, workspace, snapshot_id, args.version, "candidate", "candidate", verification, acceptance)
@@ -923,6 +934,7 @@ def cmd_release(args: argparse.Namespace) -> int:
         raise SuiteError("stable promotion is blocked:\n- " + "\n- ".join(blockers))
     if not args.yes:
         raise SuiteError("release stable --apply requires --yes")
+    require_manifest_owner_clean(manifest_path)
     candidate["state"] = "stable"
     candidate["channel"] = "stable"
     manifest["channels"]["stable"]["snapshot_id"] = candidate["id"]
