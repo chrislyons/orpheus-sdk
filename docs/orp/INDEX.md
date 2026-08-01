@@ -8,8 +8,8 @@ Project documentation index for orpheus-sdk.
 
 ## Recent Documents
 - [[ORP168 Streaming Seek Priming and Underrun Classification]] — corrected
-  `seekClip` streaming first-render priming, command page leases, source-command
-  lifetimes, and rendered/TSan regression evidence (2026-07-31)
+  streaming Start/refire command-prime leasing and effective pre-trim-IN seek
+  priming; rendered realtime regression evidence (2026-08-01)
 
 - [[ORP166 Orpheus Suite Application Launch and Icon Checkpoint]] — synchronized
   Cloudkicker suite baseline; merged application icons; verified Clip Composer,
@@ -134,4 +134,4 @@ Project documentation index for orpheus-sdk.
 
 ---
 
-**Last Generated:** 2026-07-31
+**Last Generated:** 2026-08-01
