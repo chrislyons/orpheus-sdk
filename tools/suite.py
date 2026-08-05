@@ -288,16 +288,21 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
                 if not isinstance(record, dict):
                     errors.append(f"{prefix} must be an object")
                     continue
+                if set(record) != {"repository", "kind"}:
+                    errors.append(f"{prefix} must contain exactly repository and kind")
                 repository = record.get("repository")
                 kind = record.get("kind")
-                pair = (repository, kind)
-                if repository not in repo_ids:
+                if not isinstance(repository, str) or not repository:
+                    errors.append(f"{prefix}.repository must be a non-empty string")
+                elif repository not in repo_ids:
                     errors.append(f"{prefix}.repository is unknown: {repository}")
                 if not isinstance(kind, str) or not kind:
                     errors.append(f"{prefix}.kind must be a non-empty string")
-                if pair in seen:
-                    errors.append(f"{prefix} duplicates acceptance pair {repository}/{kind}")
-                seen.add(pair)
+                if isinstance(repository, str) and isinstance(kind, str):
+                    pair = (repository, kind)
+                    if pair in seen:
+                        errors.append(f"{prefix} duplicates acceptance pair {repository}/{kind}")
+                    seen.add(pair)
 
     channels = manifest.get("channels", {})
     snapshots = manifest.get("snapshots", {})
@@ -336,11 +341,48 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
                 ).items():
                     if not is_commit(revision):
                         errors.append(f"{prefix}.repositories.{repo_id}.dependency_pins.{dependency} must be a commit")
-        acceptance = snapshot.get("human_acceptance", {})
-        for index, record in enumerate(acceptance.get("records", []) if isinstance(acceptance, dict) else []):
-            if not isinstance(record, dict) or not record.get("repository"):
-                errors.append(f"{prefix}.human_acceptance.records[{index}].repository is required")
-
+        acceptance = snapshot.get("human_acceptance")
+        if not isinstance(acceptance, dict) or set(acceptance) != {"status", "records"}:
+            errors.append(f"{prefix}.human_acceptance must contain exactly status and records")
+            continue
+        if acceptance.get("status") not in {"pending", "passed", "failed"}:
+            errors.append(f"{prefix}.human_acceptance.status is invalid")
+        records = acceptance.get("records")
+        if not isinstance(records, list):
+            errors.append(f"{prefix}.human_acceptance.records must be an array")
+            continue
+        seen_acceptance: set[tuple[Any, Any]] = set()
+        for index, record in enumerate(records):
+            record_prefix = f"{prefix}.human_acceptance.records[{index}]"
+            if not isinstance(record, dict) or set(record) != {
+                "repository",
+                "kind",
+                "status",
+                "evidence",
+            }:
+                errors.append(f"{record_prefix} must contain exactly repository, kind, status, evidence")
+                continue
+            repository = record["repository"]
+            kind = record["kind"]
+            if not isinstance(repository, str) or not repository:
+                errors.append(f"{record_prefix}.repository must be a non-empty string")
+            elif repository not in repo_ids:
+                errors.append(f"{record_prefix}.repository is unknown: {repository}")
+            if not isinstance(kind, str) or not kind:
+                errors.append(f"{record_prefix}.kind must be a non-empty string")
+            if isinstance(repository, str) and isinstance(kind, str):
+                pair = (repository, kind)
+                if pair in seen_acceptance:
+                    errors.append(f"{record_prefix} duplicates {repository}/{kind}")
+                seen_acceptance.add(pair)
+            if record["status"] not in {"pending", "passed", "failed"}:
+                errors.append(f"{record_prefix}.status is invalid")
+            if (
+                not isinstance(record["evidence"], str)
+                or not record["evidence"].strip()
+                or any(character in record["evidence"] for character in "\r\n\0")
+            ):
+                errors.append(f"{record_prefix}.evidence must be a durable path or URL")
     release_order = release_policy.get("order", [])
     if set(release_order) != repo_ids or len(release_order) != len(repo_ids):
         errors.append("release_policy.order must contain every repository exactly once")
@@ -1070,6 +1112,8 @@ def acceptance_value(args: argparse.Namespace) -> dict[str, Any]:
     if not args.acceptance:
         return {"status": "pending", "records": []}
     value = load_json(Path(args.acceptance).expanduser().resolve())
+    if set(value) != {"status", "records"}:
+        raise SuiteError("acceptance file must contain exactly {status, records}")
     if value.get("status") not in {"pending", "passed", "failed"} or not isinstance(
         value.get("records"), list
     ):
@@ -1083,6 +1127,8 @@ def acceptance_requirements(manifest: dict[str, Any], action: str) -> set[tuple[
         (record["repository"], record["kind"])
         for record in gate.get("acceptance", [])
         if isinstance(record, dict)
+        and isinstance(record.get("repository"), str)
+        and isinstance(record.get("kind"), str)
     }
 
 
@@ -1092,35 +1138,54 @@ def acceptance_errors(
     acceptance: dict[str, Any],
 ) -> list[str]:
     required = acceptance_requirements(manifest, action)
-    if acceptance.get("status") != "passed":
-        return ["required human acceptance is not passed"]
-    records = acceptance.get("records", [])
-    seen: set[tuple[str, str]] = set()
     errors: list[str] = []
+    if not isinstance(acceptance, dict):
+        return ["acceptance value must be an object"]
+    if set(acceptance) != {"status", "records"}:
+        errors.append("acceptance value must contain exactly {status, records}")
+    if acceptance.get("status") != "passed":
+        errors.append("required human acceptance is not passed")
+    records = acceptance.get("records")
+    if not isinstance(records, list):
+        return errors + ["acceptance records must be an array"]
+    seen: set[tuple[str, str]] = set()
     repositories = set(repo_map(manifest))
     for index, record in enumerate(records):
+        prefix = f"acceptance record {index}"
         if not isinstance(record, dict):
-            errors.append(f"acceptance record {index} is not an object")
+            errors.append(f"{prefix} is not an object")
             continue
+        if set(record) != {"repository", "kind", "status", "evidence"}:
+            errors.append(f"{prefix} must contain exactly repository, kind, status, evidence")
         repository = record.get("repository")
         kind = record.get("kind")
-        pair = (repository, kind)
-        if repository not in repositories:
-            errors.append(f"acceptance record {index} names unknown repository {repository}")
+        if not isinstance(repository, str) or not repository:
+            errors.append(f"{prefix} has no repository")
+        elif repository not in repositories:
+            errors.append(f"{prefix} names unknown repository {repository}")
         if not isinstance(kind, str) or not kind:
-            errors.append(f"acceptance record {index} has no kind")
-        if pair in seen:
-            errors.append(f"acceptance record {index} duplicates {repository}/{kind}")
-        seen.add(pair)
+            errors.append(f"{prefix} has no kind")
+        if isinstance(repository, str) and isinstance(kind, str):
+            pair = (repository, kind)
+            if pair in seen:
+                errors.append(f"{prefix} duplicates {repository}/{kind}")
+            seen.add(pair)
         if record.get("status") != "passed":
-            errors.append(f"acceptance record {index} is not passed")
-        if not isinstance(record.get("evidence"), str) or not record["evidence"].strip():
-            errors.append(f"acceptance record {index} has no evidence")
-    missing = sorted(required - seen)
-    extra = sorted(seen - required)
+            errors.append(f"{prefix} is not passed")
+        evidence = record.get("evidence")
+        if (
+            not isinstance(evidence, str)
+            or not evidence.strip()
+            or any(character in evidence for character in "\r\n\0")
+        ):
+            errors.append(f"{prefix} has no durable evidence path or URL")
+    missing = sorted(required - seen, key=lambda pair: (str(pair[0]), str(pair[1])))
+    extra = sorted(seen - required, key=lambda pair: (str(pair[0]), str(pair[1])))
     errors.extend(f"missing acceptance record {repository}/{kind}" for repository, kind in missing)
     errors.extend(f"unexpected acceptance record {repository}/{kind}" for repository, kind in extra)
     return errors
+
+
 def cmd_snapshot_observe(args: argparse.Namespace) -> int:
     manifest_path, manifest, workspace = manifest_context(args)
     require_isolated_workspace(workspace)
@@ -1145,6 +1210,8 @@ def cmd_snapshot_observe(args: argparse.Namespace) -> int:
         "verification": verification,
         "human_acceptance": acceptance,
         "blockers": blockers,
+        "status": status,
+        "workspace": str(workspace),
         "applied": False,
     }
     if not args.apply:

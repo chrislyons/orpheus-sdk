@@ -128,6 +128,9 @@ ORP170 requires:
   fetch-only boundary and reports `push_status: "not-required"`.
 - `status` attaches generated-artifact hashes, provenance, and selected-revision
   reachability to every repository and dependency pin.
+- The `fourtrack-shmui-provenance` quick gate invokes the consumer-owned checker
+  against the isolated nested SDK and ShmUI worktrees; it checks generated
+  bytes, import-manifest content, contract version, and provenance revisions.
 - Verification commands may declare a controlled environment map. The ShmUI
   freshness check resolves `SDK_ROOT` relative to its isolated check directory.
 - `snapshot observe` captures an immutable development inventory only from a

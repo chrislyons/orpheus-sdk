@@ -289,6 +289,56 @@ class SuiteToolTest(unittest.TestCase):
         self.assertEqual(after["channels"]["stable"]["snapshot_id"], "candidate")
         self.assertEqual(after["release_channel"], "stable")
 
+    def test_snapshot_observe_reports_revisions_and_preserves_other_snapshots(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            (workspace / ".orpheus-suite-workspace").write_text(
+                "ORP-SUITE-20260805-001\n", encoding="utf-8"
+            )
+            repo, revision, remote = self.make_repo(workspace)
+            manifest = self.manifest(workspace, revision, remote)
+            manifest_dir = root / "suite"
+            manifest_dir.mkdir()
+            manifest_path = manifest_dir / "orpheus-suite.json"
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            args = SimpleNamespace(
+                command="snapshot",
+                snapshot_action="observe",
+                manifest=str(manifest_path),
+                workspace_root=str(workspace),
+                snapshot_id="observed",
+                version="0.1.0",
+                evidence="suite/evidence/observed.txt",
+                apply=False,
+                yes=False,
+                json=True,
+            )
+            self.assertEqual(SUITE.cmd_snapshot_observe(args), 0)
+            args.apply = True
+            args.yes = True
+            self.assertEqual(SUITE.cmd_snapshot_observe(args), 0)
+            after = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(after["channels"]["development"]["snapshot_id"], "observed")
+        self.assertEqual(after["snapshots"]["observed"]["state"], "observed")
+        self.assertTrue(after["snapshots"]["observed"]["immutable"])
+        self.assertEqual(after["snapshots"]["observed"]["repositories"]["repo"]["commit"], revision)
+        self.assertEqual(after["snapshots"]["candidate"], manifest["snapshots"]["candidate"])
+
+    def test_status_errors_reject_unreachable_selected_revision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, _, remote = self.make_repo(root)
+            (repo / "artifact.txt").write_text("unpublished\n", encoding="utf-8")
+            self.git(repo, "add", "artifact.txt")
+            self.git(repo, "commit", "-m", "test: create unpublished revision")
+            unpublished = self.git(repo, "rev-parse", "HEAD")
+            manifest = self.manifest(root, unpublished, remote)
+            status = SUITE.snapshot_status(manifest, root, None)
+        self.assertEqual(status["repositories"][0]["reachability"]["status"], "unreachable")
+        self.assertIn("repo: selected revision is unreachable", SUITE.status_errors(status))
+
     def test_apply_requires_marked_isolated_workspace(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaises(SUITE.SuiteError):

@@ -6,6 +6,7 @@ on:
       - "suite/**"
       - "tools/suite.py"
       - "tests/CMakeLists.txt"
+      - "tests/suite_test.py"
       - ".github/workflows/suite-coherence.yml"
   workflow_dispatch:
 

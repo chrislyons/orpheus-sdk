@@ -325,6 +325,25 @@
           ]
         },
         {
+          "id": "fourtrack-shmui-provenance",
+          "cwd": "fourtrack",
+          "command": [
+            "python3",
+            "scripts/check-shmui-swift.py",
+            "--shmui-root",
+            "../shmui"
+          ],
+          "tier": "quick",
+          "platforms": [
+            "macos",
+            "linux"
+          ],
+          "required_for": [
+            "candidate",
+            "stable"
+          ]
+        },
+        {
           "id": "fourtrack-core-tests",
           "cwd": "fourtrack",
           "command": [
