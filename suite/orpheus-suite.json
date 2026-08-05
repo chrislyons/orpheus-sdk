@@ -82,10 +82,10 @@
           "exclude_paths": [
             "shmui-juce-import.json"
           ],
-          "expected_sha256": "fcebe7712a1f2a8565659526e71e2b2f6445c8ddaf16c2b39402a48cca7d4cd1",
+          "expected_sha256": "f34c156d9202261090d6185bbce356b23dd675a96f4c5f39ab90a07c8e4822bc",
           "source_repository": "shmui",
-          "source_revision": "e7e9b607a950117dc5cc4dfe9a29714db24f0d2a",
-          "current_source_revision": "e7e9b607a950117dc5cc4dfe9a29714db24f0d2a",
+          "source_revision": "f5696004ba2502762800108a53de614264dfba66",
+          "current_source_revision": "f5696004ba2502762800108a53de614264dfba66",
           "source_paths": [
             "juce/Source",
             "juce/CMakeLists.txt"

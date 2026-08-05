@@ -348,6 +348,7 @@ private:
   void timerCallback() override;
   void visibilityChanged() override;
   void updateTimerState();
+  void updateMeter();
   float linearToNormalized(float linear) const;
   float dbToNormalized(float dB) const;
   float normalizedToDB(float normalized) const;
