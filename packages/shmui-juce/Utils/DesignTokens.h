@@ -829,6 +829,7 @@ struct OperationalPalette {
 };
 
 inline OperationalPalette operationalPalette(const MaterialRecipe& material, juce::Colour text,
+                                             juce::Colour operationalForeground,
                                              juce::Colour textMuted, juce::Colour textDim,
                                              juce::Colour operationAmber,
                                              juce::Colour operationOrange) {
@@ -917,14 +918,16 @@ inline PhysicalControlRecipe physicalControlRecipe(const MaterialRecipe& materia
 }
 
 inline Appearance makeAppearance(const MaterialRecipe& material, juce::Colour text,
-                                 juce::Colour textMuted, juce::Colour textDim, juce::Colour accent,
+                                 juce::Colour operationalForeground, juce::Colour textMuted,
+                                 juce::Colour textDim, juce::Colour accent,
                                  juce::Colour operationAmber, juce::Colour operationOrange) {
   const auto display = displayPresentation();
   return {material,
           text,
           textMuted,
           textDim,
-          operationalPalette(material, text, textMuted, textDim, operationAmber, operationOrange),
+          operationalPalette(material, text, operationalForeground, textMuted, textDim,
+                             operationAmber, operationOrange),
           illuminationRecipe(material),
           display,
           physicalControlRecipe(material),
@@ -949,7 +952,7 @@ inline Appearance consoleLightAppearance() {
                                 ::shmui::tokens::console::lightMaterialGlare(),
                                 {MaterialTextureStyle::enamelSpeckle, 0.045f, 3.0f}};
   return makeAppearance(
-      material, ::shmui::tokens::console::lightText(),
+      material, ::shmui::tokens::console::lightText(), ::shmui::tokens::console::lightText(),
       ::shmui::tokens::console::lightTextSecondary(), ::shmui::tokens::console::lightTextMuted(),
       ::shmui::tokens::console::blue(), ::shmui::tokens::console::lightOperationAmber(),
       ::shmui::tokens::console::lightOperationOrange());
@@ -971,12 +974,12 @@ inline Appearance consoleWarmLightAppearance() {
                                 ::shmui::tokens::console::warmLightMaterialElevationShadow(),
                                 ::shmui::tokens::console::warmLightMaterialGlare(),
                                 {MaterialTextureStyle::moldedABS, 0.075f, 18.0f}};
-  return makeAppearance(material, ::shmui::tokens::console::warmLightText(),
-                        ::shmui::tokens::console::warmLightTextSecondary(),
-                        ::shmui::tokens::console::warmLightTextMuted(),
-                        ::shmui::tokens::console::blue(),
-                        ::shmui::tokens::console::lightOperationAmber(),
-                        ::shmui::tokens::console::lightOperationOrange());
+  return makeAppearance(
+      material, ::shmui::tokens::console::warmLightText(),
+      ::shmui::tokens::console::warmLightText(), ::shmui::tokens::console::warmLightTextSecondary(),
+      ::shmui::tokens::console::warmLightTextMuted(), ::shmui::tokens::console::blue(),
+      ::shmui::tokens::console::lightOperationAmber(),
+      ::shmui::tokens::console::lightOperationOrange());
 }
 
 inline Appearance consoleCoolLightAppearance() {
@@ -995,12 +998,12 @@ inline Appearance consoleCoolLightAppearance() {
                                 ::shmui::tokens::console::coolLightMaterialElevationShadow(),
                                 ::shmui::tokens::console::coolLightMaterialGlare(),
                                 {MaterialTextureStyle::brushedAluminum, 0.055f, 2.0f}};
-  return makeAppearance(material, ::shmui::tokens::console::coolLightText(),
-                        ::shmui::tokens::console::coolLightTextSecondary(),
-                        ::shmui::tokens::console::coolLightTextMuted(),
-                        ::shmui::tokens::console::blue(),
-                        ::shmui::tokens::console::lightOperationAmber(),
-                        ::shmui::tokens::console::lightOperationOrange());
+  return makeAppearance(
+      material, ::shmui::tokens::console::coolLightText(),
+      ::shmui::tokens::console::coolLightText(), ::shmui::tokens::console::coolLightTextSecondary(),
+      ::shmui::tokens::console::coolLightTextMuted(), ::shmui::tokens::console::blue(),
+      ::shmui::tokens::console::lightOperationAmber(),
+      ::shmui::tokens::console::lightOperationOrange());
 }
 
 inline Appearance consoleDarkAppearance() {
@@ -1019,7 +1022,7 @@ inline Appearance consoleDarkAppearance() {
                                 ::shmui::tokens::console::materialElevationShadow(),
                                 ::shmui::tokens::console::materialGlare(),
                                 {MaterialTextureStyle::powderCoat, 0.04f, 4.0f}};
-  return makeAppearance(material, ::shmui::tokens::console::text(),
+  return makeAppearance(material, ::shmui::tokens::console::text(), ::shmui::tokens::console::bg0(),
                         ::shmui::tokens::console::textMuted(), ::shmui::tokens::console::textDim(),
                         ::shmui::tokens::console::blue(), ::shmui::tokens::console::amber(),
                         ::shmui::tokens::console::orange());
@@ -1042,9 +1045,9 @@ inline Appearance consoleWarmDarkAppearance() {
                                 ::shmui::tokens::console::materialGlare(),
                                 {MaterialTextureStyle::bakeliteMottle, 0.06f, 24.0f}};
   return makeAppearance(material, ::shmui::tokens::console::text(),
-                        ::shmui::tokens::console::textMuted(), ::shmui::tokens::console::textDim(),
-                        ::shmui::tokens::console::blue(), ::shmui::tokens::console::amber(),
-                        ::shmui::tokens::console::orange());
+                        ::shmui::tokens::console::warm0(), ::shmui::tokens::console::textMuted(),
+                        ::shmui::tokens::console::textDim(), ::shmui::tokens::console::blue(),
+                        ::shmui::tokens::console::amber(), ::shmui::tokens::console::orange());
 }
 
 inline Appearance consoleCoolDarkAppearance() {
@@ -1064,9 +1067,9 @@ inline Appearance consoleCoolDarkAppearance() {
                                 ::shmui::tokens::console::materialGlare(),
                                 {MaterialTextureStyle::smoothAnodized, 0.0f, 0.0f}};
   return makeAppearance(material, ::shmui::tokens::console::text(),
-                        ::shmui::tokens::console::textMuted(), ::shmui::tokens::console::textDim(),
-                        ::shmui::tokens::console::blue(), ::shmui::tokens::console::amber(),
-                        ::shmui::tokens::console::orange());
+                        ::shmui::tokens::console::cool0(), ::shmui::tokens::console::textMuted(),
+                        ::shmui::tokens::console::textDim(), ::shmui::tokens::console::blue(),
+                        ::shmui::tokens::console::amber(), ::shmui::tokens::console::orange());
 }
 
 inline Appearance forProfile(Flavor flavor, AppearanceMode mode) {
