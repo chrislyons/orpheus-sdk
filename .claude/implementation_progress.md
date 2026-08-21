@@ -1,3 +1,111 @@
+## ORP176 Hosted CI Gates Green (2026-08-21 night)
+
+- Run `32525538565` on `9112b49a`: Lint PASS, macOS Debug PASS, Ubuntu Debug
+  PASS, Ubuntu Release PASS.
+- Fixes landed this session: `b0374752` formatting; `f901ab55` Apple-only
+  guard for coreaudio endpoint includes; `1c925048` CI budgets;
+  `564880c8` NOMINMAX + Ubuntu JUCE headers; `48cc7f53` curl/ALSA packages;
+  `5dcb4264` package-consumer curl link; `9112b49a` no-opengl consumer curl
+  link.
+- Windows legs fail on inherited `bcrypt.h` JUCE TU defect from main;
+  documented for follow-up, outside required gates.
+- Physical state: rows 01-04 pass; physical-mono strict/fallback halves
+  demonstrated; row 05 tone rerun pending quiet environment; row 08
+  InputRouteUnavailable unreachable through physical teardown (documented).
+
+## ORP176 Physical-Mono Demonstration and Row 08 Analysis (2026-08-21 evening)
+
+- Physical-mono strict half: `ProfileConflict` terminal outcome captured
+  against live HFP mono profile (row06.json).
+- Physical-mono fallback half: zero-gap session bound physical mono and ran
+  30 s clean (map [0], 1ch/16k/320f, fallback flags true, counters zero).
+  Expectation declaration (`healthy` vs measured `SampleRateChanged`) made
+  the row report failed; behavior fully captured. Catch rate 1/4 zero-gap
+  attempts.
+- Row 08 rehearsal: real mid-run BT disconnect; candidate terminated with
+  terminal `InputConversionFailed` (first-write-wins latch; callback beats
+  route poll). `InputRouteUnavailable` structurally unreachable via physical
+  teardown; tool enum has no conversion-failed option. Documented blocker;
+  no driver semantics modified. Reconnect restored both endpoints.
+- Row 05 calibrated tone rerun still pending quiet environment.
+
+## ORP176 Calibrated-Source CLbuds Rerun Checkpoint (2026-08-21)
+
+- Independent iPhone 1 kHz acoustic source authorized by the operator;
+  5-second placement diagnostic passed at 1008.513314 Hz zero-crossing.
+- Rows 01 and 02 PASSED exit 0 with `--expect-input-tone-hz 1000`
+  (44.1 kHz and 48 kHz sessions). Rows 03 and 04 re-passed on the same
+  candidate. Every row has before/after route-probe captures under
+  `/tmp/ftr176-evidence/`.
+- Row 05 failed its tone predicate twice with healthy routes; suspected
+  WF-1000XM6 wind/noise uplink DSP outdoors. Rerun pending.
+- Physical-mono strict half DEMONSTRATED: `route_outcome:"ProfileConflict"`
+  against the probe-verified live HFP mono profile (1 ch/16 kHz/320 f).
+  Fallback half still blocked by host A2DP reversion; documented, not
+  worked around.
+- Row 08 pending a real mid-run Bluetooth input disconnect.
+- Repository Actions had been disabled repo-wide; re-enabled. Run
+  32516236868 findings fixed and pushed: `b0374752` (clang-format 14),
+  `f901ab55` (guard CoreAudio endpoint includes for non-Apple hosts),
+  `1c925048` (CI test-step budgets). Windows legs fail on inherited
+  `json_io.cpp(206)` C2059 from main; recorded blocker, outside required
+  macOS/Ubuntu gates. No merge, tag, release asset, or FourTrack repin.
+
+## ORP176 Physical CLbuds Rerun Checkpoint (2026-08-21)
+
+- Rebuilt `build-sdk-release/tools/orpheus_coreaudio_hardware_acceptance` from
+  `release/orp176-coreaudio-directional-src` before testing.
+- Fresh FourTrack CoreAudio inventory found 18 devices and live CLbuds
+  endpoints: `58-18-62-82-0F-33:input` (1 channel, 16 kHz) and
+  `58-18-62-82-0F-33:output` (2 channels, 44.1 kHz).
+- Ran all eight required 30-second acceptance rows with before/after route
+  inventories. Rows 03, 04, 06, and 07 passed with exit 0. Rows 01, 02, and
+  05 failed with exit 6 because no independently calibrated 1 kHz source was
+  present for `--expect-input-tone-hz 1000`. Row 08 failed with exit 6 because
+  the connected input was not manually disconnected, so `InputRouteUnavailable`
+  was not observed.
+- Duplex and route-mutation runs returned the live output profile to mono
+  16 kHz/320 frames while the endpoints remained alive.
+- The physical gate remains blocked. No merge, `v0.8.0` tag, release asset,
+  Ubuntu archive, or FourTrack repin is claimed.
+- Current release-local gates after the rerun: selected 5/5 CTest gates passed
+  (`realtime_static_audit`, unit audit, `docs_path_audit`, `version_contract`,
+  and `cmake_find_package`); ShmUI-JUCE manifest check passed for 56 files.
+- `gh pr checks 250` reports no hosted checks; GitHub Actions evidence remains
+  unavailable, independently of the physical CLbuds gate.
+
+
+## ORP176 CoreAudio Directional SRC Delivery Checkpoint (2026-08-17)
+
+- Release branch: `release/orp176-coreaudio-directional-src`, based on
+  `origin/main` `5039642b`.
+- Candidate implementation baseline: `7ff29aa65b94b1ba5a34a24ca7a3a78b79ef42ed`,
+  with the directional-buffer, failed-acceptance, and settled-route repairs.
+- Review PR: [#250](https://github.com/chrislyons/orpheus-sdk/pull/250),
+  opened for verification only; merge remains blocked by the physical gate.
+- Implemented and verified: route vocabulary/JSON diagnostics, both-rate
+  directional SRC contracts, output-only stale-input isolation, package
+  workflow, macOS CPack archive, local installed-package consumers, and
+  provenance generation.
+- Evidence: focused deterministic gates passed; macOS package consumers passed
+  13/13; full configured release ctest passed 79/80 CTest entries, with
+  25/64 route-dependent `coreaudio_driver_test` cases failing because the
+  current hardware route was unavailable.
+- Documentation checkpoints include `a6f98d25`, `a243044d`, `044c8b83`,
+  `8a211660`, `d749d97e`, and `5fc7ddb5`.
+- Physical gate: FourTrack audit inventory at
+  `a5feb2edf3b732686bbd105d78cc50fbdb6c6b42` was restored to 18 live devices
+  with CLbuds input/output UIDs `58-18-62-82-0F-33:input` and
+  `58-18-62-82-0F-33:output`. All eight required rows were executed and their
+  one-line JSON results are recorded verbatim in ORP176. Rows 01, 02, and 05
+  captured non-1 kHz input (zero-crossing readings 4145.324934, 4218.366735,
+  and 2682.421614 Hz); rows 03, 04, 06, and 07 passed; row 08 recorded the
+  expected `InputRouteUnavailable` mutation outcome.
+- Publication remains intentionally blocked: no merge commit, `v0.8.0` tag,
+  GitHub Release asset, Ubuntu archive, or FourTrack repin exists. Resume with
+  an independently calibrated 1 kHz source, rerun the exact matrix, then
+  complete PR/merge/tag/release gates.
+
 # ORP068 Implementation Progress
 
 > **Note (2026-07-24):** This is a historical ORP068 work log. Current SDK

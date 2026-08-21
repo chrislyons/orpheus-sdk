@@ -3,8 +3,8 @@
 
 ## ORP176 — CoreAudio Bluetooth duplex and directional SRC
 
-**Date:** 2026-08-11
-**Status:** Deterministic and package qualification complete; physical CLbuds acceptance remains blocked.
+**Date:** 2026-08-21
+**Status:** Candidate repairs verified on live CLbuds; physical gate still blocked by missing calibrated 1 kHz input and uninduced route mutation.
 
 ### Delivered
 
@@ -17,13 +17,109 @@
 
 ### Evidence and boundary
 
-- `polyphase_resampler_test`, `coreaudio_route_probe_test`, and `coreaudio_driver_test`
-  passed after the callback-timeline review correction; `realtime_static_audit` and its
-  unit contract also passed.
-- The repository's complete configured debug suite (80/80) and three release/package
-  contracts passed before review. No CLbuds endpoint is present locally, so no Bluetooth
-  hardware acceptance, release tag, or downstream production pin is claimed.
+- A 2026-08-12 CLbuds inventory supplied the missing directional facts: its
+  `:input` endpoint is 16 kHz/320 frames/one channel, while `:output` is
+  44.1 kHz/512 frames/two channels.
+- Physical ARM exposed three startup defects. Monitoring admitted pre-activation
+  rate/format facts and used one output-sized buffer expectation for every
+  endpoint. A 48 kHz duplex run also exhausted the input FIFO while the output
+  AUHAL blocked during startup because priming used maximum capacity rather than
+  the active 320-frame callback and capture continued while output startup was
+  unable to consume it.
+- Monitoring now admits the fully activated route and captures rate, buffer,
+  and stream-format baselines per endpoint. Capture priming uses the current
+  input callback size, then freezes the primed FIFO until output startup
+  completes. Later real mutations remain terminal.
+- `CoreAudioRouteMonitorTest.*` passes 13 contracts; the complete
+  `coreaudio_driver_test` binary passes 62 contracts.
+- An intermediate repaired 44.1 kHz SDK hardware run passed with 498 callbacks,
+  219,618 host/input frames, a non-zero input peak, healthy route outcome, and
+  zero render/FIFO/conversion failures. The subsequent 48 kHz run exposed the
+  startup FIFO defect above. CLbuds then disconnected before the final
+  44.1/48 kHz rerun, so final-source physical capture is not claimed.
+- FourTrack separately repairs stale persisted-output resolution and verified
+  the disconnected CLbuds UID falls back to the live built-in default supporting
+  both session rates.
+- No release tag or downstream production pin is claimed.
 - Full record: [`ORP176 CoreAudio Bluetooth Duplex and Directional SRC SDK Completion`](docs/orp/ORP176%20CoreAudio%20Bluetooth%20Duplex%20and%20Directional%20SRC%20SDK%20Completion.md).
+
+### 2026-08-21 physical rerun
+
+- Rebuilt the release-branch acceptance binary, confirmed 18 live CoreAudio
+  devices, and found CLbuds input `58-18-62-82-0F-33:input` plus output
+  `58-18-62-82-0F-33:output`.
+- Ran all eight required 30-second rows with before/after inventories. Rows
+  03, 04, 06, and 07 passed. Rows 01, 02, and 05 failed the 1 kHz tone
+  predicate because no independently calibrated source was present. Row 08
+  failed because the connected input was not disconnected, so the expected
+  `InputRouteUnavailable` mutation did not occur.
+- The endpoints remained alive throughout. Duplex and route-mutation runs
+  returned the output profile to one channel, 16 kHz, and 320 frames.
+- Release workflow review blockers are addressed in the candidate branch:
+  installed-package consumers run on each archive's native runner, and publish
+  assets receive platform-qualified evidence names. Hosted CI has not run because
+  the physical release gate remains open.
+- Current release-local verification passed: selected CTest gates 5/5
+  (`realtime_static_audit`, unit audit, `docs_path_audit`, `version_contract`,
+  and `cmake_find_package`) plus the 56-file ShmUI-JUCE manifest check.
+- `gh pr checks 250` reports no hosted checks; GitHub Actions evidence remains
+  unavailable.
+- No merge, tag, release asset, Ubuntu archive, or FourTrack repin is claimed;
+  the physical release gate remains open.
+
+
+### 2026-08-21 calibrated-source rerun
+
+- Supplied an independent acoustic 1 kHz sine (iPhone at the CLbuds mic,
+  user-authorized) and calibrated placement with a 5-second diagnostic
+  (1008.513314 Hz, pass). Rows 01 and 02 then passed with exit 0 under
+  `--expect-input-tone-hz 1000` (row 01 zero-crossing 1006.127249 Hz);
+  rows 03 and 04 passed again; all four ran with before/after probe
+  inventories.
+- Row 05 duplex failed the tone predicate twice (route healthy both times);
+  drift attributed to WF-1000XM6 uplink wind/noise DSP outdoors. Rerun
+  pending quieter conditions.
+- Strict half of the physical-mono gate demonstrated: firing output-only
+  strict inside the probe-verified post-duplex HFP mono window (1 channel,
+  16 kHz, 320 frames) returned terminal `ProfileConflict`. The fallback
+  half remains blocked because CoreAudio reverts the profile to A2DP stereo
+  before any fallback session binds; three catch attempts documented, no
+  test or policy modified.
+- Row 08 still requires a real mid-run input disconnect.
+- Repository Actions had been disabled (`enabled:false`); re-enabled them.
+  Dispatch run 32516236868 drove three repairs now pushed: clang-format-14
+  compliance (`b0374752`), a Linux-fatal unguarded CoreAudio include in
+  `driver_manager.cpp` (`f901ab55`), and CI test-step budgets for the
+  sanitized ShmUI consumer (`1c925048`). Windows Debug/Release fail on
+  inherited `json_io.cpp(206)` MSVC C2059 from `main`; recorded as an
+  inherited blocker outside this PR's required macOS/Ubuntu gates.
+- Full record: ORP176 "Calibrated-source physical rerun (2026-08-21)".
+
+### 2026-08-21 evening: physical-mono demonstrated; row 08 blocked by latch semantics
+
+- Strict half demonstrated: terminal `ProfileConflict` against the
+  probe-verified live HFP mono profile.
+- Fallback half demonstrated: zero-gap mono-fallback session bound physical
+  mono (2ch/44.1k requested, 1ch/16k resolved, map `[0]`, fallback flags
+  true, zero failures, stable widths, full 30 s run). The row reported
+  `failed` only because `healthy` was declared before the profile behavior
+  was known; one bind in four zero-gap attempts (A2DP reversion usually wins).
+- Row 08: real mid-run Bluetooth disconnect produced terminal
+  `InputConversionFailed` by design (first-write-wins terminal latch; the
+  starved input callback beats the route poll). `InputRouteUnavailable` is
+  unreachable via physical teardown on this stack and the tool enum offers
+  no conversion-failed expectation. Documented blocker; no semantics
+  altered. Reconnect verified both endpoints alive.
+- Remaining: row 05 calibrated-tone rerun in a quiet environment.
+
+### 2026-08-21 night: hosted macOS and Ubuntu gates green
+
+- Final run `32525538565` on `9112b49a`: Lint, macOS Debug, Ubuntu Debug,
+  and Ubuntu Release all passed. Six hosted-gate defects were found and
+  fixed on this branch (formatting, include guard, CI budgets, NOMINMAX,
+  Linux JUCE headers, Linux JUCE consumer curl linkage).
+- Windows Debug/Release remain red on an inherited `bcrypt.h` JUCE consumer
+  defect from `main`; recorded outside the required gates.
 
 ## ORP174 — Cooperative CoreAudio rate negotiation
 
