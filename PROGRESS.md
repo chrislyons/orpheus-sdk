@@ -38,7 +38,8 @@ is required for final platform evidence.
   provider matrix clears the outer vcpkg toolchain, forces its fake package
   directory, uses Visual Studio's multi-config generator, builds with the
   selected configuration, and invokes the generated `.exe` from its
-  configuration directory.
+  configuration directory. The Windows CTest step now allows 15 minutes for
+  the multi-config package gates.
 
 ## ORP253 — CoreAudio output-only rate recovery
 

@@ -217,7 +217,7 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure --build-config ${{ matrix.build_type }}
         shell: bash
-        timeout-minutes: 10
+        timeout-minutes: 15
 
       - name: Package
         run: cmake --build build --config ${{ matrix.build_type }} --target package --parallel
