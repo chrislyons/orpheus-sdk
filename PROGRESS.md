@@ -19,6 +19,8 @@ required for final platform evidence.
   acceptance callback still used the retired callback signature, and the
   declared WASAPI factory had no definition. Both are corrected in the current
   branch.
+- Windows shared-core test executables now stage the ABI DLLs beside each
+  executable, preventing `0xc0000135` CTest failures after a successful build.
 
 ## ORP253 — CoreAudio output-only rate recovery
 

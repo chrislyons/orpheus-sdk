@@ -12,6 +12,8 @@
   definition and the hardware acceptance tool used the retired callback
   signature; both are corrected.
 - Hosted Windows validation remains required.
+- Windows shared-core test executables now stage ABI DLLs beside each
+  executable, avoiding `0xc0000135` CTest failures after successful builds.
 
 
 > **Note (2026-07-24):** This is a historical ORP068 work log. Current SDK
