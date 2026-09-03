@@ -48,8 +48,10 @@ if(WIN32)
     if(TARGET ${runtime_target})
       add_custom_command(TARGET orpheus_shmui_package_consumer POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_RUNTIME_DLLS:orpheus_shmui_package_consumer>
                 $<TARGET_FILE:${runtime_target}>
-                $<TARGET_FILE_DIR:orpheus_shmui_package_consumer>)
+                $<TARGET_FILE_DIR:orpheus_shmui_package_consumer>
+        COMMAND_EXPAND_LISTS)
     endif()
   endforeach()
 endif()

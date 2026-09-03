@@ -185,9 +185,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install libsndfile (core only, no mp3)
+      - name: Install libsndfile (core plus FLAC/Vorbis/Opus, no mp3)
         run: |
-          vcpkg install "libsndfile[core]:x64-windows"
+          vcpkg install "libsndfile[core,external-libs]:x64-windows"
           if ! vcpkg list | grep -q libsndfile; then
             echo "ERROR: libsndfile installation failed"; vcpkg list; exit 1
           fi

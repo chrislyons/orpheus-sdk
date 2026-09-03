@@ -7,10 +7,12 @@ function(orpheus_stage_runtime_dlls_in_directory)
       if(_orpheus_target_type STREQUAL "EXECUTABLE")
         add_custom_command(TARGET ${_orpheus_target} POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                  $<TARGET_RUNTIME_DLLS:${_orpheus_target}>
                   $<TARGET_FILE:orpheus_session>
                   $<TARGET_FILE:orpheus_clipgrid>
                   $<TARGET_FILE:orpheus_render>
-                  $<TARGET_FILE_DIR:${_orpheus_target}>)
+                  $<TARGET_FILE_DIR:${_orpheus_target}>
+          COMMAND_EXPAND_LISTS)
       endif()
     endforeach()
   endif()
