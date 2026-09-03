@@ -23,6 +23,8 @@ required for final platform evidence.
   executable, preventing `0xc0000135` CTest failures after a successful build.
 - WASAPI terminal failures now publish telemetry before clearing `running`, so
   a stopped driver cannot expose stale healthy status.
+- Package consumers now map uninstalled Visual Studio configurations to the
+  configuration actually installed and stage shared ABI DLLs beside fixtures.
 
 ## ORP253 — CoreAudio output-only rate recovery
 
