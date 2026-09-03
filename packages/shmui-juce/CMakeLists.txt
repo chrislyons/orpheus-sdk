@@ -77,13 +77,20 @@ add_library(orpheus_shmui_juce_objects OBJECT
   # Utilities
   ${SHMUI_SRC}/Utils/ShmuiTheme.cpp
 )
-target_include_directories(orpheus_shmui_juce_objects PRIVATE ${SHMUI_SRC})
-target_link_libraries(orpheus_shmui_juce_objects PRIVATE
-  juce::juce_core
-  juce::juce_audio_basics
-  juce::juce_audio_formats
-  juce::juce_dsp
-  juce::juce_gui_basics
+target_include_directories(orpheus_shmui_juce_objects PRIVATE
+  ${SHMUI_SRC}
+  $<TARGET_PROPERTY:juce::juce_core,INTERFACE_INCLUDE_DIRECTORIES>
+  $<TARGET_PROPERTY:juce::juce_audio_basics,INTERFACE_INCLUDE_DIRECTORIES>
+  $<TARGET_PROPERTY:juce::juce_audio_formats,INTERFACE_INCLUDE_DIRECTORIES>
+  $<TARGET_PROPERTY:juce::juce_dsp,INTERFACE_INCLUDE_DIRECTORIES>
+  $<TARGET_PROPERTY:juce::juce_gui_basics,INTERFACE_INCLUDE_DIRECTORIES>
+)
+target_compile_definitions(orpheus_shmui_juce_objects PRIVATE
+  $<TARGET_PROPERTY:juce::juce_core,INTERFACE_COMPILE_DEFINITIONS>
+  $<TARGET_PROPERTY:juce::juce_audio_basics,INTERFACE_COMPILE_DEFINITIONS>
+  $<TARGET_PROPERTY:juce::juce_audio_formats,INTERFACE_COMPILE_DEFINITIONS>
+  $<TARGET_PROPERTY:juce::juce_dsp,INTERFACE_COMPILE_DEFINITIONS>
+  $<TARGET_PROPERTY:juce::juce_gui_basics,INTERFACE_COMPILE_DEFINITIONS>
 )
 target_compile_features(orpheus_shmui_juce_objects PRIVATE cxx_std_20)
 

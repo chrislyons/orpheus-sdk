@@ -40,6 +40,10 @@ is required for final platform evidence.
   selected configuration, and invokes the generated `.exe` from its
   configuration directory. The Windows CTest step now allows 15 minutes for
   the multi-config package gates.
+- The imported ShmUI target now compiles only its component objects and leaves
+  JUCE module implementations to the application-provided targets it exports.
+  This removes Release-only duplicate JUCE symbol failures in the installed
+  package consumer.
 
 ## ORP253 — CoreAudio output-only rate recovery
 

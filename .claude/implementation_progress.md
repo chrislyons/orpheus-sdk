@@ -25,7 +25,10 @@
   directory, uses Visual Studio's multi-config generator, builds with the
   selected configuration, and invokes the generated `.exe` from its
   configuration directory. The Windows CTest step now allows 15 minutes for
-  the multi-config package gates.
+  the multi-config package gates. The imported ShmUI target now compiles only
+  its component objects and leaves JUCE module implementations to the
+  application-provided targets it exports, removing Release-only duplicate
+  JUCE symbol failures in the installed package consumer.
 
 
 > **Note (2026-07-24):** This is a historical ORP068 work log. Current SDK
