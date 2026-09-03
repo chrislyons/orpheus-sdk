@@ -89,7 +89,8 @@ if(consumer_configure_result)
 endif()
 
 execute_process(
-  COMMAND "${CMAKE_COMMAND}" --build "${consumer_binary_dir}" --parallel
+  COMMAND "${CMAKE_COMMAND}" --build "${consumer_binary_dir}"
+          --config "${build_type}" --parallel
   RESULT_VARIABLE consumer_build_result)
 if(consumer_build_result)
   message(FATAL_ERROR "ShmUI package consumer build failed with code ${consumer_build_result}")

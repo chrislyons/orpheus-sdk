@@ -33,17 +33,13 @@ is required for final platform evidence.
   nested ShmUI CTest.
 - Ubuntu's ShmUI package gate now installs the JUCE-required ALSA and libcurl
   development headers, and the consumer explicitly links the discovered CURL
-  target required by JUCE's static core module. Nested producer builds now pass
-  the selected multi-config explicitly before installation. The Windows sndfile
-  provider matrix clears the outer vcpkg toolchain, forces its fake package
-  directory, uses Visual Studio's multi-config generator, builds with the
-  selected configuration, and invokes the generated `.exe` from its
-  configuration directory. The Windows CTest step now allows 15 minutes for
-  the multi-config package gates.
-- The imported ShmUI target now compiles only its component objects and leaves
-  JUCE module implementations to the application-provided targets it exports.
-  This removes Release-only duplicate JUCE symbol failures in the installed
-  package consumer.
+  target required by JUCE's static core module. Nested producer and consumer
+  builds now pass the selected multi-config explicitly before installation and
+  execution. The Windows sndfile provider matrix clears the outer vcpkg
+  toolchain, forces its fake package directory, uses Visual Studio's
+  multi-config generator, builds with the selected configuration, and invokes
+  the generated `.exe` from its configuration directory. The Windows CTest
+  step now allows 15 minutes for the multi-config package gates.
 
 ## ORP253 — CoreAudio output-only rate recovery
 
