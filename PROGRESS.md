@@ -1,5 +1,19 @@
 # Progress
 
+## Windows CI baseline repair — 2026-09-02
+
+**Status:** Implemented on `fix/windows-ci-baseline`; hosted Windows rerun is
+required for final platform evidence.
+
+- Ordered `windows.h` before BCrypt and WASAPI SDK headers. This fixes Windows
+  SDK type/macro prerequisites without changing runtime behavior.
+- Stopped propagating `ORPHEUS_USING_DLL` through `Orpheus::core`: the ABI
+  libraries may be shared, while realtime/runtime libraries remain static.
+  Static factories were previously declared `dllimport`, causing MSVC
+  `__imp_createRoutingMatrix` and `__imp_createTransportController` failures
+  in session tests.
+- Focused local build and CTest passed for `media_integrity_test`,
+  `driver_manager_test`, `scene_manager_test`, and `scene_routing_test`.
 
 ## ORP253 — CoreAudio output-only rate recovery
 

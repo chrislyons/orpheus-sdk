@@ -1,4 +1,15 @@
 # ORP068 Implementation Progress
+## Windows CI baseline repair — 2026-09-02
+
+- Ordered Windows SDK includes so `windows.h` supplies prerequisites before
+  BCrypt and WASAPI property-key headers.
+- Removed `ORPHEUS_USING_DLL` from the aggregate `Orpheus::core` interface.
+  Shared ABI libraries and static realtime/runtime libraries cannot share one
+  consumer import definition; the old propagation caused session-test
+  `__imp_createRoutingMatrix` and `__imp_createTransportController` failures.
+- Local focused build and tests passed; hosted Windows validation remains
+  required.
+
 
 > **Note (2026-07-24):** This is a historical ORP068 work log. Current SDK
 > contracts and delivery evidence live in the numbered ORP documents and
