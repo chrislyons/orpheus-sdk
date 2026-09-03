@@ -666,6 +666,10 @@ void WASAPIAudioDriver::cleanup() noexcept {
   initialized_.store(false, std::memory_order_release);
 }
 
+std::unique_ptr<IAudioDriver> createWASAPIAudioDriver() {
+  return std::make_unique<WASAPIAudioDriver>();
+}
+
 } // namespace orpheus
 
 #endif

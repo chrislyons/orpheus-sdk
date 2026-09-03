@@ -15,6 +15,10 @@ required for final platform evidence.
   in session tests.
 - Focused local build and CTest passed for `media_integrity_test`,
   `driver_manager_test`, `scene_manager_test`, and `scene_routing_test`.
+- Hosted CI follow-up exposed two additional baseline defects: the WASAPI
+  acceptance callback still used the retired callback signature, and the
+  declared WASAPI factory had no definition. Both are corrected in the current
+  branch.
 
 ## ORP253 — CoreAudio output-only rate recovery
 

@@ -7,8 +7,11 @@
   Shared ABI libraries and static realtime/runtime libraries cannot share one
   consumer import definition; the old propagation caused session-test
   `__imp_createRoutingMatrix` and `__imp_createTransportController` failures.
-- Local focused build and tests passed; hosted Windows validation remains
-  required.
+- Local focused build and tests passed.
+- Hosted follow-up also found the WASAPI factory declaration lacked a
+  definition and the hardware acceptance tool used the retired callback
+  signature; both are corrected.
+- Hosted Windows validation remains required.
 
 
 > **Note (2026-07-24):** This is a historical ORP068 work log. Current SDK
