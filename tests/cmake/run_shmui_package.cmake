@@ -95,7 +95,8 @@ if(consumer_build_result)
 endif()
 
 execute_process(
-  COMMAND "${CMAKE_CTEST_COMMAND}" --test-dir "${consumer_binary_dir}" --output-on-failure
+  COMMAND "${CMAKE_CTEST_COMMAND}" --test-dir "${consumer_binary_dir}"
+          --output-on-failure --build-config "${build_type}"
   RESULT_VARIABLE consumer_test_result)
 if(consumer_test_result)
   message(FATAL_ERROR

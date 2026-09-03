@@ -11,15 +11,14 @@
 - Hosted follow-up also found the WASAPI factory declaration lacked a
   definition and the hardware acceptance tool used the retired callback
   signature; both are corrected.
-- Hosted Windows validation remains required.
-- Windows shared-core test executables now stage ABI DLLs beside each
-  executable, avoiding `0xc0000135` CTest failures after successful builds.
-- WASAPI terminal failures now publish telemetry before clearing `running`, so
-  a stopped driver cannot expose stale healthy status.
-- Package consumers now map uninstalled Visual Studio configurations to the
-  installed configuration and stage shared ABI DLLs beside fixtures.
-- The standalone package runtime fixture also stages ABI DLLs beside its
-  executable, closing its installed-consumer `0xc0000135` path.
+- Hosted Windows package follow-up also required active-configuration selection
+  in compile-failure installs and explicit configuration selection for nested
+  ShmUI CTest. Both harnesses now pass the requested configuration.
+- The ShmUI manifest hash now canonicalizes CRLF to LF, keeping the imported
+  content contract stable across Windows and Unix checkouts.
+- Ubuntu's ShmUI package gate now installs the JUCE-required ALSA and libcurl
+  development headers. The Windows sndfile provider matrix uses the static MSVC
+  runtime for nested Ninja fixtures.
 
 
 > **Note (2026-07-24):** This is a historical ORP068 work log. Current SDK

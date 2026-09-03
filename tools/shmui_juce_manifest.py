@@ -27,13 +27,18 @@ def imported_files() -> list[pathlib.Path]:
     )
 
 
+def canonical_content(path: pathlib.Path) -> bytes:
+    """Hash imported text consistently across Git checkout platforms."""
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
 def content_hash() -> str:
     digest = hashlib.sha256()
     for path in imported_files():
         relative = path.relative_to(PACKAGE).as_posix().encode("utf-8")
         digest.update(relative)
         digest.update(b"\0")
-        digest.update(path.read_bytes())
+        digest.update(canonical_content(path))
         digest.update(b"\0")
     return digest.hexdigest()
 

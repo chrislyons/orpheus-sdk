@@ -18,17 +18,21 @@ file(REMOVE_RECURSE "${binary_dir}")
 file(MAKE_DIRECTORY "${binary_dir}")
 set(fake_build "${binary_dir}/fake_build")
 set(fake_prefix "${binary_dir}/fake_prefix")
+set(msvc_runtime_args)
+if(WIN32)
+  list(APPEND msvc_runtime_args -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded)
+endif()
 
 run_checked("${CMAKE_COMMAND}" -S "${fixture_dir}" -B "${fake_build}" -G Ninja
-  -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_INSTALL_PREFIX=${fake_prefix}")
+  -DCMAKE_BUILD_TYPE=Debug
+  ${msvc_runtime_args}
+  "-DCMAKE_INSTALL_PREFIX=${fake_prefix}")
 run_checked("${CMAKE_COMMAND}" --build "${fake_build}" --target install --parallel 4)
 
 foreach(provider IN ITEMS SndFile PkgConfig None)
   set(provider_build "${binary_dir}/${provider}/sdk_build")
   set(provider_prefix "${binary_dir}/${provider}/sdk_prefix")
   set(consumer_build "${binary_dir}/${provider}/consumer_build")
-  file(MAKE_DIRECTORY "${binary_dir}/${provider}")
-
   set(sdk_args
     -S "${sdk_source_dir}"
     -B "${provider_build}"
@@ -44,10 +48,9 @@ foreach(provider IN ITEMS SndFile PkgConfig None)
     -DORPHEUS_ENABLE_COREAUDIO=OFF
     -DORPHEUS_ENABLE_WASAPI=OFF
     -DORPHEUS_ENABLE_ASIO=OFF
-    -DORP_BUILD_ABI_DYNAMIC=OFF
-    -DORP_BUILD_SHARED_CORE=OFF
     -DORP_ENABLE_ASAN=OFF
     -DORP_ENABLE_UBSAN=OFF
+    ${msvc_runtime_args}
     "-DORPHEUS_SNDFILE_PROVIDER=${provider}")
   if(provider STREQUAL "SndFile")
     list(APPEND sdk_args "-DCMAKE_PREFIX_PATH=${fake_prefix}")
@@ -72,6 +75,7 @@ foreach(provider IN ITEMS SndFile PkgConfig None)
     -B "${consumer_build}"
     -G Ninja
     -DCMAKE_BUILD_TYPE=Debug
+    ${msvc_runtime_args}
     "-DORPHEUS_EXPECT_PROVIDER=${provider}"
     "-DOrpheusSDK_DIR=${provider_prefix}/lib/cmake/OrpheusSDK"
     "-DCMAKE_PREFIX_PATH=${fake_prefix}")

@@ -2,8 +2,8 @@
 
 ## Windows CI baseline repair — 2026-09-02
 
-**Status:** Implemented on `fix/windows-ci-baseline`; hosted Windows rerun is
-required for final platform evidence.
+**Status:** Implementation committed on `fix/windows-ci-baseline`; hosted rerun
+is required for final platform evidence.
 
 - Ordered `windows.h` before the property-key macro header and BCrypt/WASAPI
   SDK headers. This fixes Windows SDK type/macro prerequisites without changing
@@ -17,8 +17,8 @@ required for final platform evidence.
   `driver_manager_test`, `scene_manager_test`, and `scene_routing_test`.
 - Hosted CI follow-up exposed two additional baseline defects: the WASAPI
   acceptance callback still used the retired callback signature, and the
-  declared WASAPI factory had no definition. Both are corrected in the current
-  branch.
+  declared WASAPI factory had no definition. Both are corrected in the
+  current branch.
 - Windows shared-core test executables now stage the ABI DLLs beside each
   executable, preventing `0xc0000135` CTest failures after a successful build.
 - WASAPI terminal failures now publish telemetry before clearing `running`, so
@@ -27,6 +27,13 @@ required for final platform evidence.
   configuration actually installed and stage shared ABI DLLs beside fixtures.
 - The standalone package runtime fixture also stages ABI DLLs beside its
   executable; this closes the remaining installed-consumer `0xc0000135` path.
+- Cross-platform package gates now hash imported ShmUI text with canonical LF
+  endings, select the active multi-config install for compile-failure fixtures,
+  and pass the active configuration to nested ShmUI CTest.
+- Ubuntu's ShmUI package gate now installs the JUCE-required ALSA and libcurl
+  development headers. The Windows sndfile provider matrix uses the static MSVC
+  runtime for its nested Ninja fixtures, avoiding hosted runner CRT entry-point
+  failures.
 
 ## ORP253 — CoreAudio output-only rate recovery
 
