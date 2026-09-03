@@ -21,9 +21,12 @@ EXPECTED_TARGETS = {"Orpheus::shmui_juce", "Orpheus::shmui_juce_gl"}
 
 def imported_files() -> list[pathlib.Path]:
     return sorted(
-        path
-        for path in PACKAGE.rglob("*")
-        if path.is_file() and path != MANIFEST and not path.name.startswith(".")
+        (
+            path
+            for path in PACKAGE.rglob("*")
+            if path.is_file() and path != MANIFEST and not path.name.startswith(".")
+        ),
+        key=lambda path: path.relative_to(PACKAGE).as_posix(),
     )
 
 

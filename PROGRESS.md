@@ -28,11 +28,13 @@ is required for final platform evidence.
 - The standalone package runtime fixture also stages ABI DLLs beside its
   executable; this closes the remaining installed-consumer `0xc0000135` path.
 - Cross-platform package gates now hash imported ShmUI text with canonical LF
-  endings, select the active multi-config install for compile-failure fixtures,
-  and pass the active configuration to nested ShmUI CTest.
+  endings and an explicit POSIX path order, select the active multi-config
+  install for compile-failure fixtures, and pass the active configuration to
+  nested ShmUI CTest.
 - Ubuntu's ShmUI package gate now installs the JUCE-required ALSA and libcurl
-  development headers. The Windows sndfile provider matrix uses the static MSVC
-  runtime for its nested Ninja fixtures, avoiding hosted runner CRT entry-point
+  development headers. The Windows sndfile provider matrix clears the outer
+  vcpkg toolchain and uses the static MSVC runtime for its nested Ninja
+  fixtures, preventing provider substitution and hosted runner CRT entry-point
   failures.
 
 ## ORP253 — CoreAudio output-only rate recovery

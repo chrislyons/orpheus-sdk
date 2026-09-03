@@ -16,6 +16,7 @@ endfunction()
 
 file(REMOVE_RECURSE "${binary_dir}")
 file(MAKE_DIRECTORY "${binary_dir}")
+set(ENV{CMAKE_TOOLCHAIN_FILE})
 set(fake_build "${binary_dir}/fake_build")
 set(fake_prefix "${binary_dir}/fake_prefix")
 set(msvc_runtime_args)

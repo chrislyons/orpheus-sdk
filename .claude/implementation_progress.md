@@ -14,11 +14,12 @@
 - Hosted Windows package follow-up also required active-configuration selection
   in compile-failure installs and explicit configuration selection for nested
   ShmUI CTest. Both harnesses now pass the requested configuration.
-- The ShmUI manifest hash now canonicalizes CRLF to LF, keeping the imported
-  content contract stable across Windows and Unix checkouts.
+- The ShmUI manifest hash now canonicalizes CRLF to LF and uses explicit POSIX
+  path ordering, keeping the imported content contract stable across Windows
+  and Unix checkouts.
 - Ubuntu's ShmUI package gate now installs the JUCE-required ALSA and libcurl
-  development headers. The Windows sndfile provider matrix uses the static MSVC
-  runtime for nested Ninja fixtures.
+  development headers. The Windows sndfile provider matrix clears the outer
+  vcpkg toolchain and uses the static MSVC runtime for nested Ninja fixtures.
 
 
 > **Note (2026-07-24):** This is a historical ORP068 work log. Current SDK
