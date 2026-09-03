@@ -20,10 +20,6 @@ FetchContent_Declare(
   DOWNLOAD_EXTRACT_TIMESTAMP FALSE)
 FetchContent_MakeAvailable(JUCE)
 
-if(UNIX)
-  find_package(CURL REQUIRED)
-endif()
-
 find_package(OrpheusSDK ${ORPHEUS_REQUIRED_VERSION} EXACT REQUIRED CONFIG)
 
 foreach(required_target Orpheus::core Orpheus::audio_utils Orpheus::shmui_juce)
@@ -42,10 +38,6 @@ target_link_libraries(orpheus_shmui_package_consumer PRIVATE
   Orpheus::core
   Orpheus::audio_utils
   Orpheus::shmui_juce)
-if(UNIX)
-  target_link_libraries(orpheus_shmui_package_consumer PRIVATE CURL::libcurl)
-endif()
-
 
 if(WIN32)
   foreach(runtime_target

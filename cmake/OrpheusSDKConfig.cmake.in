@@ -7,6 +7,10 @@ if(UNIX AND NOT APPLE)
   find_dependency(OpenSSL COMPONENTS Crypto)
 endif()
 
+if(UNIX AND NOT APPLE AND "@ORPHEUS_ENABLE_SHMUI_JUCE@" STREQUAL "ON")
+  find_dependency(CURL)
+endif()
+
 if("@ORPHEUS_SNDFILE_PROVIDER_RESOLVED@" STREQUAL "SndFile")
   find_dependency(SndFile CONFIG)
   if(NOT TARGET SndFile::sndfile)

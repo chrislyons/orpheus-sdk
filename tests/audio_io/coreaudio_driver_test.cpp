@@ -387,8 +387,8 @@ TEST_F(CoreAudioDriverTest, PlaybackOnlyRouteSupports256FrameBuffers) {
   ASSERT_EQ(m_driver->start(m_callback.get()), SessionGraphError::OK);
   ASSERT_TRUE(m_callback->waitForCall(std::chrono::seconds(2)))
       << "Audio callback never fired";
+  ASSERT_EQ(m_driver->stop(), SessionGraphError::OK);
   EXPECT_EQ(m_callback->getLastNumFrames(), config.buffer_size);
-  EXPECT_EQ(m_driver->stop(), SessionGraphError::OK);
 }
 
 TEST_F(CoreAudioDriverTest, StopWhenNotRunning) {
