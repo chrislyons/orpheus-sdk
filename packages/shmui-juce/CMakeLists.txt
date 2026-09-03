@@ -110,6 +110,15 @@ set_property(TARGET orpheus_shmui_juce APPEND PROPERTY INTERFACE_LINK_LIBRARIES
   $<TARGET_NAME_IF_EXISTS:juce::juce_dsp>
   $<TARGET_NAME_IF_EXISTS:juce::juce_gui_basics>
 )
+# JUCE's Linux networking implementation is compiled into juce_core, but its
+# CURL dependency is only added automatically for JUCE-created application
+# targets. This static package is the downstream link boundary, so carry the
+# dependency through its interface on Linux.
+if(UNIX AND NOT APPLE)
+  find_package(CURL REQUIRED)
+  set_property(TARGET orpheus_shmui_juce APPEND PROPERTY INTERFACE_LINK_LIBRARIES
+    CURL::libcurl)
+endif()
 target_compile_features(orpheus_shmui_juce PUBLIC cxx_std_20)
 
 # Short-form alias mirroring Orpheus::core.
