@@ -105,7 +105,7 @@ foreach(provider IN ITEMS SndFile PkgConfig None)
     --config Debug --target sndfile_provider_consumer --parallel 4)
   if(WIN32)
     set(consumer_executable
-      "${consumer_build}/sndfile_provider_consumer.exe")
+      "${consumer_build}/Debug/sndfile_provider_consumer.exe")
   else()
     set(consumer_executable
       "${consumer_build}/sndfile_provider_consumer${CMAKE_EXECUTABLE_SUFFIX}")
