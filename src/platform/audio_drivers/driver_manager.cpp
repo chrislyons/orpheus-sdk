@@ -25,6 +25,7 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#include <propkeydef.h>
 #include <windows.h>
 
 #include <audioclient.h>

@@ -1,8 +1,8 @@
 # ORP068 Implementation Progress
 ## Windows CI baseline repair — 2026-09-02
 
-- Ordered Windows SDK includes so `windows.h` supplies prerequisites before
-  BCrypt and WASAPI property-key headers.
+- Ordered Windows SDK includes so `windows.h` supplies prerequisites before the
+  property-key macro, BCrypt, and WASAPI headers.
 - Removed `ORPHEUS_USING_DLL` from the aggregate `Orpheus::core` interface.
   Shared ABI libraries and static realtime/runtime libraries cannot share one
   consumer import definition; the old propagation caused session-test
