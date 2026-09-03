@@ -25,6 +25,8 @@ required for final platform evidence.
   a stopped driver cannot expose stale healthy status.
 - Package consumers now map uninstalled Visual Studio configurations to the
   configuration actually installed and stage shared ABI DLLs beside fixtures.
+- The standalone package runtime fixture also stages ABI DLLs beside its
+  executable; this closes the remaining installed-consumer `0xc0000135` path.
 
 ## ORP253 — CoreAudio output-only rate recovery
 

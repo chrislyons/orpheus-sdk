@@ -18,6 +18,8 @@
   a stopped driver cannot expose stale healthy status.
 - Package consumers now map uninstalled Visual Studio configurations to the
   installed configuration and stage shared ABI DLLs beside fixtures.
+- The standalone package runtime fixture also stages ABI DLLs beside its
+  executable, closing its installed-consumer `0xc0000135` path.
 
 
 > **Note (2026-07-24):** This is a historical ORP068 work log. Current SDK
