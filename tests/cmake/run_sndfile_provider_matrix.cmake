@@ -54,7 +54,9 @@ foreach(provider IN ITEMS SndFile PkgConfig None)
     ${msvc_runtime_args}
     "-DORPHEUS_SNDFILE_PROVIDER=${provider}")
   if(provider STREQUAL "SndFile")
-    list(APPEND sdk_args "-DCMAKE_PREFIX_PATH=${fake_prefix}")
+    list(APPEND sdk_args
+      "-DCMAKE_PREFIX_PATH=${fake_prefix}"
+      "-DSndFile_DIR=${fake_prefix}/lib/cmake/SndFile")
   elseif(provider STREQUAL "PkgConfig")
     list(APPEND sdk_args "-DCMAKE_MODULE_PATH=${fixture_dir}"
       "-DFAKE_SNDFILE_PREFIX=${fake_prefix}")
@@ -80,7 +82,10 @@ foreach(provider IN ITEMS SndFile PkgConfig None)
     "-DORPHEUS_EXPECT_PROVIDER=${provider}"
     "-DOrpheusSDK_DIR=${provider_prefix}/lib/cmake/OrpheusSDK"
     "-DCMAKE_PREFIX_PATH=${fake_prefix}")
-  if(provider STREQUAL "PkgConfig")
+  if(provider STREQUAL "SndFile")
+    list(APPEND consumer_args
+      "-DSndFile_DIR=${fake_prefix}/lib/cmake/SndFile")
+  elseif(provider STREQUAL "PkgConfig")
     list(APPEND consumer_args "-DCMAKE_MODULE_PATH=${fixture_dir}"
       "-DFAKE_SNDFILE_PREFIX=${fake_prefix}")
   endif()

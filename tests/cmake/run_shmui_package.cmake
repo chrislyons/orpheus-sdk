@@ -44,7 +44,8 @@ if(producer_configure_result)
 endif()
 
 execute_process(
-  COMMAND "${CMAKE_COMMAND}" --build "${producer_binary_dir}" --parallel
+  COMMAND "${CMAKE_COMMAND}" --build "${producer_binary_dir}"
+          --config "${build_type}" --parallel
   RESULT_VARIABLE producer_build_result)
 if(producer_build_result)
   message(FATAL_ERROR "ShmUI package producer build failed with code ${producer_build_result}")

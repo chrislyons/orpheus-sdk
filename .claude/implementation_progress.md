@@ -19,9 +19,11 @@
   and Unix checkouts.
 - Ubuntu's ShmUI package gate now installs the JUCE-required ALSA and libcurl
   development headers, and the consumer explicitly links the discovered CURL
-  target required by JUCE's static core module. The Windows sndfile provider
-  matrix clears the outer vcpkg toolchain, uses the static MSVC runtime, and
-  invokes the generated `.exe` explicitly for nested Ninja fixtures.
+  target required by JUCE's static core module. Nested producer builds now pass
+  the selected multi-config explicitly before installation. The Windows sndfile
+  provider matrix clears the outer vcpkg toolchain, forces its fake package
+  directory, uses the static MSVC runtime, and invokes the generated `.exe`
+  explicitly for nested Ninja fixtures.
 
 
 > **Note (2026-07-24):** This is a historical ORP068 work log. Current SDK
