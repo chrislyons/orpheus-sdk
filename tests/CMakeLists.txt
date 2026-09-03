@@ -1,12 +1,18 @@
 # SPDX-License-Identifier: MIT
-function(orpheus_stage_runtime_dlls target)
+function(orpheus_stage_runtime_dlls_in_directory)
   if(WIN32 AND ORP_BUILD_SHARED_CORE)
-    add_custom_command(TARGET ${target} POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-              $<TARGET_FILE:orpheus_session>
-              $<TARGET_FILE:orpheus_clipgrid>
-              $<TARGET_FILE:orpheus_render>
-              $<TARGET_FILE_DIR:${target}>)
+    get_property(_orpheus_directory_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(_orpheus_target IN LISTS _orpheus_directory_targets)
+      get_target_property(_orpheus_target_type "${_orpheus_target}" TYPE)
+      if(_orpheus_target_type STREQUAL "EXECUTABLE")
+        add_custom_command(TARGET ${_orpheus_target} POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                  $<TARGET_FILE:orpheus_session>
+                  $<TARGET_FILE:orpheus_clipgrid>
+                  $<TARGET_FILE:orpheus_render>
+                  $<TARGET_FILE_DIR:${_orpheus_target}>)
+      endif()
+    endforeach()
   endif()
 endfunction()
 set(ORPHEUS_TEST_SOURCES
@@ -385,24 +391,6 @@ if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_BUILD_TYPE MATCHES 
   endif()
 endif()
 
-if(WIN32 AND ORP_BUILD_SHARED_CORE)
-  set(_orpheus_test_directories
-    "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${CMAKE_CURRENT_SOURCE_DIR}/common"
-    "${CMAKE_CURRENT_SOURCE_DIR}/transport"
-    "${CMAKE_CURRENT_SOURCE_DIR}/audio_io"
-    "${CMAKE_CURRENT_SOURCE_DIR}/routing"
-    "${CMAKE_CURRENT_SOURCE_DIR}/session")
-  foreach(_orpheus_test_directory IN LISTS _orpheus_test_directories)
-    get_property(_orpheus_directory_targets
-      DIRECTORY "${_orpheus_test_directory}" PROPERTY BUILDSYSTEM_TARGETS)
-    foreach(_orpheus_target IN LISTS _orpheus_directory_targets)
-      get_target_property(_orpheus_target_type "${_orpheus_target}" TYPE)
-      if(_orpheus_target_type STREQUAL "EXECUTABLE")
-        orpheus_stage_runtime_dlls("${_orpheus_target}")
-      endif()
-    endforeach()
-  endforeach()
-endif()
+orpheus_stage_runtime_dlls_in_directory()
 
 endif()
