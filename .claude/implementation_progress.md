@@ -22,8 +22,8 @@
   target required by JUCE's static core module. Nested producer builds now pass
   the selected multi-config explicitly before installation. The Windows sndfile
   provider matrix clears the outer vcpkg toolchain, forces its fake package
-  directory, uses the static MSVC runtime, and invokes the generated `.exe`
-  explicitly for nested Ninja fixtures.
+  directory, uses Visual Studio's multi-config generator, and invokes the
+  generated `.exe` explicitly for its nested fixture.
 
 
 > **Note (2026-07-24):** This is a historical ORP068 work log. Current SDK
