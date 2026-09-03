@@ -34,9 +34,9 @@ is required for final platform evidence.
 - Ubuntu's ShmUI package gate now installs the JUCE-required ALSA and libcurl
   development headers, and the consumer explicitly links the discovered CURL
   target required by JUCE's static core module. The Windows sndfile provider
-  matrix clears the outer vcpkg toolchain and uses the static MSVC runtime for
-  its nested Ninja fixtures, preventing provider substitution and hosted runner
-  CRT entry-point failures.
+  matrix clears the outer vcpkg toolchain, uses the static MSVC runtime, and
+  invokes the generated `.exe` explicitly for its nested Ninja fixtures,
+  preventing provider substitution and hosted runner CRT entry-point failures.
 
 ## ORP253 — CoreAudio output-only rate recovery
 

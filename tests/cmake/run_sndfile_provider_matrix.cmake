@@ -86,5 +86,12 @@ foreach(provider IN ITEMS SndFile PkgConfig None)
   endif()
   run_checked("${CMAKE_COMMAND}" ${consumer_args})
   run_checked("${CMAKE_COMMAND}" --build "${consumer_build}" --target sndfile_provider_consumer --parallel 4)
-  run_checked("${consumer_build}/sndfile_provider_consumer${CMAKE_EXECUTABLE_SUFFIX}")
+  if(WIN32)
+    set(consumer_executable
+      "${consumer_build}/sndfile_provider_consumer.exe")
+  else()
+    set(consumer_executable
+      "${consumer_build}/sndfile_provider_consumer${CMAKE_EXECUTABLE_SUFFIX}")
+  endif()
+  run_checked("${consumer_executable}")
 endforeach()
