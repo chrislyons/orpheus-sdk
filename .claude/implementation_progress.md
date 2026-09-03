@@ -14,6 +14,8 @@
 - Hosted Windows validation remains required.
 - Windows shared-core test executables now stage ABI DLLs beside each
   executable, avoiding `0xc0000135` CTest failures after successful builds.
+- WASAPI terminal failures now publish telemetry before clearing `running`, so
+  a stopped driver cannot expose stale healthy status.
 
 
 > **Note (2026-07-24):** This is a historical ORP068 work log. Current SDK

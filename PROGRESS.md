@@ -21,6 +21,8 @@ required for final platform evidence.
   branch.
 - Windows shared-core test executables now stage the ABI DLLs beside each
   executable, preventing `0xc0000135` CTest failures after a successful build.
+- WASAPI terminal failures now publish telemetry before clearing `running`, so
+  a stopped driver cannot expose stale healthy status.
 
 ## ORP253 — CoreAudio output-only rate recovery
 
