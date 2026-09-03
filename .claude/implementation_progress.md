@@ -18,8 +18,10 @@
   path ordering, keeping the imported content contract stable across Windows
   and Unix checkouts.
 - Ubuntu's ShmUI package gate now installs the JUCE-required ALSA and libcurl
-  development headers. The Windows sndfile provider matrix clears the outer
-  vcpkg toolchain and uses the static MSVC runtime for nested Ninja fixtures.
+  development headers, and the consumer explicitly links the discovered CURL
+  target required by JUCE's static core module. The Windows sndfile provider
+  matrix clears the outer vcpkg toolchain and uses the static MSVC runtime for
+  nested Ninja fixtures.
 
 
 > **Note (2026-07-24):** This is a historical ORP068 work log. Current SDK
