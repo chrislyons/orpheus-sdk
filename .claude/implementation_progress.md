@@ -60,6 +60,52 @@
 
 ---
 
+## ORP257 — Host-Neutral Multichannel Metering (2026-09-01)
+
+- **Integration remediation:** Rebased onto current `main`
+  (`ddf0b2d3a8c9686e9b8c646c337acb736a6d21f2`), retained the mainline ORP254
+  commercialization and ORP255 strategy records, resolved the Windows SDK
+  include ordering, and renumbered the pending records to ORP256 and ORP257.
+- **Branch:** `feat/orp255-host-neutral-multichannel-metering` in the isolated
+  `../orpheus-sdk-orp255-metering` worktree.
+- **Implementation commit:** `24cce0b4861b3bdb72fbb310ac1784482fc86e94`.
+- **Contract:** SDK 0.9.0 appends schema-3 `RealtimeTelemetrySnapshot.routing_meters`
+  and nested schema-1 fixed logical-group-output frames. Legacy aggregate
+  getters and fields remain, with routing LUFS explicitly labeled
+  `LegacyLufsProxy`.
+- **Routing implementation:** Packed atomic channel routes use a serialized
+  odd/even route-publication sequence; audio accepts only matching-even
+  before/after sequence observations with an unchanged generation. This
+  prevents concurrent route updates from publishing a mixed topology as
+  coherent and resets the rendered topology revision on reinitialization.
+- **Review remediation:** Exact `publishFromRealtime(const&) noexcept`
+  member-signature assertions now cover both in-tree and installed consumers;
+  the maximum-topology allocation gate drives non-silent true-peak lanes; the
+  TSan query harness asserts bounds on coherent meter snapshots; and ORP256 now
+  distinguishes its upstream Fine source from the current imported manifest.
+- **Follow-up evidence:** Routing 58/58, realtime diagnostics 10/10,
+  multichannel transport 10/10, transport controller 17/17, the installed
+  `cmake_find_package` fixture, and the non-silent maximum-topology allocation
+  test passed. ThreadSanitizer `HammerQueriesUnderConcurrentRender` passed with
+  no warning in 984 ms. Release maximum-topology timing: sample peak 5236.5 us
+  (p99 5163.04 us, average 4710.97 us), true peak 7111.5 us (p99 6954.04 us,
+  average 6575.28 us), against a 10666.7 us budget. The full configured Debug
+  CTest suite passed 80/80 in 341.21 seconds. Record:
+
+  `docs/orp/ORP257 Host-Neutral Multichannel Metering Contract.md`.
+- **Windows portability:** Hosted Windows validation exposed existing Windows
+  SDK include-order defects in `media_integrity.cpp` and `driver_manager.cpp`.
+  Both now supply `windows.h` before dependent BCrypt/WASAPI declarations; the
+  corrections are build-only with no metering-contract change.
+  property-key declarations and session-test linkage are broader platform
+  baseline work outside ORP257. The PR retains only the safe include-order
+  corrections; platform repair is a separate task.
+
+
+
+
+
+
 ## ORP252 — Tagged Start Settlement Contract (2026-08-30)
 
 - **Public contract:** `StartRequestTag` now follows every tagged start through

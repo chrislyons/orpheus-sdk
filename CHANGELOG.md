@@ -34,10 +34,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CoreAudio now preserves the native `AudioOutputUnitStart` `OSStatus` in
   `AudioIoTelemetry::route_backend_error` while retaining the existing
   `InternalError` and `BackendFailure` route semantics.
+- Logical group-output topology now uses serialized odd/even route publication,
+  so an in-progress route transaction cannot label mixed meter state coherent;
+  reinitialization also clears the rendered topology revision.
 
 
 ### Added
 
+- Added schema-3 canonical routing telemetry plus the nested schema-1
+  logical-group-output lane payload. Routing now exposes independent fixed
+  logical lanes while preserving legacy aggregate getters and the legacy LUFS
+  proxy value; non-finite routing samples sanitize to exact silence, and
+  whole-signal-silent true-peak blocks reset estimator history. SDK 0.9.0
+  requires a complete C++ consumer rebuild with no old/new binary mixing; the
+  stable C ABI remains 1.0. The new realtime deadline gate reports sample-peak
+  and true-peak timing for the maximum topology.
 - Added host-supplied `StartRequestTag` identity to transport starts, lifecycle
   callbacks, and schema-2 active-voice snapshots. A lock-free schema-1
   `StartSettlementSnapshot` retains 64 exact start outcomes with explicit

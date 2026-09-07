@@ -27,6 +27,7 @@
 // Access implementation directly for processAudio() + registerClipAudio()
 #include "../../src/core/transport/transport_controller.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdint>
@@ -205,6 +206,9 @@ TEST_F(VoiceStateTsanTest, HammerQueriesUnderConcurrentRender) {
   std::vector<float*> outPtrs;
   for (auto& b : outBufs)
     outPtrs.push_back(b.data());
+  IRoutingMatrix* routing = m_transport->getRoutingMatrix();
+  ASSERT_NE(routing, nullptr);
+  const RoutingConfig routingConfig = routing->getConfig();
 
   std::thread audioThread([&]() {
     int n = 0;
@@ -218,12 +222,54 @@ TEST_F(VoiceStateTsanTest, HammerQueriesUnderConcurrentRender) {
   });
 
   volatile int sink = 0; // prevent the queries being optimized away
+  uint32_t invalidMeterSnapshots = 0;
+
   constexpr int kIterations = 6000;
+  GroupOutputMeterSnapshot meterSnapshot;
   for (int iter = 0; iter < kIterations; ++iter) {
     ClipHandle h = clips[static_cast<size_t>(iter) % clips.size()];
     sink += static_cast<int>(m_transport->isClipPlaying(h));
     sink += static_cast<int>(m_transport->getClipState(h));
     sink += static_cast<int>(m_transport->getClipPosition(h) & 0xFF);
+
+    routing->copyGroupOutputMeterSnapshot(meterSnapshot);
+    if (meterSnapshot.coherent != 0) {
+      const bool groupCountValid =
+          meterSnapshot.group_count <= kRoutingControlMaxGroups &&
+          meterSnapshot.group_count <= routingConfig.num_groups;
+      if (!groupCountValid) {
+        ++invalidMeterSnapshots;
+      } else {
+        for (RoutingGroupIndex group = 0; group < meterSnapshot.group_count; ++group) {
+          const auto& frame = meterSnapshot.groups[group];
+          if (frame.logical_lane_count > kRoutingMaxOutputs ||
+              static_cast<uint32_t>(frame.routing_output_start) +
+                      frame.logical_lane_count >
+                  routingConfig.num_outputs) {
+            ++invalidMeterSnapshots;
+          }
+        }
+      }
+    }
+
+
+    if ((iter % 5) == 0) {
+      const auto channel = static_cast<RoutingChannelIndex>(
+          static_cast<size_t>(iter) %
+          (static_cast<size_t>(routingConfig.num_channels)));
+      const auto group = static_cast<RoutingGroupIndex>(
+          static_cast<size_t>(iter) % routingConfig.num_groups);
+      const auto lane = static_cast<RoutingOutputIndex>(
+          static_cast<size_t>(iter) % routingConfig.num_outputs);
+      routing->setChannelRoute(channel, group, lane);
+    }
+    if ((iter % 11) == 0) {
+      const auto group = static_cast<RoutingGroupIndex>(
+          static_cast<size_t>(iter) % routingConfig.num_groups);
+      const auto output = static_cast<RoutingOutputIndex>(
+          static_cast<size_t>(iter) % routingConfig.num_outputs);
+      routing->setGroupOutputRoute(group, output, 1);
+    }
     if ((iter % 3) == 0)
       m_transport->stopClip(h);
     if ((iter % 7) == 0)
@@ -232,6 +278,8 @@ TEST_F(VoiceStateTsanTest, HammerQueriesUnderConcurrentRender) {
 
   stop.store(true, std::memory_order_relaxed);
   audioThread.join();
+  EXPECT_EQ(invalidMeterSnapshots, 0u)
+      << "coherent group-output meter snapshot exceeded configured bounds";
   (void)sink;
-  SUCCEED();
+
 }

@@ -41,6 +41,48 @@ is required for final platform evidence.
   the generated `.exe` from its configuration directory. The Windows CTest
   step now allows 15 minutes for the multi-config package gates.
 
+## ORP257 — Host-neutral multichannel metering
+
+**Date:** 2026-09-01
+**Status:** Review remediation complete; final Debug suite 80/80, package, TSan, and release deadline gates passed; record renumbered to ORP257 to preserve the mainline ORP255 namespace.
+- Integration remediation rebased this branch onto current `main`
+  (`ddf0b2d3a8c9686e9b8c646c337acb736a6d21f2`), retained the mainline ORP254
+  commercialization and ORP255 strategy records, resolved the Windows SDK
+  include ordering, and renumbered the pending records to ORP256 and ORP257.
+
+
+- SDK 0.9.0 adds schema-3 canonical routing telemetry, nested schema-1 logical
+  group-output lanes, packed atomic route identity, finite-input sanitization,
+  and true-peak silence/history rules.
+- Route updates now serialize through an odd/even publication sequence. Audio
+  slices accept topology only when matching-even before/after observations and
+  the route generation agree; reinitialization clears the rendered revision.
+- Exact reference-signature contracts, non-silent maximum-topology allocation
+  coverage, coherent-snapshot TSan bounds, and corrected ORP256 manifest
+  provenance close the PR review findings.
+- Follow-up checks passed: routing 58/58, realtime diagnostics 10/10,
+  multichannel transport 10/10, transport controller 17/17,
+  `cmake_find_package`, the non-silent allocation gate, and ThreadSanitizer
+  `HammerQueriesUnderConcurrentRender` (984 ms, no warning). Final release
+  maxima were 5236.5 us sample peak (p99 5163.04 us, average 4710.97 us) and
+  7111.5 us true peak (p99 6954.04 us, average 6575.28 us), below the 10666.7
+  us budget. The full configured Debug CTest suite passed 80/80 in 341.21
+  seconds.
+- Windows portability follow-up: `media_integrity.cpp` and
+  `driver_manager.cpp` now include `windows.h` before BCrypt and WASAPI SDK
+  headers, ensuring their `NTSTATUS` and property-key definitions are
+  available. These build-only corrections leave the public metering contract
+  unchanged.
+- **Scope boundary:** The remaining hosted Windows failures—WASAPI property-key
+  declarations and session-test linkage—are broader platform-baseline work
+  outside ORP257. Per delivery decision, this PR retains only the safe
+  include-order corrections; platform repair is a separate task.
+
+
+
+
+- Full record: [`ORP257 Host-Neutral Multichannel Metering Contract`](docs/orp/ORP257%20Host-Neutral%20Multichannel%20Metering%20Contract.md).
+
 ## ORP253 — CoreAudio output-only rate recovery
 
 **Date:** 2026-08-31  
