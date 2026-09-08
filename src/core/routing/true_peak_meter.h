@@ -4,7 +4,6 @@
 
 #include <array>
 #include <cmath>
-#include <cstring>
 
 namespace orpheus {
 
@@ -31,23 +30,26 @@ public:
   /// Reset filter history
   void reset() {
     m_history.fill(0.0f);
+    m_history_head = 0;
   }
 
   /// Process a single sample and return true-peak value
   /// @param sample Input sample
   /// @return Maximum interpolated peak value (absolute)
   float process(float sample) {
-    // Shift history and insert new sample
-    std::memmove(&m_history[1], &m_history[0], (TAPS_PER_PHASE - 1) * sizeof(float));
-    m_history[0] = sample;
+    // A duplicated circular history keeps the newest-to-oldest tap order
+    // contiguous without shifting eleven samples for every input sample.
+    m_history_head =
+        m_history_head == 0 ? static_cast<size_t>(TAPS_PER_PHASE - 1) : m_history_head - 1;
+    m_history[m_history_head] = sample;
+    m_history[m_history_head + TAPS_PER_PHASE] = sample;
 
-    // Calculate 4 interpolated samples (polyphase filter)
     float peak = std::abs(sample); // Include original sample
-
+    const float* history = &m_history[m_history_head];
     for (size_t phase = 0; phase < static_cast<size_t>(OVERSAMPLE_FACTOR); ++phase) {
       float interpolated = 0.0f;
       for (size_t tap = 0; tap < static_cast<size_t>(TAPS_PER_PHASE); ++tap) {
-        interpolated += m_history[tap] * s_filterCoeffs[phase][tap];
+        interpolated += history[tap] * s_filterCoeffs[phase][tap];
       }
       peak = std::max(peak, std::abs(interpolated));
     }
@@ -69,7 +71,8 @@ public:
   }
 
 private:
-  std::array<float, TAPS_PER_PHASE> m_history{};
+  std::array<float, TAPS_PER_PHASE * 2> m_history{};
+  size_t m_history_head{0};
 
   // SDK polyphase FIR filter coefficients.
   // 4 phases × 12 taps = 48 coefficients.
