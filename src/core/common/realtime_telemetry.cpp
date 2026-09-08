@@ -87,9 +87,9 @@ uint64_t RealtimeTelemetry::droppedSnapshotCount() const noexcept {
 }
 
 size_t RealtimeTelemetry::pendingSnapshotCount() const noexcept {
-  return snapshots_ ? detail::observeBoundedPending(read_index_, write_index_,
-                                                    kRealtimeTelemetryCapacity)
-                    : 0;
+  return snapshots_
+             ? detail::observeBoundedPending(read_index_, write_index_, kRealtimeTelemetryCapacity)
+             : 0;
 }
 
 } // namespace orpheus

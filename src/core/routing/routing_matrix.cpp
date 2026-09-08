@@ -1018,7 +1018,6 @@ SessionGraphError RoutingMatrix::processRoutingBlock(const float* const* channel
     }
   }
 
-
   // One matrix-wide publication covers all groups and all logical lanes.
   m_group_output_meter_publication_sequence.fetch_add(1, std::memory_order_acq_rel);
   m_group_output_meter_group_count.store(config.num_groups, std::memory_order_relaxed);
@@ -1071,8 +1070,6 @@ SessionGraphError RoutingMatrix::processRoutingBlock(const float* const* channel
       }
       continue;
     }
-
-
 
     const float* input = channel_inputs ? channel_inputs[channel_index] : nullptr;
     const bool muted = isChannelMuted(channel_index) || input == nullptr;
@@ -1165,7 +1162,6 @@ SessionGraphError RoutingMatrix::processRoutingBlock(const float* const* channel
       }
     }
 
-
     if (config.enable_metering) {
       const float* right = config.num_outputs > 1 ? group_buffer.channels[1].data() : nullptr;
       processStereoMetering(group_buffer.channels[0].data(), right, num_frames,
@@ -1211,7 +1207,6 @@ SessionGraphError RoutingMatrix::processRoutingBlock(const float* const* channel
           group.lane_true_peak_meters[lane].reset();
           continue;
         }
-
 
         float peak = 0.0f;
         double sumSquares = 0.0;
@@ -1313,7 +1308,6 @@ SessionGraphError RoutingMatrix::processRoutingBlock(const float* const* channel
       m_output_true_peak_meters[output].reset();
       continue;
     }
-
 
     float peak = 0.0f;
     double sumSquares = 0.0;

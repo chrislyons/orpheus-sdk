@@ -136,8 +136,8 @@ public:
 
   [[nodiscard]] uint64_t droppedSnapshotCount() const noexcept;
   [[nodiscard]] size_t pendingSnapshotCount() const noexcept;
-private:
 
+private:
   // The payload is intentionally heap-backed so stack construction of this
   // bridge remains bounded after the multichannel meter schema expansion.
   std::unique_ptr<RealtimeTelemetrySnapshot[]> snapshots_;
