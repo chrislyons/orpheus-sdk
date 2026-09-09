@@ -5,16 +5,15 @@
 
 #include <algorithm>
 #include <bit>
-#include <cstdint>
-#include <limits>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
+#include <limits>
 namespace orpheus {
 
 namespace {
 static_assert(sizeof(float) == sizeof(uint32_t));
-static_assert(std::numeric_limits<float>::is_iec559 &&
-              std::numeric_limits<float>::radix == 2 &&
+static_assert(std::numeric_limits<float>::is_iec559 && std::numeric_limits<float>::radix == 2 &&
               std::numeric_limits<float>::digits == 24);
 
 inline bool isFiniteSample(float value) noexcept {

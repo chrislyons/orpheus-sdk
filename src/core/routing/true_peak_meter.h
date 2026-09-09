@@ -58,19 +58,14 @@ public:
     __m128 phaseSums = _mm_setzero_ps();
     for (size_t tap = 0; tap < static_cast<size_t>(TAPS_PER_PHASE); ++tap) {
       phaseSums = _mm_add_ps(
-          phaseSums,
-          _mm_mul_ps(
-              _mm_set1_ps(history[tap]),
-              _mm_setr_ps(s_filterCoeffs[0][tap], s_filterCoeffs[1][tap],
-                          s_filterCoeffs[2][tap], s_filterCoeffs[3][tap])));
+          phaseSums, _mm_mul_ps(_mm_set1_ps(history[tap]),
+                                _mm_setr_ps(s_filterCoeffs[0][tap], s_filterCoeffs[1][tap],
+                                            s_filterCoeffs[2][tap], s_filterCoeffs[3][tap])));
     }
     peak = std::max(peak, std::abs(_mm_cvtss_f32(phaseSums)));
-    peak = std::max(
-        peak, std::abs(_mm_cvtss_f32(_mm_shuffle_ps(phaseSums, phaseSums, 1))));
-    peak = std::max(
-        peak, std::abs(_mm_cvtss_f32(_mm_shuffle_ps(phaseSums, phaseSums, 2))));
-    peak = std::max(
-        peak, std::abs(_mm_cvtss_f32(_mm_shuffle_ps(phaseSums, phaseSums, 3))));
+    peak = std::max(peak, std::abs(_mm_cvtss_f32(_mm_shuffle_ps(phaseSums, phaseSums, 1))));
+    peak = std::max(peak, std::abs(_mm_cvtss_f32(_mm_shuffle_ps(phaseSums, phaseSums, 2))));
+    peak = std::max(peak, std::abs(_mm_cvtss_f32(_mm_shuffle_ps(phaseSums, phaseSums, 3))));
 #elif defined(__SSE2__)
     const __m128 history0 = _mm_loadu_ps(history);
     const __m128 history1 = _mm_loadu_ps(history + 4);
