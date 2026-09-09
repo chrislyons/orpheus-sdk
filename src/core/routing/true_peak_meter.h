@@ -49,7 +49,76 @@ public:
 
     float peak = std::abs(sample); // Include original sample
     const float* history = &m_history[m_history_head];
-#if defined(_M_X64) || defined(__SSE2__)
+#if defined(_M_X64)
+    // The four FIR phases have symmetry: phases 0 and 2 mirror around tap 5,
+    // while phase 3 is phase 1 in reverse order. Pairing those taps cuts the
+    // Windows x64 hot path from 48 to 24 multiplies without changing the
+    // estimator's coefficient set, history, or reset behavior.
+    const float h0 = history[0];
+    const float h1 = history[1];
+    const float h2 = history[2];
+    const float h3 = history[3];
+    const float h4 = history[4];
+    const float h5 = history[5];
+    const float h6 = history[6];
+    const float h7 = history[7];
+    const float h8 = history[8];
+    const float h9 = history[9];
+    const float h10 = history[10];
+    const float h11 = history[11];
+    const float h0PlusH10 = h0 + h10;
+    const float h1PlusH9 = h1 + h9;
+    const float h2PlusH8 = h2 + h8;
+    const float h3PlusH7 = h3 + h7;
+    const float h4PlusH6 = h4 + h6;
+    const auto& phase0 = s_filterCoeffs[0];
+    const auto& phase2 = s_filterCoeffs[2];
+    float interpolated = h5 * phase0[5];
+    interpolated += h0PlusH10 * phase0[0];
+    interpolated += h1PlusH9 * phase0[1];
+    interpolated += h2PlusH8 * phase0[2];
+    interpolated += h3PlusH7 * phase0[3];
+    interpolated += h4PlusH6 * phase0[4];
+    peak = std::max(peak, std::abs(interpolated));
+
+    interpolated = h5 * phase2[5];
+    interpolated += h0PlusH10 * phase2[0];
+    interpolated += h1PlusH9 * phase2[1];
+    interpolated += h2PlusH8 * phase2[2];
+    interpolated += h3PlusH7 * phase2[3];
+    interpolated += h4PlusH6 * phase2[4];
+    peak = std::max(peak, std::abs(interpolated));
+
+    const auto& phase1 = s_filterCoeffs[1];
+    const float h0PlusH11 = h0 + h11;
+    const float h1PlusH10 = h1 + h10;
+    const float h2PlusH9 = h2 + h9;
+    const float h3PlusH8 = h3 + h8;
+    const float h4PlusH7 = h4 + h7;
+    const float h5PlusH6 = h5 + h6;
+    const float h0MinusH11 = h0 - h11;
+    const float h1MinusH10 = h1 - h10;
+    const float h2MinusH9 = h2 - h9;
+    const float h3MinusH8 = h3 - h8;
+    const float h4MinusH7 = h4 - h7;
+    const float h5MinusH6 = h5 - h6;
+    float phase1Numerator =
+        h0PlusH11 * (phase1[0] + phase1[11]) + h0MinusH11 * (phase1[0] - phase1[11]);
+    float phase3Numerator =
+        h0PlusH11 * (phase1[0] + phase1[11]) - h0MinusH11 * (phase1[0] - phase1[11]);
+    phase1Numerator += h1PlusH10 * (phase1[1] + phase1[10]) + h1MinusH10 * (phase1[1] - phase1[10]);
+    phase3Numerator += h1PlusH10 * (phase1[1] + phase1[10]) - h1MinusH10 * (phase1[1] - phase1[10]);
+    phase1Numerator += h2PlusH9 * (phase1[2] + phase1[9]) + h2MinusH9 * (phase1[2] - phase1[9]);
+    phase3Numerator += h2PlusH9 * (phase1[2] + phase1[9]) - h2MinusH9 * (phase1[2] - phase1[9]);
+    phase1Numerator += h3PlusH8 * (phase1[3] + phase1[8]) + h3MinusH8 * (phase1[3] - phase1[8]);
+    phase3Numerator += h3PlusH8 * (phase1[3] + phase1[8]) - h3MinusH8 * (phase1[3] - phase1[8]);
+    phase1Numerator += h4PlusH7 * (phase1[4] + phase1[7]) + h4MinusH7 * (phase1[4] - phase1[7]);
+    phase3Numerator += h4PlusH7 * (phase1[4] + phase1[7]) - h4MinusH7 * (phase1[4] - phase1[7]);
+    phase1Numerator += h5PlusH6 * (phase1[5] + phase1[6]) + h5MinusH6 * (phase1[5] - phase1[6]);
+    phase3Numerator += h5PlusH6 * (phase1[5] + phase1[6]) - h5MinusH6 * (phase1[5] - phase1[6]);
+    peak = std::max(peak, std::abs(0.5f * phase1Numerator));
+    peak = std::max(peak, std::abs(0.5f * phase3Numerator));
+#elif defined(__SSE2__)
     const __m128 history0 = _mm_loadu_ps(history);
     const __m128 history1 = _mm_loadu_ps(history + 4);
     const __m128 history2 = _mm_loadu_ps(history + 8);
