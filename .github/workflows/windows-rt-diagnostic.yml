@@ -2,6 +2,13 @@ name: Temporary Windows Realtime Diagnostic
 
 on:
   workflow_dispatch:
+  push:
+    branches: [fix/main-ci-green]
+    paths:
+      - '.github/workflows/windows-rt-diagnostic.yml'
+      - 'tools/windows_rt_diagnostic.cpp'
+      - 'tools/generate_windows_rt_forced_header.py'
+      - 'tools/windows_rt_diagnostic/**'
 
 permissions:
   contents: read
