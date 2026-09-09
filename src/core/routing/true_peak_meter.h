@@ -4,6 +4,9 @@
 
 #include <array>
 #include <cmath>
+#if defined(_M_X64) || defined(__SSE2__)
+#include <emmintrin.h>
+#endif
 
 namespace orpheus {
 
@@ -46,13 +49,40 @@ public:
 
     float peak = std::abs(sample); // Include original sample
     const float* history = &m_history[m_history_head];
+#if defined(_M_X64) || defined(__SSE2__)
+    const __m128 history0 = _mm_loadu_ps(history);
+    const __m128 history1 = _mm_loadu_ps(history + 4);
+    const __m128 history2 = _mm_loadu_ps(history + 8);
     for (size_t phase = 0; phase < static_cast<size_t>(OVERSAMPLE_FACTOR); ++phase) {
-      float interpolated = 0.0f;
-      for (size_t tap = 0; tap < static_cast<size_t>(TAPS_PER_PHASE); ++tap) {
-        interpolated += history[tap] * s_filterCoeffs[phase][tap];
-      }
+      const auto& coefficients = s_filterCoeffs[phase];
+      __m128 sum = _mm_mul_ps(history0, _mm_loadu_ps(coefficients.data()));
+      sum = _mm_add_ps(sum, _mm_mul_ps(history1, _mm_loadu_ps(coefficients.data() + 4)));
+      sum = _mm_add_ps(sum, _mm_mul_ps(history2, _mm_loadu_ps(coefficients.data() + 8)));
+      __m128 high = _mm_movehl_ps(sum, sum);
+      sum = _mm_add_ps(sum, high);
+      high = _mm_shuffle_ps(sum, sum, 1);
+      sum = _mm_add_ss(sum, high);
+      const float interpolated = _mm_cvtss_f32(sum);
       peak = std::max(peak, std::abs(interpolated));
     }
+#else
+    for (size_t phase = 0; phase < static_cast<size_t>(OVERSAMPLE_FACTOR); ++phase) {
+      const auto& coefficients = s_filterCoeffs[phase];
+      float interpolated = history[0] * coefficients[0];
+      interpolated += history[1] * coefficients[1];
+      interpolated += history[2] * coefficients[2];
+      interpolated += history[3] * coefficients[3];
+      interpolated += history[4] * coefficients[4];
+      interpolated += history[5] * coefficients[5];
+      interpolated += history[6] * coefficients[6];
+      interpolated += history[7] * coefficients[7];
+      interpolated += history[8] * coefficients[8];
+      interpolated += history[9] * coefficients[9];
+      interpolated += history[10] * coefficients[10];
+      interpolated += history[11] * coefficients[11];
+      peak = std::max(peak, std::abs(interpolated));
+    }
+#endif
 
     return peak;
   }
