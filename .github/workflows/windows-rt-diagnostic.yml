@@ -1,0 +1,80 @@
+name: Temporary Windows Realtime Diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CMAKE_VERSION: '3.27.x'
+
+jobs:
+  windows-release-diagnostic:
+    name: Windows Release MSVC realtime evidence
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - name: Install libsndfile (production dependency)
+        shell: bash
+        run: |
+          set -euo pipefail
+          vcpkg install "libsndfile[core,external-libs]:x64-windows"
+          vcpkg list | grep -q '^libsndfile:'
+          echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> "$GITHUB_ENV"
+      - name: Install CMake
+        uses: jwlawson/actions-setup-cmake@d06b37b47cfd043ec794ffa3e40e0b6b5858a7ec  # v1
+        with:
+          cmake-version: ${{ env.CMAKE_VERSION }}
+      - name: Prepare diagnostic output and forced-inline production copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf diagnostic-output diagnostic-build production-build
+          mkdir -p diagnostic-output diagnostic-build production-build
+          python tools/generate_windows_rt_forced_header.py "$PWD" "$PWD/diagnostic-output/forced_true_peak_meter.h"
+      - name: Configure and build production Release (same CI flags)
+        shell: bash
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          cmake -S . -B production-build -G "Visual Studio 17 2022" -A x64 \
+            -DCMAKE_BUILD_TYPE=Release -DORPHEUS_ENABLE_REALTIME=ON \
+            -DORP_ENABLE_ASAN=OFF -DORP_ENABLE_UBSAN=OFF \
+            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+          cmake --build production-build --config Release --target orpheus_routing --parallel
+      - name: Configure external diagnostic target and capture actual routing assembly
+        shell: bash
+        timeout-minutes: 10
+        run: |
+          cmake -S tools/windows_rt_diagnostic -B diagnostic-build -G "Visual Studio 17 2022" -A x64 \
+            -DORPHEUS_ROOT="$PWD" -DDIAG_OUTPUT="$PWD/diagnostic-output" \
+            -DCMAKE_BUILD_TYPE=Release -DORPHEUS_ENABLE_REALTIME=ON \
+            -DORP_ENABLE_ASAN=OFF -DORP_ENABLE_UBSAN=OFF \
+            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+          cmake --build diagnostic-build --config Release --target windows_rt_diagnostic --parallel
+      - name: Capture optimized MSVC probe assembly (baseline, /O2 /Ob2, optional /Ob3)
+        shell: cmd
+        timeout-minutes: 5
+        run: |
+          cl /nologo /std:c++20 /O2 /Ob2 /EHsc /c /FAcs /Fadiagnostic-output\probe-O2-Ob2.asm /Iinclude /Isrc\core /Isrc\core\routing /Idiagnostic-output tools\windows_rt_diagnostic.cpp
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++20 /O2 /Ob3 /EHsc /c /FAcs /Fadiagnostic-output\probe-O2-Ob3.asm /Iinclude /Isrc\core /Isrc\core\routing /Idiagnostic-output tools\windows_rt_diagnostic.cpp
+          if errorlevel 1 exit /b 1
+      - name: Run bounded diagnostic probe and print evidence
+        shell: cmd
+        timeout-minutes: 5
+        run: |
+          diagnostic-build\Release\windows_rt_diagnostic.exe > diagnostic-output\windows_rt_diagnostic.txt
+          if errorlevel 1 exit /b 1
+          type diagnostic-output\windows_rt_diagnostic.txt
+      - name: Upload MSVC assembly, flags, and timings
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: windows-release-realtime-diagnostic
+          path: diagnostic-output/
+          if-no-files-found: error
