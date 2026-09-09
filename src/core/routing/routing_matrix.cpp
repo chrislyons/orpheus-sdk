@@ -4,9 +4,32 @@
 #include "gain_smoother.h"
 
 #include <algorithm>
+#include <bit>
+#include <cstdint>
+#include <limits>
 #include <cmath>
 #include <cstring>
 namespace orpheus {
+
+namespace {
+static_assert(sizeof(float) == sizeof(uint32_t));
+static_assert(std::numeric_limits<float>::is_iec559 &&
+              std::numeric_limits<float>::radix == 2 &&
+              std::numeric_limits<float>::digits == 24);
+
+inline bool isFiniteSample(float value) noexcept {
+#if defined(_MSC_VER)
+  constexpr uint32_t kExponentMask = 0x7f800000u;
+  return (std::bit_cast<uint32_t>(value) & kExponentMask) != kExponentMask;
+#else
+  return std::isfinite(value);
+#endif
+}
+
+inline float sanitizeSample(float value) noexcept {
+  return isFiniteSample(value) ? value : 0.0f;
+}
+} // namespace
 
 // ============================================================================
 // RoutingMatrix Implementation
@@ -970,7 +993,7 @@ SessionGraphError RoutingMatrix::processRoutingBlock(const float* const* channel
 
   const int config_idx = m_active_config_idx.load(std::memory_order_acquire);
   const RoutingConfig& config = m_config_buffers[config_idx];
-  const auto sanitize = [](float value) noexcept { return std::isfinite(value) ? value : 0.0f; };
+  const auto sanitize = [](float value) noexcept { return sanitizeSample(value); };
   // Route occupancy is stable for this callback's observed route snapshot. It
   // lets the hot group/output loops skip lanes that cannot contain a routed
   // signal while preserving zero publication and true-peak resets for them.
@@ -1561,8 +1584,8 @@ void RoutingMatrix::processStereoMetering(const float* left, const float* right,
   bool clipped = false;
 
   for (size_t i = 0; i < num_frames; ++i) {
-    const float left_sample = left != nullptr && std::isfinite(left[i]) ? left[i] : 0.0f;
-    const float right_sample = right != nullptr && std::isfinite(right[i]) ? right[i] : 0.0f;
+    const float left_sample = left != nullptr ? sanitizeSample(left[i]) : 0.0f;
+    const float right_sample = right != nullptr ? sanitizeSample(right[i]) : 0.0f;
     const float magnitude = std::max(std::abs(left_sample), std::abs(right_sample));
     peak_value = std::max(peak_value, magnitude);
     clipped = clipped || magnitude >= 1.0f;
@@ -1583,7 +1606,7 @@ void RoutingMatrix::processStereoMetering(const float* left, const float* right,
     if (left != nullptr) {
       peak_value = 0.0f;
       for (size_t i = 0; i < num_frames; ++i) {
-        const float sample = std::isfinite(left[i]) ? left[i] : 0.0f;
+        const float sample = sanitizeSample(left[i]);
         peak_value = std::max(peak_value, true_peak_meters[0].process(sample));
       }
     } else {
@@ -1591,7 +1614,7 @@ void RoutingMatrix::processStereoMetering(const float* left, const float* right,
     }
     if (right != nullptr) {
       for (size_t i = 0; i < num_frames; ++i) {
-        const float sample = std::isfinite(right[i]) ? right[i] : 0.0f;
+        const float sample = sanitizeSample(right[i]);
         peak_value = std::max(peak_value, true_peak_meters[1].process(sample));
       }
     } else {
@@ -1627,7 +1650,7 @@ bool RoutingMatrix::detectClipping(const float* buffer, size_t num_frames) const
   constexpr float CLIPPING_THRESHOLD = 1.0f;
   for (size_t i = 0; i < num_frames; ++i) {
     const float sample = buffer[i];
-    if (std::isfinite(sample) && std::abs(sample) >= CLIPPING_THRESHOLD) {
+    if (isFiniteSample(sample) && std::abs(sample) >= CLIPPING_THRESHOLD) {
       return true;
     }
   }

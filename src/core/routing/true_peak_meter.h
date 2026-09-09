@@ -50,49 +50,27 @@ public:
     float peak = std::abs(sample); // Include original sample
     const float* history = &m_history[m_history_head];
 #if defined(_M_X64)
-    // The four FIR phases have symmetry: phases 0 and 2 mirror around tap 5,
-    // while phase 3 is phase 1 in reverse order. Pairing those taps cuts the
-    // Windows x64 hot path from 48 to 24 multiplies without changing the
-    // estimator's coefficient set, history, or reset behavior.
-    const __m128 history0 = _mm_loadu_ps(history);
-    const __m128 history7 = _mm_loadu_ps(history + 7);
-    const __m128 history8 = _mm_loadu_ps(history + 8);
-    const __m128 pair02 =
-        _mm_add_ps(history0, _mm_shuffle_ps(history7, history7, _MM_SHUFFLE(0, 1, 2, 3)));
-    const auto horizontalSum = [](__m128 value) noexcept {
-      __m128 high = _mm_movehl_ps(value, value);
-      value = _mm_add_ps(value, high);
-      high = _mm_shuffle_ps(value, value, 1);
-      value = _mm_add_ss(value, high);
-      return _mm_cvtss_f32(value);
-    };
-
-    const auto& phase0 = s_filterCoeffs[0];
-    float interpolated = horizontalSum(_mm_mul_ps(pair02, _mm_loadu_ps(phase0.data()))) +
-                         (history[4] + history[6]) * phase0[4] + history[5] * phase0[5];
-    peak = std::max(peak, std::abs(interpolated));
-
-    const __m128 pair1Sum =
-        _mm_add_ps(history0, _mm_shuffle_ps(history8, history8, _MM_SHUFFLE(0, 1, 2, 3)));
-    const __m128 pair1Difference =
-        _mm_sub_ps(history0, _mm_shuffle_ps(history8, history8, _MM_SHUFFLE(0, 1, 2, 3)));
-    const __m128 phase1PairSums =
-        _mm_setr_ps(0.00030517578125f, -0.00299072265625f, -0.03240966796875f, 0.001373291015625f);
-    const __m128 phase1PairDifferences =
-        _mm_setr_ps(0.00274658203125f, -0.01031494140625f, -0.01580810546875f, 0.046234130859375f);
-    float phase1Even = horizontalSum(_mm_mul_ps(pair1Sum, phase1PairSums));
-    float phase1Odd = horizontalSum(_mm_mul_ps(pair1Difference, phase1PairDifferences));
-    phase1Even += (history[4] + history[7]) * 0.1697998046875f +
-                  (history[5] + history[6]) * 0.33294677734375f;
-    phase1Odd += (history[4] - history[7]) * 0.1221923828125f +
-                 (history[5] - history[6]) * 0.11090087890625f;
-    peak = std::max(peak, std::abs(phase1Even + phase1Odd));
-
-    const auto& phase2 = s_filterCoeffs[2];
-    interpolated = horizontalSum(_mm_mul_ps(pair02, _mm_loadu_ps(phase2.data()))) +
-                   (history[4] + history[6]) * phase2[4] + history[5] * phase2[5];
-    peak = std::max(peak, std::abs(interpolated));
-    peak = std::max(peak, std::abs(phase1Even - phase1Odd));
+    // Accumulate all four FIR phases in parallel.  Each tap contributes one
+    // broadcast history value multiplied by the four canonical coefficients,
+    // leaving one independent accumulator lane per phase.  Keeping the phase
+    // lanes separate is important: they are candidates for the maximum, not
+    // terms of one horizontal sum.
+    __m128 phaseSums = _mm_setzero_ps();
+    for (size_t tap = 0; tap < static_cast<size_t>(TAPS_PER_PHASE); ++tap) {
+      phaseSums = _mm_add_ps(
+          phaseSums,
+          _mm_mul_ps(
+              _mm_set1_ps(history[tap]),
+              _mm_setr_ps(s_filterCoeffs[0][tap], s_filterCoeffs[1][tap],
+                          s_filterCoeffs[2][tap], s_filterCoeffs[3][tap])));
+    }
+    peak = std::max(peak, std::abs(_mm_cvtss_f32(phaseSums)));
+    peak = std::max(
+        peak, std::abs(_mm_cvtss_f32(_mm_shuffle_ps(phaseSums, phaseSums, 1))));
+    peak = std::max(
+        peak, std::abs(_mm_cvtss_f32(_mm_shuffle_ps(phaseSums, phaseSums, 2))));
+    peak = std::max(
+        peak, std::abs(_mm_cvtss_f32(_mm_shuffle_ps(phaseSums, phaseSums, 3))));
 #elif defined(__SSE2__)
     const __m128 history0 = _mm_loadu_ps(history);
     const __m128 history1 = _mm_loadu_ps(history + 4);
