@@ -72,7 +72,6 @@ public:
                          (history[4] + history[6]) * phase0[4] + history[5] * phase0[5];
     peak = std::max(peak, std::abs(interpolated));
 
-    const auto& phase1 = s_filterCoeffs[1];
     const __m128 pair1Sum =
         _mm_add_ps(history0, _mm_shuffle_ps(history8, history8, _MM_SHUFFLE(0, 1, 2, 3)));
     const __m128 pair1Difference =
